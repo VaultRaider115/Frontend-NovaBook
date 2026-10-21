@@ -75,7 +75,7 @@ LoginWindow::LoginWindow(QWidget *parent)
     m_txtUsuario->setPlaceholderText("Número de empleado");
     m_txtUsuario->setStyleSheet(inputQss);
     m_txtUsuario->setAccessibleName("ID de empleado");
-    cl->addWidget(Ui::field("ID de Empleado", m_txtUsuario, card));
+    cl->addWidget(Ui::field("Numero de Empleado", m_txtUsuario, card));
 
     m_txtPassword = new QLineEdit(card);
     m_txtPassword->setEchoMode(QLineEdit::Password);
