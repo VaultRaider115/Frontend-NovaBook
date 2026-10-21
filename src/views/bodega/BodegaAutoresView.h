@@ -1,30 +1,21 @@
 #pragma once
 
-#include <QWidget>
-#include <QTableWidget>
-#include <QPushButton>
-#include <QLabel>
-#include <QList>
+#include "CatalogView.h"
 #include "Models.h"
 
-class BodegaAutoresView : public QWidget {
+class BodegaAutoresView : public CatalogView {
     Q_OBJECT
 
 public:
-    explicit BodegaAutoresView(QWidget *parent = nullptr);
+    explicit BodegaAutoresView(const QString &eyebrow = "Jefatura · Gestión de autores", QWidget *parent = nullptr);
     void cargarAutores();
 
-private slots:
-    void onCrearAutor();
-    void onEditarAutor();
-    void onEliminarAutor();
+protected:
+    void onNew() override { abrirFormulario(nullptr); }
 
 private:
-    QTableWidget *m_table;
-    QPushButton *m_btnNuevo;
-    QPushButton *m_btnEditar;
-    QPushButton *m_btnEliminar;
-    QPushButton *m_btnRecargar;
-    QLabel *m_lblTotal;
+    void abrirFormulario(const AutorDto *existente);
+    void eliminar(const AutorDto &a);
+
     QList<AutorDto> m_autores;
 };

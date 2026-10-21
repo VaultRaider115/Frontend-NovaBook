@@ -5,7 +5,8 @@
 #include "EanClassifier.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QFormLayout>
+#include "Ui.h"
+#include <QIcon>
 #include <QHeaderView>
 #include <QFrame>
 
@@ -13,147 +14,82 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     : QWidget(parent)
 {
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(32, 28, 32, 28);
+    layout->setContentsMargins(40, 32, 40, 32);
     layout->setSpacing(18);
+    layout->addWidget(Ui::pageHeader("Bodega · Compras", "Recepción de Mercancía — Compras a Proveedor", "", this));
 
-    auto *title = new QLabel("Recepción de Mercancía — Compras a Proveedor", this);
-    title->setStyleSheet(QString("font-size: 22px; font-weight: bold; color: %1;").arg(Theme::TextPrimary));
-    layout->addWidget(title);
-
-    // Header Card: Proveedor y Referencia / Factura
-    auto *headerCard = new QFrame(this);
-    headerCard->setStyleSheet(QString(R"(
-        QFrame {
-            background-color: %1;
-            border: 1px solid %2;
-            border-radius: 8px;
-            padding: 12px;
-        }
-    )").arg(Theme::BgCard).arg(Theme::Border));
-
-    auto *headerLayout = new QHBoxLayout(headerCard);
-    headerLayout->setSpacing(16);
-
-    auto *lblProv = new QLabel("Proveedor:", headerCard);
-    lblProv->setStyleSheet(QString("font-weight: bold; color: %1;").arg(Theme::TextMuted));
-    headerLayout->addWidget(lblProv);
-
+    // Datos de factura: proveedor + número de factura / observaciones
+    auto *headerCard = Ui::card(this);
+    auto *hl = new QHBoxLayout(headerCard);
+    hl->setContentsMargins(20, 20, 20, 20);
+    hl->setSpacing(20);
     m_comboProveedor = new QComboBox(headerCard);
-    m_comboProveedor->setMinimumWidth(260);
-    headerLayout->addWidget(m_comboProveedor);
-
-    auto *lblObs = new QLabel("Factura / Observaciones:", headerCard);
-    lblObs->setStyleSheet(QString("font-weight: bold; color: %1;").arg(Theme::TextMuted));
-    headerLayout->addWidget(lblObs);
-
     m_txtObs = new QLineEdit(headerCard);
-    m_txtObs->setPlaceholderText("Ej. Factura F-1024 / Pedido mensual");
-    headerLayout->addWidget(m_txtObs, 1);
-
+    m_txtObs->setPlaceholderText("Ej. F-1024");
+    hl->addWidget(Ui::field("Proveedor Oficial", m_comboProveedor, headerCard), 1);
+    hl->addWidget(Ui::field("Número de Factura", m_txtObs, headerCard), 1);
     layout->addWidget(headerCard);
 
-    // Add item card
-    auto *addCard = new QFrame(this);
-    addCard->setStyleSheet(QString(R"(
-        QFrame {
-            background-color: %1;
-            border: 1px solid %2;
-            border-radius: 8px;
-            padding: 12px;
-        }
-    )").arg(Theme::BgCard).arg(Theme::Border));
-
+    // Agregar producto
+    auto *addCard = Ui::card(this);
     auto *cardLayout = new QVBoxLayout(addCard);
-    cardLayout->setSpacing(8);
+    cardLayout->setContentsMargins(20, 20, 20, 20);
+    cardLayout->setSpacing(12);
 
     auto *addLayout = new QHBoxLayout();
-    addLayout->setSpacing(12);
-
+    addLayout->setSpacing(16);
     m_txtEan = new QLineEdit(addCard);
-    m_txtEan->setPlaceholderText("Código EAN-13 (13 dígitos)...");
-    addLayout->addWidget(m_txtEan, 2);
-
-    auto *lblCant = new QLabel("Cant:", addCard);
-    lblCant->setStyleSheet(QString("font-weight: bold; color: %1;").arg(Theme::TextMuted));
-    addLayout->addWidget(lblCant);
+    m_txtEan->setPlaceholderText("9780000000000");
+    m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
+    addLayout->addWidget(Ui::field("Código EAN-13", m_txtEan, addCard), 1);
 
     m_spnCantidad = new QSpinBox(addCard);
     m_spnCantidad->setRange(1, 9999);
-    m_spnCantidad->setValue(10);
-    m_spnCantidad->setFixedWidth(80);
-    addLayout->addWidget(m_spnCantidad);
-
-    auto *lblCosto = new QLabel("Costo Unit:", addCard);
-    lblCosto->setStyleSheet(QString("font-weight: bold; color: %1;").arg(Theme::TextMuted));
-    addLayout->addWidget(lblCosto);
+    m_spnCantidad->setValue(1);
+    addLayout->addWidget(Ui::field("Cantidad", Ui::stepper(m_spnCantidad, addCard), addCard));
 
     m_spnCosto = new QDoubleSpinBox(addCard);
     m_spnCosto->setRange(0.0, 99999.0);
     m_spnCosto->setValue(150.0);
     m_spnCosto->setPrefix("$ ");
-    m_spnCosto->setFixedWidth(110);
-    addLayout->addWidget(m_spnCosto);
+    m_spnCosto->setFixedWidth(130);
+    addLayout->addWidget(Ui::field("Costo unitario", m_spnCosto, addCard));
 
-    m_btnAgregar = new QPushButton("＋ Añadir a Compra", addCard);
-    m_btnAgregar->setStyleSheet(Theme::buttonStyle(Theme::Role2, Theme::BgDark, "#7BB9D9"));
-    addLayout->addWidget(m_btnAgregar);
-
+    m_btnAgregar = Ui::button("Añadir a Compra", "tint", addCard, "plus-gold");
+    addLayout->addWidget(m_btnAgregar, 0, Qt::AlignBottom);
     cardLayout->addLayout(addLayout);
 
     m_lblEanStatus = new QLabel("Ingresa el código EAN-13 para clasificar automáticamente como Libro o Revista", addCard);
-    m_lblEanStatus->setStyleSheet(QString("font-size: 12px; color: %1;").arg(Theme::TextMuted));
+    m_lblEanStatus->setObjectName("Muted");
     cardLayout->addWidget(m_lblEanStatus);
-
     layout->addWidget(addCard);
 
-    // Table
-    m_tableCart = new QTableWidget(this);
-    m_tableCart->setColumnCount(7);
-    m_tableCart->setHorizontalHeaderLabels({"EAN", "Tipo", "Descripción", "Cantidad", "Costo Unit.", "Subtotal", "Acción"});
-    m_tableCart->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    m_tableCart->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    m_tableCart->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
-    m_tableCart->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
-    m_tableCart->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
-    m_tableCart->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
-    m_tableCart->horizontalHeader()->setSectionResizeMode(6, QHeaderView::ResizeToContents);
-    m_tableCart->verticalHeader()->setVisible(false);
-    m_tableCart->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_tableCart->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    layout->addWidget(m_tableCart);
+    // Partidas de la compra
+    m_tableCart = Ui::table({"EAN", "Tipo", "Descripción", "Cantidad", "Costo unit.", "Subtotal", "Acción"}, 2, this, 56);
+    layout->addWidget(m_tableCart, 1);
 
-    // Bottom Summary and Actions
-    auto *bottomCard = new QFrame(this);
-    bottomCard->setStyleSheet(QString(R"(
-        QFrame {
-            background-color: %1;
-            border: 1px solid %2;
-            border-radius: 8px;
-            padding: 14px;
-        }
-    )").arg(Theme::BgCard).arg(Theme::Border));
-
+    // Liquidación
+    auto *bottomCard = Ui::card(this);
     auto *bottomLayout = new QHBoxLayout(bottomCard);
+    bottomLayout->setContentsMargins(20, 20, 20, 20);
     bottomLayout->setSpacing(16);
 
-    m_btnVaciar = new QPushButton("Vaciar Orden", bottomCard);
-    m_btnVaciar->setStyleSheet(Theme::secondaryButtonStyle());
+    m_btnVaciar = Ui::button("Vaciar Orden", "ghost", bottomCard, "trash");
     bottomLayout->addWidget(m_btnVaciar);
-
     bottomLayout->addStretch();
 
-    m_lblTotalArticulos = new QLabel("Piezas Recibidas: 0", bottomCard);
-    m_lblTotalArticulos->setStyleSheet(QString("font-size: 14px; font-weight: bold; color: %1;").arg(Theme::TextMuted));
+    m_lblTotalArticulos = new QLabel("Piezas Totales: 0", bottomCard);
+    m_lblTotalArticulos->setObjectName("Muted");
     bottomLayout->addWidget(m_lblTotalArticulos);
 
-    m_lblTotalPagar = new QLabel("Total Factura: $ 0.00", bottomCard);
-    m_lblTotalPagar->setStyleSheet(QString("font-size: 18px; font-weight: bold; color: %1;").arg(Theme::Accent));
+    m_lblTotalPagar = new QLabel("Total Factura: $0.00", bottomCard);
+    m_lblTotalPagar->setObjectName("Gold");
+    m_lblTotalPagar->setStyleSheet("font-size: 18px; font-weight: 600;");
     bottomLayout->addWidget(m_lblTotalPagar);
 
-    m_btnProcesar = new QPushButton("✔ Registrar Compra e Incrementar Bodega", bottomCard);
-    m_btnProcesar->setStyleSheet(Theme::buttonStyle(Theme::Success, Theme::BgDark, "#72D4A0"));
+    m_btnProcesar = Ui::button("Registrar Compra e Incrementar Bodega", "primary", bottomCard, "check-dark");
+    m_btnProcesar->setStyleSheet("QPushButton { padding: 16px 28px; }");
     bottomLayout->addWidget(m_btnProcesar);
-
     layout->addWidget(bottomCard);
 
     connect(m_txtEan, &QLineEdit::textChanged, this, &BodegaComprasView::onEanChanged);
@@ -249,6 +185,7 @@ void BodegaComprasView::limpiarCarrito() {
 }
 
 void BodegaComprasView::recalcularTotales() {
+    m_tableCart->clearContents();
     m_tableCart->setRowCount(m_items.size());
 
     int totalPiezas = 0;
@@ -259,23 +196,20 @@ void BodegaComprasView::recalcularTotales() {
         totalPiezas += item.cantidad;
         totalDinero += item.subtotal;
 
-        m_tableCart->setItem(i, 0, new QTableWidgetItem(QString::number(item.ean)));
-        m_tableCart->setItem(i, 1, new QTableWidgetItem(item.tipo.toUpper()));
-        m_tableCart->setItem(i, 2, new QTableWidgetItem(item.nombre));
-        m_tableCart->setItem(i, 3, new QTableWidgetItem(QString::number(item.cantidad)));
-        m_tableCart->setItem(i, 4, new QTableWidgetItem(QString("$ %1").arg(QString::number(item.costo_unitario, 'f', 2))));
-        m_tableCart->setItem(i, 5, new QTableWidgetItem(QString("$ %1").arg(QString::number(item.subtotal, 'f', 2))));
+        Ui::cellText(m_tableCart, i, 0, QString::number(item.ean), true);
+        Ui::cellWidget(m_tableCart, i, 1, Ui::tipoChip(item.tipo));
+        Ui::cellText(m_tableCart, i, 2, item.nombre);
+        Ui::cellText(m_tableCart, i, 3, QString::number(item.cantidad));
+        Ui::cellText(m_tableCart, i, 4, Ui::money(item.costo_unitario), false, false, Theme::TextMuted);
+        Ui::cellText(m_tableCart, i, 5, Ui::money(item.subtotal), false, true);
 
-        auto *btnQuitar = new QPushButton("✖ Quitar", this);
-        btnQuitar->setStyleSheet(Theme::dangerButtonStyle());
-        connect(btnQuitar, &QPushButton::clicked, this, [this, i]() {
-            onQuitarFila(i);
-        });
-        m_tableCart->setCellWidget(i, 6, btnQuitar);
+        auto *btnQuitar = Ui::iconButton("trash", "Quitar partida");
+        connect(btnQuitar, &QPushButton::clicked, this, [this, i]() { onQuitarFila(i); });
+        Ui::cellWidget(m_tableCart, i, 6, btnQuitar);
     }
 
-    m_lblTotalArticulos->setText(QString("Piezas Recibidas: %1").arg(totalPiezas));
-    m_lblTotalPagar->setText(QString("Total Factura: $ %1").arg(QString::number(totalDinero, 'f', 2)));
+    m_lblTotalArticulos->setText(QString("Piezas Totales: %1").arg(totalPiezas));
+    m_lblTotalPagar->setText(QString("Total Factura: %1").arg(Ui::money(totalDinero)));
 }
 
 void BodegaComprasView::onRegistrarCompra() {

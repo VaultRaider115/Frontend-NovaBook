@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 #include "Theme.h"
 #include "ApiClient.h"
+#include "Ui.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QFrame>
@@ -13,6 +14,9 @@
 #include "JefeBitacoraView.h"
 #include "JefeDevolucionesView.h"
 #include "JefeUsuariosView.h"
+#include "JefeGenerosView.h"
+#include "JefeMotivosView.h"
+#include "JefeMueblesView.h"
 
 // Bodega Views
 #include "BodegaDashboardView.h"
@@ -34,10 +38,10 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle("NovaBook — Sistema de Gestión");
-    resize(1200, 750);
-    setMinimumSize(1050, 650);
+    resize(1360, 820);
+    setMinimumSize(1100, 680);
 
-    QRect screenGeometry = QGuiApplication::primaryScreen()->geometry();
+    const QRect screenGeometry = QGuiApplication::primaryScreen()->geometry();
     move((screenGeometry.width() - width()) / 2, (screenGeometry.height() - height()) / 2);
 
     auto *central = new QWidget(this);
@@ -51,89 +55,59 @@ MainWindow::MainWindow(QWidget *parent)
     mainLayout->addWidget(m_sidebarWidget);
 
     m_stack = new QStackedWidget(this);
-    m_stack->setStyleSheet(QString("background-color: %1;").arg(Theme::BgDark));
     mainLayout->addWidget(m_stack, 1);
 }
 
 void MainWindow::setupSidebar() {
     m_sidebarWidget = new QWidget(this);
-    m_sidebarWidget->setFixedWidth(240);
+    m_sidebarWidget->setObjectName("Sidebar");
+    m_sidebarWidget->setFixedWidth(256);
     m_sidebarWidget->setStyleSheet(QString(R"(
-        QWidget {
-            background-color: %1;
-            border-right: 1px solid %2;
+        #Sidebar { background-color: %1; border-right: 1px solid %2; }
+        QPushButton[nav="true"] {
+            background-color: transparent; color: %3; text-align: left;
+            padding: 11px 14px; border: none; border-radius: 8px; font-weight: 500;
         }
-    )").arg(Theme::BgSidebar).arg(Theme::Border));
+        QPushButton[nav="true"]:hover { background-color: rgba(255,255,255,5%); color: %4; }
+        QPushButton[nav="true"][current="true"] {
+            background-color: rgba(212,163,70,10%); color: %5; font-weight: 600;
+        }
+    )").arg(Theme::BgSidebar, Theme::Border, Theme::TextSidebar, Theme::TextPrimary, Theme::Accent));
 
-    auto *sbLayout = new QVBoxLayout(m_sidebarWidget);
-    sbLayout->setContentsMargins(16, 20, 16, 20);
-    sbLayout->setSpacing(14);
+    auto *sb = new QVBoxLayout(m_sidebarWidget);
+    sb->setContentsMargins(16, 24, 16, 20);
+    sb->setSpacing(14);
 
-    // Logo
-    auto *logoLayout = new QHBoxLayout();
-    auto *lblNova = new QLabel("NOVA", m_sidebarWidget);
-    lblNova->setStyleSheet(QString("font-size: 20px; font-weight: 900; color: %1; letter-spacing: 1.5px; border:none;")
-                           .arg(Theme::TextPrimary));
-    auto *lblBook = new QLabel("BOOK", m_sidebarWidget);
-    lblBook->setStyleSheet(QString("font-size: 20px; font-weight: 900; color: %1; letter-spacing: 1.5px; border:none;")
-                           .arg(Theme::Accent));
-    logoLayout->addWidget(lblNova);
-    logoLayout->addWidget(lblBook);
-    logoLayout->addStretch();
-    sbLayout->addLayout(logoLayout);
+    auto *brand = new QLabel("Nova Book", m_sidebarWidget);
+    brand->setStyleSheet("font-size: 22px; font-weight: 800; color: #FFFFFF;");
+    sb->addWidget(brand);
 
-    // Separator
-    auto *sep1 = new QFrame(m_sidebarWidget);
-    sep1->setFrameShape(QFrame::HLine);
-    sep1->setStyleSheet(QString("border-top: 1px solid %1; margin: 4px 0;").arg(Theme::Border));
-    sbLayout->addWidget(sep1);
+    auto *loc = new QLabel("Sanborns · Saltillo", m_sidebarWidget);
+    loc->setStyleSheet(QString("font-size: 12px; color: %1;").arg(Theme::Accent));
+    sb->addWidget(loc);
 
-    // User Profile
+    sb->addWidget(Ui::divider(m_sidebarWidget));
+
     m_lblUserName = new QLabel("Cargando...", m_sidebarWidget);
-    m_lblUserName->setStyleSheet(QString("font-size: 13px; font-weight: bold; color: %1; border:none;")
-                                .arg(Theme::TextPrimary));
+    m_lblUserName->setStyleSheet("font-size: 14px; font-weight: 600;");
     m_lblUserName->setWordWrap(true);
-    sbLayout->addWidget(m_lblUserName);
+    sb->addWidget(m_lblUserName);
 
     m_lblRoleBadge = new QLabel("Rol", m_sidebarWidget);
-    m_lblRoleBadge->setAlignment(Qt::AlignCenter);
-    sbLayout->addWidget(m_lblRoleBadge);
+    m_lblRoleBadge->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+    sb->addWidget(m_lblRoleBadge);
 
-    // Separator
-    auto *sep2 = new QFrame(m_sidebarWidget);
-    sep2->setFrameShape(QFrame::HLine);
-    sep2->setStyleSheet(QString("border-top: 1px solid %1; margin: 4px 0;").arg(Theme::Border));
-    sbLayout->addWidget(sep2);
+    sb->addWidget(Ui::divider(m_sidebarWidget));
 
-    // Navigation Container
     auto *navContainer = new QWidget(m_sidebarWidget);
-    navContainer->setStyleSheet("background-color: transparent; border: none;");
     m_navLayout = new QVBoxLayout(navContainer);
     m_navLayout->setContentsMargins(0, 0, 0, 0);
-    m_navLayout->setSpacing(6);
-    sbLayout->addWidget(navContainer);
+    m_navLayout->setSpacing(4);
+    sb->addWidget(navContainer);
+    sb->addStretch();
 
-    sbLayout->addStretch();
-
-    // Logout Button
-    m_btnLogout = new QPushButton("⎋  Cerrar Sesión", m_sidebarWidget);
-    m_btnLogout->setStyleSheet(QString(R"(
-        QPushButton {
-            background-color: transparent;
-            color: %1;
-            border: 1px solid %2;
-            border-radius: 6px;
-            padding: 8px 12px;
-            font-weight: 500;
-        }
-        QPushButton:hover {
-            background-color: %3;
-            color: %4;
-            border-color: %4;
-        }
-    )").arg(Theme::TextMuted).arg(Theme::Border).arg(Theme::ErrorBg).arg(Theme::Error));
-    m_btnLogout->setCursor(Qt::PointingHandCursor);
-    sbLayout->addWidget(m_btnLogout);
+    m_btnLogout = Ui::button("Cerrar Sesión", "outline", m_sidebarWidget);
+    sb->addWidget(m_btnLogout);
 
     connect(m_btnLogout, &QPushButton::clicked, this, &MainWindow::onLogoutClicked);
 }
@@ -143,83 +117,32 @@ void MainWindow::initUser(const UsuarioDto &user) {
     m_lblUserName->setText(user.nombreCompleto());
     m_lblRoleBadge->setText(Theme::roleName(user.id_roles));
     m_lblRoleBadge->setStyleSheet(Theme::roleBadgeStyle(user.id_roles));
-
     buildRoleViews();
 }
 
-QPushButton* MainWindow::createNavButton(const QString &text, int pageIndex) {
-    auto *btn = new QPushButton(text, m_sidebarWidget);
+void MainWindow::addPage(const QString &navText, QWidget *view, std::function<void()> onShow) {
+    const int index = m_stack->addWidget(view);
+    auto *btn = new QPushButton(navText, m_sidebarWidget);
+    btn->setProperty("nav", true);
     btn->setCursor(Qt::PointingHandCursor);
-    btn->setStyleSheet(QString(R"(
-        QPushButton {
-            background-color: transparent;
-            color: %1;
-            text-align: left;
-            padding: 10px 14px;
-            border: none;
-            border-radius: 6px;
-            font-size: 13px;
-        }
-        QPushButton:hover {
-            background-color: #1A1A1A;
-            color: %2;
-        }
-    )").arg(Theme::TextSidebar).arg(Theme::TextPrimary));
-
-    connect(btn, &QPushButton::clicked, this, [this, pageIndex]() {
-        onNavButtonClicked(pageIndex);
-    });
-
-    return btn;
+    connect(btn, &QPushButton::clicked, this, [this, index]() { onNavButtonClicked(index); });
+    m_navButtons.append(btn);
+    m_navLayout->addWidget(btn);
+    m_onShow.append(std::move(onShow));
 }
 
 void MainWindow::updateActiveNavButton(int activeIndex) {
-    QString activeColor = Theme::roleColor(m_user.id_roles);
-
-    for (int i = 0; i < m_navButtons.size(); ++i) {
-        auto *btn = m_navButtons.at(i);
-        if (i == activeIndex) {
-            btn->setStyleSheet(QString(R"(
-                QPushButton {
-                    background-color: #1F1B12;
-                    color: %1;
-                    text-align: left;
-                    padding: 10px 14px;
-                    border-left: 3px solid %1;
-                    border-radius: 4px;
-                    font-size: 13px;
-                    font-weight: bold;
-                }
-            )").arg(activeColor));
-        } else {
-            btn->setStyleSheet(QString(R"(
-                QPushButton {
-                    background-color: transparent;
-                    color: %1;
-                    text-align: left;
-                    padding: 10px 14px;
-                    border: none;
-                    border-radius: 6px;
-                    font-size: 13px;
-                }
-                QPushButton:hover {
-                    background-color: #1A1A1A;
-                    color: %2;
-                }
-            )").arg(Theme::TextSidebar).arg(Theme::TextPrimary));
-        }
-    }
+    for (int i = 0; i < m_navButtons.size(); ++i)
+        Ui::setCurrent(m_navButtons.at(i), i == activeIndex);
 }
 
 void MainWindow::buildRoleViews() {
-    // Clear existing nav buttons
-    for (auto *b : m_navButtons) {
+    for (auto *b : std::as_const(m_navButtons)) {
         m_navLayout->removeWidget(b);
         delete b;
     }
     m_navButtons.clear();
-
-    // Clear existing stack pages
+    m_onShow.clear();
     while (m_stack->count() > 0) {
         QWidget *w = m_stack->widget(0);
         m_stack->removeWidget(w);
@@ -228,99 +151,65 @@ void MainWindow::buildRoleViews() {
 
     if (m_user.id_roles == 1 || m_user.id_roles == 4) {
         // --- JEFE / GERENTE ---
-        m_jefeDashboard = new JefeDashboardView(m_stack);
-        m_jefeBitacora = new JefeBitacoraView(m_stack);
-        m_jefeDevoluciones = new JefeDevolucionesView(m_stack);
-        m_jefeUsuarios = new JefeUsuariosView(m_stack);
+        auto *dash = new JefeDashboardView(m_stack);
+        auto *bitacora = new JefeBitacoraView(m_stack);
+        auto *devs = new JefeDevolucionesView(m_stack);
+        auto *usuarios = new JefeUsuariosView(m_stack);
+        auto *autores = new BodegaAutoresView("Jefatura · Gestión de autores", m_stack);
+        auto *generos = new JefeGenerosView(m_stack);
+        auto *motivos = new JefeMotivosView(m_stack);
+        auto *muebles = new JefeMueblesView(m_stack);
 
-        m_stack->addWidget(m_jefeDashboard);    // index 0
-        m_stack->addWidget(m_jefeBitacora);     // index 1
-        m_stack->addWidget(m_jefeDevoluciones); // index 2
-        m_stack->addWidget(m_jefeUsuarios);     // index 3
-
-        m_navButtons.append(createNavButton("⊞  Panel Principal", 0));
-        m_navButtons.append(createNavButton("☰  Historial del Día", 1));
-        m_navButtons.append(createNavButton("↩  Devoluciones", 2));
-        m_navButtons.append(createNavButton("✦  Gestión de Usuarios", 3));
+        addPage("Panel Principal", dash, [dash]() { dash->refreshData(); });
+        addPage("Historial de Movimientos", bitacora, [bitacora]() { bitacora->cargarMovimientos(); });
+        addPage("Aprobación de Devoluciones", devs, [devs]() { devs->cargarDevoluciones(); });
+        addPage("Gestión de Usuarios", usuarios, [usuarios]() { usuarios->cargarUsuarios(); });
+        addPage("Catálogo de Autores", autores, [autores]() { autores->cargarAutores(); });
+        addPage("Catálogo de Géneros", generos, [generos]() { generos->cargarGeneros(); });
+        addPage("Catálogo de Motivos", motivos, [motivos]() { motivos->cargarMotivos(); });
+        addPage("Muebles y Estantería", muebles, [muebles]() { muebles->cargarMuebles(); });
 
     } else if (m_user.id_roles == 2) {
         // --- BODEGA ---
-        m_bodegaDashboard = new BodegaDashboardView(m_stack);
-        m_bodegaRegistro = new BodegaRegistroView(m_stack);
-        m_bodegaCompras = new BodegaComprasView(m_stack);
-        m_bodegaAutores = new BodegaAutoresView(m_stack);
-        m_bodegaProveedores = new BodegaProveedoresView(m_stack);
-        m_bodegaTraslado = new BodegaTrasladoView(m_stack);
-        m_bodegaInventario = new BodegaInventarioView(m_stack);
+        auto *dash = new BodegaDashboardView(m_stack);
+        auto *registro = new BodegaRegistroView(m_stack);
+        auto *compras = new BodegaComprasView(m_stack);
+        auto *autores = new BodegaAutoresView("Bodega · Gestión de autores", m_stack);
+        auto *prov = new BodegaProveedoresView(m_stack);
+        auto *traslado = new BodegaTrasladoView(m_stack);
+        auto *inv = new BodegaInventarioView(m_stack);
 
-        m_stack->addWidget(m_bodegaDashboard);   // index 0
-        m_stack->addWidget(m_bodegaRegistro);    // index 1
-        m_stack->addWidget(m_bodegaCompras);     // index 2
-        m_stack->addWidget(m_bodegaAutores);     // index 3
-        m_stack->addWidget(m_bodegaProveedores); // index 4
-        m_stack->addWidget(m_bodegaTraslado);    // index 5
-        m_stack->addWidget(m_bodegaInventario);  // index 6
-
-        m_navButtons.append(createNavButton("⊞  Panel Principal", 0));
-        m_navButtons.append(createNavButton("＋  Registrar Mercancía (EAN)", 1));
-        m_navButtons.append(createNavButton("⬇  Compras a Proveedor", 2));
-        m_navButtons.append(createNavButton("✎  CRUD Autores", 3));
-        m_navButtons.append(createNavButton("🏢  CRUD Proveedores", 4));
-        m_navButtons.append(createNavButton("➔  Requisición de Salida", 5));
-        m_navButtons.append(createNavButton("◎  Consultar Inventario", 6));
+        addPage("Panel Principal", dash, [dash]() { dash->refreshData(); });
+        addPage("Alta de Mercancía (EAN)", registro, [registro]() { registro->cargarCatalogos(); });
+        addPage("Compras a Proveedor", compras, [compras]() { compras->cargarProveedores(); });
+        addPage("Autores", autores, [autores]() { autores->cargarAutores(); });
+        addPage("Proveedores", prov, [prov]() { prov->cargarProveedores(); });
+        addPage("Requisición de Salida", traslado);
+        addPage("Consultar Inventario", inv, [inv]() { inv->cargarInventario(); });
 
     } else {
         // --- VENDEDOR ---
-        m_vendedorDashboard = new VendedorDashboardView(m_stack);
-        m_vendedorConsulta = new VendedorConsultaView(m_stack);
-        m_vendedorVentas = new VendedorVentasView(m_stack);
-        m_vendedorTraslado = new VendedorTrasladoView(m_stack);
-        m_vendedorDevolucion = new VendedorDevolucionView(m_stack);
+        auto *dash = new VendedorDashboardView(m_stack);
+        auto *consulta = new VendedorConsultaView(m_stack);
+        auto *ventas = new VendedorVentasView(m_stack);
+        auto *traslado = new VendedorTrasladoView(m_stack);
+        auto *devolucion = new VendedorDevolucionView(m_stack);
 
-        m_stack->addWidget(m_vendedorDashboard);   // index 0
-        m_stack->addWidget(m_vendedorConsulta);    // index 1
-        m_stack->addWidget(m_vendedorVentas);      // index 2
-        m_stack->addWidget(m_vendedorTraslado);    // index 3
-        m_stack->addWidget(m_vendedorDevolucion);  // index 4
-
-        m_navButtons.append(createNavButton("⊞  Panel Principal", 0));
-        m_navButtons.append(createNavButton("◎  Consultar Existencias", 1));
-        m_navButtons.append(createNavButton("↓  Baja por Venta", 2));
-        m_navButtons.append(createNavButton("➔  Requisición a Bodega", 3));
-        m_navButtons.append(createNavButton("↩  Generar Devolución", 4));
+        addPage("Panel Principal", dash, [dash]() { dash->refreshData(); });
+        addPage("Consulta de Existencias", consulta, [consulta]() { consulta->buscarExistencias(); });
+        addPage("Punto de Venta", ventas);
+        addPage("Requisición de Entrada", traslado);
+        addPage("Devoluciones a Proveedor", devolucion, [devolucion]() { devolucion->cargarCatalogos(); });
     }
 
-    for (auto *b : m_navButtons) {
-        m_navLayout->addWidget(b);
-    }
-
-    // Default to page 0
     onNavButtonClicked(0);
 }
 
 void MainWindow::onNavButtonClicked(int index) {
-    if (index >= 0 && index < m_stack->count()) {
-        m_stack->setCurrentIndex(index);
-        updateActiveNavButton(index);
-
-        // Trigger data load on page activation
-        if (m_user.id_roles == 1 || m_user.id_roles == 4) {
-            if (index == 0 && m_jefeDashboard) m_jefeDashboard->refreshData();
-            else if (index == 1 && m_jefeBitacora) m_jefeBitacora->cargarMovimientos();
-            else if (index == 2 && m_jefeDevoluciones) m_jefeDevoluciones->cargarDevoluciones();
-            else if (index == 3 && m_jefeUsuarios) m_jefeUsuarios->cargarUsuarios();
-        } else if (m_user.id_roles == 2) {
-            if (index == 0 && m_bodegaDashboard) m_bodegaDashboard->refreshData();
-            else if (index == 1 && m_bodegaRegistro) m_bodegaRegistro->cargarCatalogos();
-            else if (index == 2 && m_bodegaCompras) m_bodegaCompras->cargarProveedores();
-            else if (index == 3 && m_bodegaAutores) m_bodegaAutores->cargarAutores();
-            else if (index == 4 && m_bodegaProveedores) m_bodegaProveedores->cargarProveedores();
-            else if (index == 6 && m_bodegaInventario) m_bodegaInventario->cargarInventario();
-        } else {
-            if (index == 0 && m_vendedorDashboard) m_vendedorDashboard->refreshData();
-            else if (index == 1 && m_vendedorConsulta) m_vendedorConsulta->buscarExistencias();
-        }
-    }
+    if (index < 0 || index >= m_stack->count()) return;
+    m_stack->setCurrentIndex(index);
+    updateActiveNavButton(index);
+    if (index < m_onShow.size() && m_onShow.at(index)) m_onShow.at(index)();
 }
 
 void MainWindow::onLogoutClicked() {

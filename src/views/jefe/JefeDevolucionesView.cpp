@@ -1,183 +1,158 @@
 #include "JefeDevolucionesView.h"
 #include "Theme.h"
+#include "Ui.h"
 #include "ApiClient.h"
 #include "Toast.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QHeaderView>
-#include <QDialog>
-#include <QFormLayout>
-#include <QTextEdit>
+#include <QFileDialog>
+#include <QFile>
 #include <QMessageBox>
 
 JefeDevolucionesView::JefeDevolucionesView(QWidget *parent)
     : QWidget(parent)
 {
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(32, 28, 32, 28);
-    layout->setSpacing(20);
+    layout->setContentsMargins(40, 32, 40, 32);
+    layout->setSpacing(24);
 
-    // Header
-    auto *title = new QLabel("Autorización y Control de Devoluciones", this);
-    title->setStyleSheet(QString("font-size: 22px; font-weight: bold; color: %1;").arg(Theme::TextPrimary));
-    layout->addWidget(title);
+    auto *top = new QHBoxLayout();
+    top->addWidget(Ui::pageHeader("Jefatura · Control de merma y devoluciones",
+                                  "Historial y Aprobación de Devoluciones a Proveedor",
+                                  "Revisa, autoriza o rechaza los lotes de devolución generados.", this), 1);
+    auto *stat = Ui::card(this);
+    auto *sl = new QVBoxLayout(stat);
+    sl->setContentsMargins(20, 12, 20, 12);
+    sl->setSpacing(2);
+    sl->addWidget(Ui::label("Devoluciones listadas", "Muted", stat));
+    m_lblTotal = Ui::label("0", "BigNumber", stat);
+    sl->addWidget(m_lblTotal);
+    top->addWidget(stat, 0, Qt::AlignTop);
+    layout->addLayout(top);
 
-    // Toolbar / Filter Row
-    auto *filterLayout = new QHBoxLayout();
-    filterLayout->setSpacing(12);
+    auto *filters = Ui::card(this);
+    auto *fl = new QHBoxLayout(filters);
+    fl->setContentsMargins(16, 16, 16, 16);
+    fl->setSpacing(12);
 
-    auto *lblEstado = new QLabel("Filtrar Estado:", this);
-    lblEstado->setStyleSheet(QString("font-weight: bold; color: %1;").arg(Theme::TextMuted));
-    filterLayout->addWidget(lblEstado);
+    m_fecha = new QDateEdit(QDate::currentDate(), filters);
+    m_fecha->setCalendarPopup(true);
+    m_fecha->setDisplayFormat("dd 'de' MMMM, yyyy");
+    m_fecha->setMinimumWidth(200);
+    m_btnHoy = Ui::button("Hoy", "outline", filters);
+    m_chkTodasFechas = new QCheckBox("Todas las fechas", filters);
+    m_comboEstado = new QComboBox(filters);
+    m_comboEstado->addItem("Todos", "Todos");
+    m_comboEstado->addItem("Pendiente", "Pendiente");
+    m_comboEstado->addItem("Aprobado", "Autorizado");
+    m_comboEstado->addItem("Rechazado", "Rechazado");
+    m_comboEstado->setMinimumWidth(160);
+    m_btnBuscar = Ui::button("Consultar", "primary", filters);
 
-    m_comboEstado = new QComboBox(this);
-    m_comboEstado->addItems({"Todos", "Pendiente", "Autorizado", "Rechazado"});
-    m_comboEstado->setFixedWidth(150);
-    filterLayout->addWidget(m_comboEstado);
+    fl->addWidget(Ui::field("Fecha", m_fecha, filters));
+    fl->addWidget(m_btnHoy, 0, Qt::AlignBottom);
+    fl->addWidget(m_chkTodasFechas, 0, Qt::AlignBottom);
+    fl->addWidget(Ui::field("Estado:", m_comboEstado, filters));
+    fl->addStretch();
+    fl->addWidget(m_btnBuscar, 0, Qt::AlignBottom);
+    layout->addWidget(filters);
 
-    m_btnRecargar = new QPushButton("Actualizar Lista", this);
-    m_btnRecargar->setStyleSheet(Theme::secondaryButtonStyle());
-    filterLayout->addWidget(m_btnRecargar);
+    m_table = Ui::table({"Folio / Lote", "Proveedor", "Solicitante", "Piezas", "Motivo principal", "Estado", "Acciones"}, 1, this, 64);
+    layout->addWidget(m_table, 1);
 
-    filterLayout->addStretch();
-
-    m_btnEvaluar = new QPushButton("Evaluar Devolución Seleccionada", this);
-    m_btnEvaluar->setStyleSheet(Theme::buttonStyle(Theme::Accent, Theme::BgDark, Theme::AccentHover));
-    filterLayout->addWidget(m_btnEvaluar);
-
-    layout->addLayout(filterLayout);
-
-    // Table
-    m_table = new QTableWidget(this);
-    m_table->setColumnCount(7);
-    m_table->setHorizontalHeaderLabels({"ID Devolución", "Fecha", "Tipo", "Proveedor", "Total Piezas", "Estado", "Autorizado Por"});
-    m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
-    m_table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(6, QHeaderView::ResizeToContents);
-    m_table->verticalHeader()->setVisible(false);
-    m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_table->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    layout->addWidget(m_table);
-
+    connect(m_btnBuscar, &QPushButton::clicked, this, &JefeDevolucionesView::cargarDevoluciones);
     connect(m_comboEstado, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &JefeDevolucionesView::cargarDevoluciones);
-    connect(m_btnRecargar, &QPushButton::clicked, this, &JefeDevolucionesView::cargarDevoluciones);
-    connect(m_btnEvaluar, &QPushButton::clicked, this, &JefeDevolucionesView::onEvaluarDevolucion);
+    connect(m_chkTodasFechas, &QCheckBox::toggled, m_fecha, &QWidget::setDisabled);
+    connect(m_btnHoy, &QPushButton::clicked, this, [this]() {
+        m_chkTodasFechas->setChecked(false);
+        m_fecha->setDate(QDate::currentDate());
+        cargarDevoluciones();
+    });
 }
 
 void JefeDevolucionesView::cargarDevoluciones() {
-    QString estado = m_comboEstado->currentText();
-    ApiClient::instance()->consultarHistorialDevoluciones("", estado, 0, [this](bool ok, const QJsonValue &data, const QString &msg) {
+    const QString fecha = m_chkTodasFechas->isChecked() ? QString() : m_fecha->date().toString("yyyy-MM-dd");
+    const QString estado = m_comboEstado->currentData().toString();
+
+    ApiClient::instance()->consultarHistorialDevoluciones(fecha, estado, 0, [this](bool ok, const QJsonValue &data, const QString &msg) {
         if (!ok || !data.isArray()) {
             Toast::showToast(this, "Error al consultar historial: " + msg, Toast::Error);
             return;
         }
-
         m_devoluciones.clear();
-        QJsonArray arr = data.toArray();
-        m_table->setRowCount(arr.size());
+        const QJsonArray arr = data.toArray();
+        for (const auto &v : arr) m_devoluciones.append(Devolucion::fromJson(v.toObject()));
 
-        for (int i = 0; i < arr.size(); ++i) {
-            Devolucion d = Devolucion::fromJson(arr.at(i).toObject());
-            m_devoluciones.append(d);
+        m_lblTotal->setText(QString::number(m_devoluciones.size()));
+        m_table->clearContents();
+        m_table->setRowCount(m_devoluciones.size());
 
-            m_table->setItem(i, 0, new QTableWidgetItem(QString("#%1").arg(d.id_devolucion)));
-            m_table->setItem(i, 1, new QTableWidgetItem(d.fecha));
-            m_table->setItem(i, 2, new QTableWidgetItem(d.tipo_producto));
-            m_table->setItem(i, 3, new QTableWidgetItem(d.nombre_proveedor.isEmpty() ? QString("Proveedor #%1").arg(d.id_proveedor) : d.nombre_proveedor));
-            m_table->setItem(i, 4, new QTableWidgetItem(QString::number(d.total_piezas)));
+        for (int i = 0; i < m_devoluciones.size(); ++i) {
+            const Devolucion &d = m_devoluciones.at(i);
+            Ui::cellText(m_table, i, 0, QString("#DEV-%1").arg(d.id_devolucion), true);
+            Ui::cellText(m_table, i, 1, d.nombre_proveedor.isEmpty() ? QString("Proveedor #%1").arg(d.id_proveedor) : d.nombre_proveedor, false, true);
+            Ui::cellText(m_table, i, 2, d.vendedor_nombre.isEmpty() ? "—" : d.vendedor_nombre);
+            Ui::cellText(m_table, i, 3, QString("%1 %2").arg(d.total_piezas).arg(d.total_piezas == 1 ? "pieza" : "piezas"), true, true, Theme::TextPrimary);
+            Ui::cellText(m_table, i, 4, d.items.isEmpty() || d.items.first().motivo.isEmpty() ? "—" : d.items.first().motivo, false, false, Theme::TextMuted);
 
-            auto *estadoItem = new QTableWidgetItem(d.estado);
-            if (d.estado.toLower() == "autorizado") {
-                estadoItem->setForeground(QColor(Theme::Success));
-            } else if (d.estado.toLower() == "rechazado") {
-                estadoItem->setForeground(QColor(Theme::Error));
+            const QString est = d.estado.toLower();
+            const bool autorizado = est == "autorizado" || est == "aprobado";
+            const bool rechazado = est == "rechazado";
+            Ui::cellWidget(m_table, i, 5, Ui::chip(autorizado ? "Aprobado" : (rechazado ? "Rechazado" : "Pendiente"),
+                                                   autorizado ? "ok" : (rechazado ? "danger" : "pending")));
+
+            if (autorizado) {
+                auto *pdf = Ui::button("Ver Acta PDF", "outline", nullptr, "pdf");
+                pdf->setProperty("variant", "small");
+                connect(pdf, &QPushButton::clicked, this, [this, d]() { verActaPdf(d); });
+                Ui::cellWidget(m_table, i, 6, pdf);
+            } else if (rechazado) {
+                Ui::cellWidget(m_table, i, 6, Ui::label("Sin acciones", "Muted"));
             } else {
-                estadoItem->setForeground(QColor(Theme::Warning));
+                auto *ok = Ui::button("Aprobar", "approve");
+                auto *no = Ui::button("Rechazar", "reject");
+                ok->setAccessibleName(QString("Aprobar devolución %1").arg(d.id_devolucion));
+                no->setAccessibleName(QString("Rechazar devolución %1").arg(d.id_devolucion));
+                connect(ok, &QPushButton::clicked, this, [this, d]() { evaluar(d, true); });
+                connect(no, &QPushButton::clicked, this, [this, d]() { evaluar(d, false); });
+                Ui::cellWidgets(m_table, i, 6, {ok, no});
             }
-            m_table->setItem(i, 5, estadoItem);
-
-            m_table->setItem(i, 6, new QTableWidgetItem(d.autorizado_por.isEmpty() ? "-" : d.autorizado_por));
         }
     });
 }
 
-void JefeDevolucionesView::onEvaluarDevolucion() {
-    int row = m_table->currentRow();
-    if (row < 0 || row >= m_devoluciones.size()) {
-        Toast::showToast(this, "Por favor selecciona una devolución de la tabla", Toast::Warning);
-        return;
-    }
+void JefeDevolucionesView::evaluar(const Devolucion &dev, bool aprobar) {
+    const QString verbo = aprobar ? "aprobar" : "rechazar";
+    if (QMessageBox::question(this, "Confirmar",
+            QString("¿Deseas %1 el lote #DEV-%2 de %3 (%4 piezas)?").arg(verbo).arg(dev.id_devolucion)
+                .arg(dev.nombre_proveedor).arg(dev.total_piezas),
+            QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) return;
 
-    const Devolucion &dev = m_devoluciones.at(row);
+    ApiClient::instance()->aprobarDevolucion(dev.id_devolucion, aprobar, QString(),
+        [this, aprobar](bool ok, const QJsonValue &, const QString &msg) {
+            if (!ok) {
+                Toast::showToast(this, QString("No se pudo %1: %2").arg(aprobar ? "aprobar" : "rechazar", msg), Toast::Error);
+                return;
+            }
+            Toast::showToast(this, aprobar ? "Devolución aprobada exitosamente" : "Devolución rechazada",
+                             aprobar ? Toast::Success : Toast::Warning);
+            cargarDevoluciones();
+        });
+}
 
-    QDialog dlg(this);
-    dlg.setWindowTitle(QString("Evaluar Devolución #%1").arg(dev.id_devolucion));
-    dlg.setMinimumWidth(450);
+void JefeDevolucionesView::verActaPdf(const Devolucion &dev) {
+    const QString tipo = dev.tipo_producto.isEmpty() ? "libro" : dev.tipo_producto;
+    const QString savePath = QFileDialog::getSaveFileName(this, "Guardar Acta de Devolución en PDF",
+        QString("acta_devolucion_%1.pdf").arg(dev.id_devolucion), "Archivos PDF (*.pdf)");
+    if (savePath.isEmpty()) return;
 
-    auto *dlgLayout = new QVBoxLayout(&dlg);
-    dlgLayout->setSpacing(14);
-
-    auto *infoLabel = new QLabel(QString(
-        "<b>Proveedor:</b> %1<br>"
-        "<b>Piezas Totales:</b> %2<br>"
-        "<b>Estado Actual:</b> %3<br>"
-        "<b>Vendedor solicitante:</b> %4"
-    ).arg(dev.nombre_proveedor.isEmpty() ? QString("ID %1").arg(dev.id_proveedor) : dev.nombre_proveedor)
-     .arg(dev.total_piezas)
-     .arg(dev.estado)
-     .arg(dev.vendedor_nombre), &dlg);
-    dlgLayout->addWidget(infoLabel);
-
-    auto *lblNotas = new QLabel("Notas de Evaluación / Justificación:", &dlg);
-    lblNotas->setStyleSheet(QString("font-weight: bold; color: %1;").arg(Theme::TextMuted));
-    dlgLayout->addWidget(lblNotas);
-
-    auto *txtNotas = new QTextEdit(&dlg);
-    txtNotas->setPlaceholderText("Ingresa observaciones adicionales para el vendedor o proveedor...");
-    txtNotas->setFixedHeight(80);
-    dlgLayout->addWidget(txtNotas);
-
-    auto *btnLayout = new QHBoxLayout();
-    auto *btnAprobar = new QPushButton("✔ Autorizar Devolución", &dlg);
-    btnAprobar->setStyleSheet(Theme::buttonStyle(Theme::Success, Theme::BgDark, "#72D4A0"));
-
-    auto *btnRechazar = new QPushButton("✖ Rechazar Devolución", &dlg);
-    btnRechazar->setStyleSheet(Theme::dangerButtonStyle());
-
-    btnLayout->addWidget(btnAprobar);
-    btnLayout->addWidget(btnRechazar);
-    dlgLayout->addLayout(btnLayout);
-
-    connect(btnAprobar, &QPushButton::clicked, [&]() {
-        ApiClient::instance()->aprobarDevolucion(dev.id_devolucion, true, txtNotas->toPlainText().trimmed(),
-            [this, &dlg](bool ok, const QJsonValue &, const QString &msg) {
-                if (ok) {
-                    Toast::showToast(this, "Devolución aprobada exitosamente", Toast::Success);
-                    dlg.accept();
-                    cargarDevoluciones();
-                } else {
-                    Toast::showToast(&dlg, "Error al aprobar: " + msg, Toast::Error);
-                }
-            });
+    ApiClient::instance()->descargarPdfDevolucion(dev.id_devolucion, tipo, [this, savePath](bool ok, const QByteArray &bytes, const QString &msg) {
+        QFile f(savePath);
+        if (!ok || bytes.isEmpty() || !f.open(QIODevice::WriteOnly)) {
+            Toast::showToast(this, "No se pudo guardar el acta: " + msg, Toast::Error);
+            return;
+        }
+        f.write(bytes);
+        Toast::showToast(this, "Acta PDF guardada exitosamente", Toast::Success);
     });
-
-    connect(btnRechazar, &QPushButton::clicked, [&]() {
-        ApiClient::instance()->aprobarDevolucion(dev.id_devolucion, false, txtNotas->toPlainText().trimmed(),
-            [this, &dlg](bool ok, const QJsonValue &, const QString &msg) {
-                if (ok) {
-                    Toast::showToast(this, "Devolución rechazada", Toast::Warning);
-                    dlg.accept();
-                    cargarDevoluciones();
-                } else {
-                    Toast::showToast(&dlg, "Error al rechazar: " + msg, Toast::Error);
-                }
-            });
-    });
-
-    dlg.exec();
 }

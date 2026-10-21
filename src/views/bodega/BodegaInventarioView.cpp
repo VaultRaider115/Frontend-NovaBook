@@ -1,5 +1,6 @@
 #include "BodegaInventarioView.h"
 #include "Theme.h"
+#include "Ui.h"
 #include "ApiClient.h"
 #include "Toast.h"
 #include "Models.h"
@@ -15,9 +16,7 @@ BodegaInventarioView::BodegaInventarioView(QWidget *parent)
     layout->setContentsMargins(32, 28, 32, 28);
     layout->setSpacing(20);
 
-    auto *title = new QLabel("Inventario General de Almacén", this);
-    title->setStyleSheet(QString("font-size: 22px; font-weight: bold; color: %1;").arg(Theme::TextPrimary));
-    layout->addWidget(title);
+    layout->addWidget(Ui::pageHeader("Bodega · Inventario", "Inventario General de Almacén", "", this));
 
     // Toolbar
     auto *toolbar = new QHBoxLayout();
@@ -34,11 +33,11 @@ BodegaInventarioView::BodegaInventarioView(QWidget *parent)
     toolbar->addWidget(m_comboTipo);
 
     m_btnBuscar = new QPushButton("Buscar", this);
-    m_btnBuscar->setStyleSheet(Theme::buttonStyle(Theme::Role2, Theme::BgDark, "#7BB9D9"));
+    m_btnBuscar->setProperty("variant", "primary");
     toolbar->addWidget(m_btnBuscar);
 
     m_btnRecargar = new QPushButton("Recargar Todo", this);
-    m_btnRecargar->setStyleSheet(Theme::secondaryButtonStyle());
+    m_btnRecargar->setProperty("variant", "outline");
     toolbar->addWidget(m_btnRecargar);
 
     layout->addLayout(toolbar);

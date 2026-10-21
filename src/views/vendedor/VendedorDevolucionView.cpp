@@ -1,153 +1,148 @@
 #include "VendedorDevolucionView.h"
 #include "Theme.h"
+#include "Ui.h"
 #include "ApiClient.h"
 #include "Toast.h"
 #include "EanClassifier.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QFormLayout>
-#include <QHeaderView>
 #include <QFileDialog>
 #include <QFile>
+#include <QDir>
+#include <QFileInfo>
+#include <QSharedPointer>
 
 VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
     : QWidget(parent)
 {
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(32, 28, 32, 28);
-    layout->setSpacing(20);
+    layout->setContentsMargins(40, 32, 40, 32);
+    layout->setSpacing(18);
 
-    auto *title = new QLabel("Gestión de Devoluciones a Proveedor", this);
-    title->setStyleSheet(QString("font-size: 22px; font-weight: bold; color: %1;").arg(Theme::TextPrimary));
-    auto *subtitle = new QLabel("Registra artículos para devolución por merma, defectos o acuerdo comercial con descarga de acta PDF", this);
-    subtitle->setStyleSheet(QString("font-size: 13px; color: %1;").arg(Theme::TextMuted));
-    layout->addWidget(title);
-    layout->addWidget(subtitle);
+    // Encabezado + proveedor destino
+    auto *top = new QHBoxLayout();
+    top->setSpacing(24);
+    top->addWidget(Ui::pageHeader("Logística", "Gestión de Devoluciones a Proveedor",
+                                  "Registra artículos para devolución con descarga de acta PDF.", this), 1);
 
-    // Form Header Card
-    auto *headerCard = new QFrame(this);
-    headerCard->setStyleSheet(QString(R"(
-        QFrame {
-            background-color: %1;
-            border: 1px solid %2;
-            border-radius: 8px;
-            padding: 14px;
-        }
-    )").arg(Theme::BgCard).arg(Theme::Border));
+    auto *provCard = Ui::card(this);
+    provCard->setMinimumWidth(460);
+    auto *pl = new QVBoxLayout(provCard);
+    pl->setContentsMargins(16, 12, 16, 12);
+    pl->setSpacing(6);
+    m_comboProveedor = new QComboBox(provCard);
+    m_lblRfc = Ui::label(QString(), "Mono", provCard);
+    pl->addWidget(Ui::field("Proveedor destino", m_comboProveedor, provCard));
+    pl->addWidget(m_lblRfc);
+    top->addWidget(provCard, 0, Qt::AlignTop);
+    layout->addLayout(top);
 
-    auto *headerLayout = new QHBoxLayout(headerCard);
-    headerLayout->setSpacing(16);
+    // Agregar artículo
+    auto *addCard = Ui::card(this);
+    auto *cl = new QVBoxLayout(addCard);
+    cl->setContentsMargins(20, 20, 20, 20);
+    cl->setSpacing(10);
+    auto *row = new QHBoxLayout();
+    row->setSpacing(16);
 
-    auto *lblProv = new QLabel("Proveedor Destino:", headerCard);
-    lblProv->setStyleSheet(QString("font-weight: bold; color: %1;").arg(Theme::TextMuted));
-    headerLayout->addWidget(lblProv);
+    m_txtEan = new QLineEdit(addCard);
+    m_txtEan->setPlaceholderText("Escribe el código");
+    m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
+    row->addWidget(Ui::field("Código EAN-13", m_txtEan, addCard), 2);
 
-    m_comboProveedor = new QComboBox(headerCard);
-    ApiClient::instance()->listarProveedores([this](bool ok, const QJsonValue &data, const QString &) {
-        if (!ok || !data.isArray()) return;
-        m_comboProveedor->clear();
-        QJsonArray arr = data.toArray();
-        for (int i = 0; i < arr.size(); ++i) {
-            ProveedorDto p = ProveedorDto::fromJson(arr.at(i).toObject());
-            m_comboProveedor->addItem(QString("%1 (RFC: %2)").arg(p.nombre_proveedor, p.rfc), p.id_proveedor);
-        }
-    });
-    headerLayout->addWidget(m_comboProveedor, 1);
-
-    layout->addWidget(headerCard);
-
-    // Add item card
-    auto *addItemCard = new QFrame(this);
-    addItemCard->setStyleSheet(QString(R"(
-        QFrame {
-            background-color: %1;
-            border: 1px solid %2;
-            border-radius: 8px;
-            padding: 14px;
-        }
-    )").arg(Theme::BgCard).arg(Theme::Border));
-
-    auto *cardLayout = new QVBoxLayout(addItemCard);
-    cardLayout->setSpacing(8);
-
-    auto *addItemLayout = new QHBoxLayout();
-    addItemLayout->setSpacing(10);
-
-    m_txtEan = new QLineEdit(addItemCard);
-    m_txtEan->setPlaceholderText("Código EAN (13 dígitos)...");
-    addItemLayout->addWidget(m_txtEan, 2);
-
-    auto *lblCant = new QLabel("Cant:", addItemCard);
-    addItemLayout->addWidget(lblCant);
-
-    m_spnCantidad = new QSpinBox(addItemCard);
+    m_spnCantidad = new QSpinBox(addCard);
     m_spnCantidad->setRange(1, 999);
-    m_spnCantidad->setValue(1);
-    addItemLayout->addWidget(m_spnCantidad);
+    row->addWidget(Ui::field("Cantidad", Ui::stepper(m_spnCantidad, addCard), addCard));
 
-    m_txtMotivo = new QLineEdit(addItemCard);
-    m_txtMotivo->setPlaceholderText("Motivo (ej. Portada dañada, defecto editorial)...");
-    addItemLayout->addWidget(m_txtMotivo, 3);
+    m_comboMotivo = new QComboBox(addCard);
+    m_comboMotivo->setEditable(true); // si el catálogo no carga, se puede escribir el motivo
+    m_comboMotivo->setCurrentIndex(-1);
+    m_comboMotivo->lineEdit()->setPlaceholderText("Selecciona un motivo");
+    row->addWidget(Ui::field("Motivo de devolución", m_comboMotivo, addCard), 2);
 
-    m_btnAgregar = new QPushButton("＋ Añadir Pieza", addItemCard);
-    m_btnAgregar->setStyleSheet(Theme::buttonStyle(Theme::Role3, Theme::BgDark, "#A5D67D"));
-    addItemLayout->addWidget(m_btnAgregar);
+    m_btnAgregar = Ui::button("Añadir a Devolución", "tint", addCard, "plus-gold");
+    row->addWidget(m_btnAgregar, 0, Qt::AlignBottom);
+    cl->addLayout(row);
 
-    cardLayout->addLayout(addItemLayout);
+    m_lblEanStatus = new QLabel("Ingresa el código EAN-13 para clasificar automáticamente como Libro o Revista", addCard);
+    m_lblEanStatus->setObjectName("Hint");
+    cl->addWidget(m_lblEanStatus);
+    layout->addWidget(addCard);
 
-    m_lblEanStatus = new QLabel("Ingresa el código EAN-13 para clasificar automáticamente como Libro o Revista", addItemCard);
-    m_lblEanStatus->setStyleSheet(QString("font-size: 12px; color: %1;").arg(Theme::TextMuted));
-    cardLayout->addWidget(m_lblEanStatus);
+    // Artículos a devolver
+    m_tableItems = Ui::table({"EAN", "Tipo", "Título", "Cantidad", "Motivo", "Acción"}, 2, this, 56);
+    layout->addWidget(m_tableItems, 1);
 
-    layout->addWidget(addItemCard);
+    // Pie: totales + acciones
+    auto *foot = Ui::card(this);
+    auto *fl = new QHBoxLayout(foot);
+    fl->setContentsMargins(20, 16, 20, 16);
+    fl->setSpacing(24);
 
-    // Items table
-    m_tableItems = new QTableWidget(this);
-    m_tableItems->setColumnCount(5);
-    m_tableItems->setHorizontalHeaderLabels({"EAN", "Tipo", "Cantidad", "Motivo de Devolución", "Acción"});
-    m_tableItems->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    m_tableItems->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    m_tableItems->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-    m_tableItems->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
-    m_tableItems->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
-    m_tableItems->verticalHeader()->setVisible(false);
-    m_tableItems->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_tableItems->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    layout->addWidget(m_tableItems);
+    auto *tot = new QWidget(foot);
+    auto *tl = new QVBoxLayout(tot);
+    tl->setContentsMargins(0, 0, 0, 0);
+    tl->setSpacing(2);
+    tl->addWidget(Ui::label("Total piezas a devolver", "FieldLabel", tot));
+    m_lblTotal = Ui::label("0", "BigNumber", tot);
+    tl->addWidget(m_lblTotal);
+    fl->addWidget(tot);
+    fl->addWidget(Ui::divider(foot, true));
 
-    m_btnEnviar = new QPushButton("✔ Registrar Solicitud de Devolución", this);
-    m_btnEnviar->setStyleSheet(Theme::buttonStyle(Theme::Accent, Theme::BgDark, Theme::AccentHover));
-    layout->addWidget(m_btnEnviar);
+    auto *lote = new QWidget(foot);
+    auto *ll = new QVBoxLayout(lote);
+    ll->setContentsMargins(0, 0, 0, 0);
+    ll->setSpacing(2);
+    ll->addWidget(Ui::label("Lote de devolución", "FieldLabel", lote));
+    m_lblLote = Ui::label("—", "Gold", lote);
+    m_lblLote->setStyleSheet(QString("font-family: %1; font-size: 18px;").arg(Theme::FontMono));
+    ll->addWidget(m_lblLote);
+    fl->addWidget(lote);
+    fl->addStretch();
 
-    // Result Card with PDF download
-    m_resCard = new QFrame(this);
-    m_resCard->setStyleSheet(QString(R"(
-        QFrame {
-            background-color: %1;
-            border: 1px solid %2;
-            border-left: 4px solid %3;
-            border-radius: 8px;
-            padding: 16px;
-        }
-    )").arg(Theme::BgCard).arg(Theme::Border).arg(Theme::Warning));
-    m_resCard->hide();
-
-    auto *resLayout = new QHBoxLayout(m_resCard);
-    m_lblResStatus = new QLabel(m_resCard);
-    m_lblResStatus->setStyleSheet(QString("color: %1; font-weight: bold; font-size: 13px;").arg(Theme::TextPrimary));
-    resLayout->addWidget(m_lblResStatus, 1);
-
-    m_btnDescargarPdf = new QPushButton("📄 Descargar Comprobante PDF", m_resCard);
-    m_btnDescargarPdf->setStyleSheet(Theme::buttonStyle(Theme::Accent, Theme::BgDark, Theme::AccentHover));
-    resLayout->addWidget(m_btnDescargarPdf);
-
-    layout->addWidget(m_resCard);
+    m_btnPdf = Ui::button("Generar y Descargar Acta PDF", "outline", foot, "pdf");
+    m_btnPdf->setEnabled(false);
+    m_btnPdf->setToolTip("Disponible después de registrar la solicitud");
+    fl->addWidget(m_btnPdf);
+    m_btnEnviar = Ui::button("Registrar Solicitud de Devolución", "primary", foot, "check-dark");
+    fl->addWidget(m_btnEnviar);
+    layout->addWidget(foot);
 
     connect(m_txtEan, &QLineEdit::textChanged, this, &VendedorDevolucionView::onEanChanged);
     connect(m_txtEan, &QLineEdit::returnPressed, this, &VendedorDevolucionView::onAgregarArticulo);
     connect(m_btnAgregar, &QPushButton::clicked, this, &VendedorDevolucionView::onAgregarArticulo);
     connect(m_btnEnviar, &QPushButton::clicked, this, &VendedorDevolucionView::onEnviarDevolucion);
-    connect(m_btnDescargarPdf, &QPushButton::clicked, this, &VendedorDevolucionView::onDescargarPdf);
+    connect(m_btnPdf, &QPushButton::clicked, this, &VendedorDevolucionView::onDescargarPdf);
+    connect(m_comboProveedor, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() { actualizarProveedor(); });
+
+    cargarCatalogos();
+}
+
+void VendedorDevolucionView::cargarCatalogos() {
+    ApiClient::instance()->listarProveedores([this](bool ok, const QJsonValue &data, const QString &) {
+        if (!ok || !data.isArray()) return;
+        m_proveedores.clear();
+        m_comboProveedor->clear();
+        const QJsonArray arr = data.toArray();
+        for (const auto &v : arr) {
+            const ProveedorDto p = ProveedorDto::fromJson(v.toObject());
+            m_proveedores.append(p);
+            m_comboProveedor->addItem(p.nombre_proveedor, p.id_proveedor);
+        }
+        actualizarProveedor();
+    });
+    ApiClient::instance()->listarMotivos([this](bool ok, const QJsonValue &data, const QString &) {
+        if (!ok || !data.isArray()) return;
+        m_comboMotivo->clear();
+        const QJsonArray arr = data.toArray();
+        for (const auto &v : arr) m_comboMotivo->addItem(MotivoDto::fromJson(v.toObject()).nombre);
+        m_comboMotivo->setCurrentIndex(-1);
+    });
+}
+
+void VendedorDevolucionView::actualizarProveedor() {
+    const int i = m_comboProveedor->currentIndex();
+    m_lblRfc->setText(i >= 0 && i < m_proveedores.size() ? "RFC: " + m_proveedores.at(i).rfc : QString());
 }
 
 void VendedorDevolucionView::onEanChanged(const QString &text) {
@@ -155,46 +150,52 @@ void VendedorDevolucionView::onEanChanged(const QString &text) {
 }
 
 void VendedorDevolucionView::onAgregarArticulo() {
-    QString eanStr = m_txtEan->text().trimmed();
-    auto eanRes = EanClassifier::clasificar(eanStr);
+    const QString eanStr = m_txtEan->text().trimmed();
+    const auto eanRes = EanClassifier::clasificar(eanStr);
     if (!eanRes.esValido) {
         Toast::showToast(this, eanRes.mensaje, Toast::Warning);
         return;
     }
+    const QString motivo = m_comboMotivo->currentText().trimmed();
+    if (motivo.isEmpty()) {
+        Toast::showToast(this, "Selecciona el motivo de la devolución", Toast::Warning);
+        return;
+    }
 
-    ReturnItemDraft item;
-    item.ean = eanStr.toLongLong();
-    item.tipo = (eanRes.tipo == EanClassifier::Tipo::Libro ? "Libro" : "Revista");
-    item.cantidad = m_spnCantidad->value();
-    item.motivo = m_txtMotivo->text().trimmed();
+    const qint64 ean = eanStr.toLongLong();
+    const int cant = m_spnCantidad->value();
+    const QString tipo = eanRes.tipo == EanClassifier::Tipo::Libro ? "libro" : "revista";
 
-    m_items.append(item);
-    int row = m_items.size() - 1;
-    m_tableItems->insertRow(row);
+    ApiClient::instance()->consultarExistencias(eanStr, tipo, 0, [this, ean, cant, tipo, motivo](bool ok, const QJsonValue &data, const QString &) {
+        QString titulo = QString("Artículo %1").arg(ean);
+        if (ok && data.isArray() && !data.toArray().isEmpty())
+            titulo = data.toArray().first().toObject().value("titulo").toString(titulo);
+        m_items.append({ean, tipo, titulo, cant, motivo});
+        renderItems();
 
-    m_tableItems->setItem(row, 0, new QTableWidgetItem(QString::number(item.ean)));
-    m_tableItems->setItem(row, 1, new QTableWidgetItem(item.tipo));
-    m_tableItems->setItem(row, 2, new QTableWidgetItem(QString::number(item.cantidad)));
-    m_tableItems->setItem(row, 3, new QTableWidgetItem(item.motivo.isEmpty() ? "Defecto general" : item.motivo));
-
-    auto *btnQuitar = new QPushButton("✖ Quitar", this);
-    btnQuitar->setStyleSheet(Theme::dangerButtonStyle());
-    connect(btnQuitar, &QPushButton::clicked, this, [this, row]() {
-        onQuitarArticulo(row);
+        m_txtEan->clear();
+        m_spnCantidad->setValue(1);
+        m_txtEan->setFocus();
     });
-    m_tableItems->setCellWidget(row, 4, btnQuitar);
-
-    m_txtEan->clear();
-    m_txtMotivo->clear();
-    m_spnCantidad->setValue(1);
-    m_txtEan->setFocus();
 }
 
-void VendedorDevolucionView::onQuitarArticulo(int index) {
-    if (index >= 0 && index < m_items.size()) {
-        m_items.removeAt(index);
-        m_tableItems->removeRow(index);
+void VendedorDevolucionView::renderItems() {
+    m_tableItems->clearContents();
+    m_tableItems->setRowCount(m_items.size());
+    int total = 0;
+    for (int i = 0; i < m_items.size(); ++i) {
+        const auto &it = m_items.at(i);
+        total += it.cantidad;
+        Ui::cellText(m_tableItems, i, 0, QString::number(it.ean), true);
+        Ui::cellWidget(m_tableItems, i, 1, Ui::tipoChip(it.tipo));
+        Ui::cellText(m_tableItems, i, 2, it.nombre, false, true);
+        Ui::cellText(m_tableItems, i, 3, QString::number(it.cantidad), false, true);
+        Ui::cellText(m_tableItems, i, 4, it.motivo, false, false, Theme::TextMuted);
+        auto *quitar = Ui::iconButton("trash", "Quitar artículo");
+        connect(quitar, &QPushButton::clicked, this, [this, i]() { m_items.removeAt(i); renderItems(); });
+        Ui::cellWidget(m_tableItems, i, 5, quitar);
     }
+    m_lblTotal->setText(QString::number(total));
 }
 
 void VendedorDevolucionView::onEnviarDevolucion() {
@@ -202,59 +203,81 @@ void VendedorDevolucionView::onEnviarDevolucion() {
         Toast::showToast(this, "Agrega al menos un artículo a devolver", Toast::Warning);
         return;
     }
-
-    int provId = m_comboProveedor->currentData().toInt();
-    QString tipo = m_items.first().tipo;
-
-    QJsonArray itemsArr;
-    for (const auto &it : m_items) {
-        QJsonObject o;
-        o["codigo_ean"] = it.ean;
-        o["cantidad"] = it.cantidad;
-        if (!it.motivo.isEmpty()) o["motivo"] = it.motivo;
-        itemsArr.append(o);
+    if (m_comboProveedor->currentIndex() < 0) {
+        Toast::showToast(this, "Selecciona un proveedor destino", Toast::Warning);
+        return;
     }
+    const int provId = m_comboProveedor->currentData().toInt();
 
-    ApiClient::instance()->crearDevolucion(provId, tipo, itemsArr, [this, tipo](bool ok, const QJsonValue &data, const QString &msg) {
-        if (!ok || !data.isObject()) {
-            Toast::showToast(this, "Error al registrar devolución: " + msg, Toast::Error);
-            return;
+    // La API registra un tipo de producto por solicitud: se separa en libros y revistas.
+    QStringList tipos;
+    for (const auto &it : std::as_const(m_items)) if (!tipos.contains(it.tipo)) tipos << it.tipo;
+
+    struct Estado { int pendientes; QList<QPair<qint64, QString>> ok; QString error; };
+    auto st = QSharedPointer<Estado>::create();
+    st->pendientes = tipos.size();
+    m_btnEnviar->setEnabled(false);
+
+    for (const QString &tipo : std::as_const(tipos)) {
+        QJsonArray itemsArr;
+        for (const auto &it : std::as_const(m_items)) {
+            if (it.tipo != tipo) continue;
+            QJsonObject o;
+            o["codigo_ean"] = it.ean;
+            o["cantidad"] = it.cantidad;
+            o["motivo"] = it.motivo;
+            itemsArr.append(o);
         }
+        ApiClient::instance()->crearDevolucion(provId, tipo, itemsArr, [this, st, tipo](bool ok, const QJsonValue &data, const QString &msg) {
+            if (ok && data.isObject()) st->ok << qMakePair(Devolucion::fromJson(data.toObject()).id_devolucion, tipo);
+            else st->error = msg;
+            if (--st->pendientes > 0) return;
 
-        Devolucion dev = Devolucion::fromJson(data.toObject());
-        m_lastDevolucionId = dev.id_devolucion;
-        m_lastTipo = tipo;
-
-        m_resCard->show();
-        m_lblResStatus->setText(QString("✔ Solicitud de Devolución #%1 registrada con éxito.<br>"
-                                        "Estado: <b>%2</b> (Requiere autorización del Jefe)").arg(dev.id_devolucion).arg(dev.estado));
-
-        m_items.clear();
-        m_tableItems->setRowCount(0);
-        Toast::showToast(this, "Devolución registrada exitosamente", Toast::Success);
-    });
+            m_btnEnviar->setEnabled(true);
+            if (st->ok.isEmpty()) {
+                Toast::showToast(this, "Error al registrar devolución: " + st->error, Toast::Error);
+                return;
+            }
+            m_ultimas = st->ok;
+            QStringList folios;
+            for (const auto &r : std::as_const(m_ultimas)) folios << QString("#DEV-%1").arg(r.first);
+            m_lblLote->setText(folios.join(" · "));
+            m_btnPdf->setEnabled(true);
+            m_items.clear();
+            renderItems();
+            Toast::showToast(this, st->error.isEmpty()
+                ? "Solicitud registrada. Requiere autorización del Jefe."
+                : "Solo se registró una parte de la solicitud: " + st->error,
+                st->error.isEmpty() ? Toast::Success : Toast::Warning);
+        });
+    }
 }
 
 void VendedorDevolucionView::onDescargarPdf() {
-    if (m_lastDevolucionId <= 0) return;
+    if (m_ultimas.isEmpty()) return;
 
-    QString defaultName = QString("devolucion_%1_%2.pdf").arg(m_lastDevolucionId).arg(m_lastTipo.toLower());
-    QString savePath = QFileDialog::getSaveFileName(this, "Guardar Acta de Devolución en PDF", defaultName, "Archivos PDF (*.pdf)");
-    if (savePath.isEmpty()) return;
+    QString dir;
+    if (m_ultimas.size() == 1) {
+        const QString path = QFileDialog::getSaveFileName(this, "Guardar Acta de Devolución en PDF",
+            QString("devolucion_%1_%2.pdf").arg(m_ultimas.first().first).arg(m_ultimas.first().second), "Archivos PDF (*.pdf)");
+        if (path.isEmpty()) return;
+        dir = path;
+    } else {
+        dir = QFileDialog::getExistingDirectory(this, "Carpeta donde guardar las actas (libros y revistas)");
+        if (dir.isEmpty()) return;
+    }
 
-    ApiClient::instance()->descargarPdfDevolucion(m_lastDevolucionId, m_lastTipo, [this, savePath](bool ok, const QByteArray &bytes, const QString &msg) {
-        if (!ok || bytes.isEmpty()) {
-            Toast::showToast(this, "Error al descargar PDF: " + msg, Toast::Error);
-            return;
-        }
-
-        QFile file(savePath);
-        if (file.open(QIODevice::WriteOnly)) {
-            file.write(bytes);
-            file.close();
-            Toast::showToast(this, "Comprobante PDF guardado exitosamente", Toast::Success);
-        } else {
-            Toast::showToast(this, "No se pudo guardar el archivo en disco", Toast::Error);
-        }
-    });
+    for (const auto &r : std::as_const(m_ultimas)) {
+        const QString path = m_ultimas.size() == 1 ? dir
+            : QDir(dir).filePath(QString("devolucion_%1_%2.pdf").arg(r.first).arg(r.second));
+        ApiClient::instance()->descargarPdfDevolucion(r.first, r.second, [this, path](bool ok, const QByteArray &bytes, const QString &msg) {
+            QFile f(path);
+            if (!ok || bytes.isEmpty() || !f.open(QIODevice::WriteOnly)) {
+                Toast::showToast(this, "No se pudo guardar el acta: " + msg, Toast::Error);
+                return;
+            }
+            f.write(bytes);
+            Toast::showToast(this, "Acta PDF guardada: " + QFileInfo(path).fileName(), Toast::Success);
+        });
+    }
 }

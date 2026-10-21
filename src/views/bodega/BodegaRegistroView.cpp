@@ -5,7 +5,8 @@
 #include "EanClassifier.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QFormLayout>
+#include <QScrollArea>
+#include "Ui.h"
 #include <QLabel>
 #include <QFrame>
 
@@ -13,147 +14,110 @@ BodegaRegistroView::BodegaRegistroView(QWidget *parent)
     : QWidget(parent)
 {
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(32, 28, 32, 28);
+    layout->setContentsMargins(40, 32, 40, 32);
     layout->setSpacing(20);
+    layout->addWidget(Ui::pageHeader("Bodega · Alta de mercancía", "Alta de Mercancía en Almacén (Ingreso por EAN)", "", this));
 
-    auto *title = new QLabel("Alta de Mercancía en Almacén (Ingreso por EAN)", this);
-    title->setStyleSheet(QString("font-size: 22px; font-weight: bold; color: %1;").arg(Theme::TextPrimary));
-    layout->addWidget(title);
-
-    // Form Container
-    auto *card = new QFrame(this);
-    card->setStyleSheet(QString(R"(
-        QFrame {
-            background-color: %1;
-            border: 1px solid %2;
-            border-radius: 8px;
-        }
-    )").arg(Theme::BgCard).arg(Theme::Border));
-
+    auto *card = Ui::card(this);
     auto *cardLayout = new QVBoxLayout(card);
-    cardLayout->setContentsMargins(24, 20, 24, 20);
+    cardLayout->setContentsMargins(28, 28, 28, 28);
     cardLayout->setSpacing(14);
 
-    auto *form = new QFormLayout();
-    form->setSpacing(12);
-
-    // 1. Unified EAN Input with Automatic Detection
-    auto *eanContainer = new QWidget(card);
-    auto *eanLayout = new QVBoxLayout(eanContainer);
+    // 1. EAN con detección automática de tipo
+    auto *eanBox = new QWidget(card);
+    auto *eanLayout = new QVBoxLayout(eanBox);
     eanLayout->setContentsMargins(0, 0, 0, 0);
-    eanLayout->setSpacing(4);
-
-    m_txtEan = new QLineEdit(eanContainer);
-    m_txtEan->setPlaceholderText("Escanear o ingresar EAN-13 (13 dígitos)...");
+    eanLayout->setSpacing(6);
+    m_txtEan = new QLineEdit(eanBox);
+    m_txtEan->setProperty("tone", "gold");
+    m_txtEan->setPlaceholderText("Escanear o ingresar EAN-13 (13 dígitos)");
     eanLayout->addWidget(m_txtEan);
-
-    m_lblEanStatus = new QLabel("Ingresa el código EAN-13 para clasificar automáticamente como Libro o Revista", eanContainer);
-    m_lblEanStatus->setStyleSheet(QString("font-size: 12px; color: %1; font-weight: 500;").arg(Theme::TextMuted));
+    m_lblEanStatus = new QLabel("Ingresa el código EAN-13 para clasificar automáticamente como Libro o Revista", eanBox);
+    m_lblEanStatus->setObjectName("Hint");
     eanLayout->addWidget(m_lblEanStatus);
-
-    form->addRow("Código EAN-13:", eanContainer);
+    cardLayout->addWidget(Ui::rowField("Código EAN-13:", eanBox, card));
 
     m_txtSku = new QLineEdit(card);
-    m_txtSku->setPlaceholderText("SKU numérico interno (opcional)");
-    form->addRow("SKU Interno:", m_txtSku);
+    m_txtSku->setPlaceholderText("SKU numérico interno");
+    cardLayout->addWidget(Ui::rowField("SKU Interno:", m_txtSku, card));
 
     m_txtNombre = new QLineEdit(card);
     m_txtNombre->setPlaceholderText("Título del libro o nombre de la revista");
-    form->addRow("Título / Nombre:", m_txtNombre);
+    cardLayout->addWidget(Ui::rowField("Título / Nombre:", m_txtNombre, card));
 
-    m_spnPrecio = new QDoubleSpinBox(card);
-    m_spnPrecio->setRange(0.0, 99999.0);
-    m_spnPrecio->setValue(199.0);
-    m_spnPrecio->setPrefix("$ ");
-    form->addRow("Precio Unitario:", m_spnPrecio);
-
-    m_spnCantidad = new QSpinBox(card);
-    m_spnCantidad->setRange(1, 9999);
-    m_spnCantidad->setValue(10);
-    form->addRow("Cantidad Recibida:", m_spnCantidad);
-
-    // 2. Dynamic fields for Libro (ISBN 978 / 979)
+    // 2. Campos de Libro (ISBN 978 / 979)
     m_panelLibro = new QWidget(card);
-    auto *libroLayout = new QFormLayout(m_panelLibro);
+    auto *libroLayout = new QVBoxLayout(m_panelLibro);
     libroLayout->setContentsMargins(0, 0, 0, 0);
-    libroLayout->setSpacing(12);
-
+    libroLayout->setSpacing(14);
     m_comboAutor = new QComboBox(m_panelLibro);
-    libroLayout->addRow("Autor Registrado:", m_comboAutor);
-
-    form->addRow(m_panelLibro);
+    libroLayout->addWidget(Ui::rowField("Autor(es):", m_comboAutor, m_panelLibro));
+    cardLayout->addWidget(m_panelLibro);
     m_panelLibro->hide();
 
-    // 3. Dynamic fields for Revista (ISSN 977)
+    // 3. Campos de Revista (ISSN 977)
     m_panelRevista = new QWidget(card);
-    auto *revistaLayout = new QFormLayout(m_panelRevista);
+    auto *revistaLayout = new QVBoxLayout(m_panelRevista);
     revistaLayout->setContentsMargins(0, 0, 0, 0);
-    revistaLayout->setSpacing(12);
-
+    revistaLayout->setSpacing(14);
     m_comboAutorEditorial = new QComboBox(m_panelRevista);
     m_comboAutorEditorial->setPlaceholderText("Selecciona un autor o editorial");
-    revistaLayout->addRow("Autor / Editorial:", m_comboAutorEditorial);
-
+    revistaLayout->addWidget(Ui::rowField("Editorial:", m_comboAutorEditorial, m_panelRevista));
     m_spnEdicion = new QSpinBox(m_panelRevista);
     m_spnEdicion->setRange(1, 9999);
-    m_spnEdicion->setValue(1);
-    revistaLayout->addRow("Número de Edición:", m_spnEdicion);
-
+    revistaLayout->addWidget(Ui::rowField("Número de Edición:", m_spnEdicion, m_panelRevista));
     m_comboPeriodicidad = new QComboBox(m_panelRevista);
     m_comboPeriodicidad->addItem("Selecciona una periodicidad", "");
     m_comboPeriodicidad->addItem("Mensual", "Mensual");
     m_comboPeriodicidad->addItem("Semanal", "Semanal");
     m_comboPeriodicidad->addItem("Quincenal", "Quincenal");
-    revistaLayout->addRow("Periodicidad:", m_comboPeriodicidad);
-
-    form->addRow(m_panelRevista);
+    revistaLayout->addWidget(Ui::rowField("Periodicidad:", m_comboPeriodicidad, m_panelRevista));
+    cardLayout->addWidget(m_panelRevista);
     m_panelRevista->hide();
 
-    // 4. Multiple Genres Selection (Relación Muchos a Muchos N:M)
+    // 4. Géneros / categorías (relación N:M)
     m_listGeneros = new QListWidget(card);
-    m_listGeneros->setMaximumHeight(100);
-    m_listGeneros->setStyleSheet(QString(R"(
-        QListWidget {
-            background-color: %1;
-            border: 1px solid %2;
-            border-radius: 4px;
-            color: %3;
-        }
-        QListWidget::item {
-            padding: 3px 6px;
-        }
-    )").arg(Theme::BgInput).arg(Theme::Border).arg(Theme::TextPrimary));
-    form->addRow("Géneros Literarios (N:M):", m_listGeneros);
+    m_listGeneros->setFixedHeight(120);
+    cardLayout->addWidget(Ui::rowField("Géneros / Categoría:", m_listGeneros, card));
 
-    // 5. Mueble y Proveedor
+    m_spnPrecio = new QDoubleSpinBox(card);
+    m_spnPrecio->setRange(0.0, 99999.0);
+    m_spnPrecio->setValue(199.0);
+    m_spnPrecio->setPrefix("$ ");
+    cardLayout->addWidget(Ui::rowField("Precio de Venta:", m_spnPrecio, card));
+
+    m_spnCantidad = new QSpinBox(card);
+    m_spnCantidad->setRange(1, 9999);
+    m_spnCantidad->setValue(10);
+    cardLayout->addWidget(Ui::rowField("Cantidad Recibida:", m_spnCantidad, card));
+
     m_comboMueble = new QComboBox(card);
-    m_comboMueble->addItem("Mueble 11", 11);
-    m_comboMueble->addItem("Mueble 12", 12);
-    m_comboMueble->addItem("Mueble 13", 13);
-    m_comboMueble->addItem("Mueble 61", 61);
-    m_comboMueble->addItem("Mueble 62", 62);
-    form->addRow("Mueble de Asignación:", m_comboMueble);
+    for (int id : {11, 12, 13, 61, 62}) m_comboMueble->addItem(QString("Mueble %1").arg(id), id);
+    cardLayout->addWidget(Ui::rowField("Mueble de Asignación:", m_comboMueble, card));
 
     m_comboProveedor = new QComboBox(card);
-    form->addRow("Proveedor Oficial:", m_comboProveedor);
+    cardLayout->addWidget(Ui::rowField("Proveedor Oficial:", m_comboProveedor, card));
 
-    cardLayout->addLayout(form);
-
-    // Buttons
     auto *btnLayout = new QHBoxLayout();
-    m_btnGuardar = new QPushButton("✔ Registrar en Bodega", card);
-    m_btnGuardar->setStyleSheet(Theme::buttonStyle(Theme::Role2, Theme::BgDark, "#7BB9D9"));
-
-    m_btnLimpiar = new QPushButton("Limpiar", card);
-    m_btnLimpiar->setStyleSheet(Theme::secondaryButtonStyle());
-
+    m_btnGuardar = Ui::button("Registrar en Bodega", "primary", card, "check-dark");
+    m_btnLimpiar = Ui::button("Limpiar", "", card);
+    btnLayout->addSpacing(204);
     btnLayout->addWidget(m_btnGuardar);
     btnLayout->addWidget(m_btnLimpiar);
     btnLayout->addStretch();
     cardLayout->addLayout(btnLayout);
 
-    layout->addWidget(card);
-    layout->addStretch();
+    // El formulario crece con el contenido: se desplaza dentro de un área con scroll.
+    auto *scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    auto *inner = new QWidget();
+    auto *innerLayout = new QVBoxLayout(inner);
+    innerLayout->setContentsMargins(0, 0, 8, 0);
+    innerLayout->addWidget(card);
+    innerLayout->addStretch();
+    scroll->setWidget(inner);
+    layout->addWidget(scroll, 1);
 
     connect(m_txtEan, &QLineEdit::textChanged, this, &BodegaRegistroView::onEanChanged);
     connect(m_btnGuardar, &QPushButton::clicked, this, &BodegaRegistroView::onRegistrar);
@@ -215,7 +179,7 @@ void BodegaRegistroView::onEanChanged(const QString &text) {
     auto res = EanClassifier::clasificar(text);
 
     m_lblEanStatus->setText(res.mensaje);
-    m_lblEanStatus->setStyleSheet(QString("font-size: 12px; color: %1; font-weight: %2;")
+    m_lblEanStatus->setStyleSheet(QString("color: %1; font-weight: %2;")
                                      .arg(res.colorEstilo, res.esValido || res.colorEstilo == Theme::Error ? "bold" : "500"));
 
     if (res.tipo == EanClassifier::Tipo::Libro) {
@@ -243,7 +207,7 @@ void BodegaRegistroView::limpiarCampos() {
     m_spnCantidad->setValue(10);
     m_spnEdicion->setValue(1);
     m_lblEanStatus->setText("Ingresa el código EAN-13 para clasificar automáticamente como Libro o Revista");
-    m_lblEanStatus->setStyleSheet(QString("font-size: 12px; color: %1;").arg(Theme::TextMuted));
+    m_lblEanStatus->setStyleSheet(QString());
     m_panelLibro->hide();
     m_panelRevista->hide();
     m_tipoDetectado = DetectedType::Desconocido;

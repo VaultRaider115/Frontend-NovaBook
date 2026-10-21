@@ -1,6 +1,7 @@
 #include "BodegaDashboardView.h"
 #include "StatCard.h"
 #include "Theme.h"
+#include "Ui.h"
 #include "ApiClient.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -15,13 +16,8 @@ BodegaDashboardView::BodegaDashboardView(QWidget *parent)
     layout->setSpacing(24);
 
     // Header
-    auto *title = new QLabel("Panel de Almacén — Personal de Bodega", this);
-    title->setStyleSheet(QString("font-size: 22px; font-weight: bold; color: %1;").arg(Theme::TextPrimary));
-    auto *subtitle = new QLabel("Control de entradas, altas de producto y requisiciones hacia piso de venta", this);
-    subtitle->setStyleSheet(QString("font-size: 13px; color: %1;").arg(Theme::TextMuted));
+    layout->addWidget(Ui::pageHeader("Bodega · Panel", "Panel de Almacén — Personal de Bodega", "Control de entradas, altas de producto y requisiciones hacia piso de venta", this));
 
-    layout->addWidget(title);
-    layout->addWidget(subtitle);
 
     // Metrics Row
     auto *cardsLayout = new QHBoxLayout();
@@ -35,15 +31,7 @@ BodegaDashboardView::BodegaDashboardView(QWidget *parent)
     layout->addLayout(cardsLayout);
 
     // Info Card
-    auto *infoCard = new QFrame(this);
-    infoCard->setStyleSheet(QString(R"(
-        QFrame {
-            background-color: %1;
-            border: 1px solid %2;
-            border-radius: 8px;
-            padding: 20px;
-        }
-    )").arg(Theme::BgCard).arg(Theme::Border));
+    auto *infoCard = Ui::card(this);
 
     auto *infoLayout = new QVBoxLayout(infoCard);
     infoLayout->setSpacing(12);

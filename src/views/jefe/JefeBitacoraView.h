@@ -3,8 +3,12 @@
 #include <QWidget>
 #include <QTableWidget>
 #include <QDateEdit>
+#include <QComboBox>
 #include <QPushButton>
 #include <QLabel>
+#include "Models.h"
+
+class PagerBar;
 
 class JefeBitacoraView : public QWidget {
     Q_OBJECT
@@ -14,9 +18,16 @@ public:
     void cargarMovimientos();
 
 private:
-    QDateEdit *m_dateEdit;
+    void renderPagina();
+
+    QDateEdit *m_desde;
+    QDateEdit *m_hasta;
+    QComboBox *m_comboTipo;
     QPushButton *m_btnBuscar;
-    QPushButton *m_btnHoy;
     QTableWidget *m_table;
     QLabel *m_lblTotal;
+    PagerBar *m_pager;
+
+    QList<MovimientoDiarioItem> m_todos;     // todo el rango consultado
+    QList<MovimientoDiarioItem> m_filtrados; // tras filtrar por tipo de evento
 };

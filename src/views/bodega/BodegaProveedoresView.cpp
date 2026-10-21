@@ -1,5 +1,6 @@
 #include "BodegaProveedoresView.h"
 #include "Theme.h"
+#include "Ui.h"
 #include "ApiClient.h"
 #include "Toast.h"
 #include <QVBoxLayout>
@@ -19,24 +20,22 @@ BodegaProveedoresView::BodegaProveedoresView(QWidget *parent)
     layout->setSpacing(20);
 
     // Header
-    auto *title = new QLabel("Catálogo y Gestión de Proveedores", this);
-    title->setStyleSheet(QString("font-size: 22px; font-weight: bold; color: %1;").arg(Theme::TextPrimary));
-    layout->addWidget(title);
+    layout->addWidget(Ui::pageHeader("Bodega · Proveedores", "Catálogo y Gestión de Proveedores", "", this));
 
     // Toolbar
     auto *toolbar = new QHBoxLayout();
     toolbar->setSpacing(12);
 
     m_btnNuevo = new QPushButton("＋ Registrar Proveedor", this);
-    m_btnNuevo->setStyleSheet(Theme::buttonStyle(Theme::Role2, Theme::BgDark, "#7BB9D9"));
+    m_btnNuevo->setProperty("variant", "primary");
     toolbar->addWidget(m_btnNuevo);
 
     m_btnEditar = new QPushButton("✎ Modificar", this);
-    m_btnEditar->setStyleSheet(Theme::secondaryButtonStyle());
+    m_btnEditar->setProperty("variant", "outline");
     toolbar->addWidget(m_btnEditar);
 
     m_btnEliminar = new QPushButton("🗑 Dar de Baja", this);
-    m_btnEliminar->setStyleSheet(Theme::dangerButtonStyle());
+    m_btnEliminar->setProperty("variant", "danger");
     toolbar->addWidget(m_btnEliminar);
 
     toolbar->addStretch();
@@ -46,7 +45,7 @@ BodegaProveedoresView::BodegaProveedoresView(QWidget *parent)
     toolbar->addWidget(m_lblTotal);
 
     m_btnRecargar = new QPushButton("Actualizar", this);
-    m_btnRecargar->setStyleSheet(Theme::secondaryButtonStyle());
+    m_btnRecargar->setProperty("variant", "outline");
     toolbar->addWidget(m_btnRecargar);
 
     layout->addLayout(toolbar);
@@ -149,9 +148,9 @@ void BodegaProveedoresView::onCrearProveedor() {
 
     auto *btnBox = new QHBoxLayout();
     auto *btnGuardar = new QPushButton("✔ Guardar Proveedor", &dlg);
-    btnGuardar->setStyleSheet(Theme::buttonStyle(Theme::Role2, Theme::BgDark, "#7BB9D9"));
+    btnGuardar->setProperty("variant", "primary");
     auto *btnCancelar = new QPushButton("Cancelar", &dlg);
-    btnCancelar->setStyleSheet(Theme::secondaryButtonStyle());
+    btnCancelar->setProperty("variant", "outline");
 
     btnBox->addStretch();
     btnBox->addWidget(btnCancelar);
@@ -236,9 +235,9 @@ void BodegaProveedoresView::onEditarProveedor() {
 
     auto *btnBox = new QHBoxLayout();
     auto *btnGuardar = new QPushButton("✔ Actualizar", &dlg);
-    btnGuardar->setStyleSheet(Theme::buttonStyle(Theme::Role2, Theme::BgDark, "#7BB9D9"));
+    btnGuardar->setProperty("variant", "primary");
     auto *btnCancelar = new QPushButton("Cancelar", &dlg);
-    btnCancelar->setStyleSheet(Theme::secondaryButtonStyle());
+    btnCancelar->setProperty("variant", "outline");
 
     btnBox->addStretch();
     btnBox->addWidget(btnCancelar);

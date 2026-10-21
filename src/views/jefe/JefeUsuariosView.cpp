@@ -1,72 +1,51 @@
 #include "JefeUsuariosView.h"
+#include "Ui.h"
 #include "Theme.h"
 #include "ApiClient.h"
 #include "Toast.h"
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QHeaderView>
-#include <QDialog>
-#include <QFormLayout>
-#include <QLineEdit>
 #include <QComboBox>
-#include <QMessageBox>
+#include <QHBoxLayout>
+#include <QLineEdit>
+#include <QPointer>
 
 JefeUsuariosView::JefeUsuariosView(QWidget *parent)
-    : QWidget(parent)
+    : CatalogView("Gerencia · Catálogo de usuarios", "Administración y Gestión de Usuarios",
+                  "Control de acceso del personal de la librería.",
+                  "Buscar por ID, nombre, rol o teléfono...", "Registrar Nuevo Usuario",
+                  {"Número de empleado", "Colaborador", "Rol en sistema", "Teléfono", "Estado", "Acciones"}, 1, 0, parent)
 {
-    auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(32, 28, 32, 28);
-    layout->setSpacing(20);
+    // Filtro segmentado Todos / Activos / Inactivos
+    auto *seg = new QWidget(this);
+    auto *sl = new QHBoxLayout(seg);
+    sl->setContentsMargins(0, 0, 0, 0);
+    sl->setSpacing(6);
+    const QStringList nombres = {"Todos", "Activos", "Inactivos"};
+    for (int i = 0; i < nombres.size(); ++i) {
+        auto *b = Ui::button(nombres.at(i), "page", seg);
+        Ui::setCurrent(b, i == 0);
+        connect(b, &QPushButton::clicked, this, [this, i]() {
+            m_filtroEstado = i;
+            for (int k = 0; k < m_segmentos.size(); ++k) Ui::setCurrent(m_segmentos.at(k), k == i);
+            refilter();
+        });
+        m_segmentos << b;
+        sl->addWidget(b);
+    }
+    m_toolsLayout->insertWidget(1, seg);
 
-    // Header
-    auto *title = new QLabel("Administración y Gestión de Usuarios", this);
-    title->setStyleSheet(QString("font-size: 22px; font-weight: bold; color: %1;").arg(Theme::TextPrimary));
-    layout->addWidget(title);
+    m_rowFilter = [this](int row) {
+        if (row >= m_usuarios.size() || m_filtroEstado == 0) return true;
+        return m_usuarios.at(row).activo() == (m_filtroEstado == 1);
+    };
+}
 
-    // Toolbar
-    auto *toolbar = new QHBoxLayout();
-    toolbar->setSpacing(12);
-
-    m_btnNuevo = new QPushButton("＋ Registrar Nuevo Usuario", this);
-    m_btnNuevo->setStyleSheet(Theme::buttonStyle(Theme::Accent, Theme::BgDark, Theme::AccentHover));
-    toolbar->addWidget(m_btnNuevo);
-
-    m_btnEditar = new QPushButton("✎ Modificar", this);
-    m_btnEditar->setStyleSheet(Theme::secondaryButtonStyle());
-    toolbar->addWidget(m_btnEditar);
-
-    m_btnEliminar = new QPushButton("🗑 Dar de Baja", this);
-    m_btnEliminar->setStyleSheet(Theme::dangerButtonStyle());
-    toolbar->addWidget(m_btnEliminar);
-
-    toolbar->addStretch();
-
-    m_btnRecargar = new QPushButton("Actualizar", this);
-    m_btnRecargar->setStyleSheet(Theme::secondaryButtonStyle());
-    toolbar->addWidget(m_btnRecargar);
-
-    layout->addLayout(toolbar);
-
-    // Table
-    m_table = new QTableWidget(this);
-    m_table->setColumnCount(6);
-    m_table->setHorizontalHeaderLabels({"ID Usuario", "Rol", "Nombre", "Ap. Paterno", "Ap. Materno", "Teléfono"});
-    m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
-    m_table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
-    m_table->verticalHeader()->setVisible(false);
-    m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_table->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    layout->addWidget(m_table);
-
-    connect(m_btnRecargar, &QPushButton::clicked, this, &JefeUsuariosView::cargarUsuarios);
-    connect(m_btnNuevo, &QPushButton::clicked, this, &JefeUsuariosView::onCrearUsuario);
-    connect(m_btnEditar, &QPushButton::clicked, this, &JefeUsuariosView::onEditarUsuario);
-    connect(m_btnEliminar, &QPushButton::clicked, this, &JefeUsuariosView::onEliminarUsuario);
+static QString chipRol(int rol) {
+    switch (rol) {
+        case 4: return "gold";
+        case 1: return "indigo";
+        case 2: return "amber";
+        default: return "mint";
+    }
 }
 
 void JefeUsuariosView::cargarUsuarios() {
@@ -75,202 +54,109 @@ void JefeUsuariosView::cargarUsuarios() {
             Toast::showToast(this, "Error al obtener usuarios: " + msg, Toast::Error);
             return;
         }
-
         m_usuarios.clear();
-        QJsonArray arr = data.toArray();
-        m_table->setRowCount(arr.size());
+        clearRows();
+        const QJsonArray arr = data.toArray();
+        for (const auto &v : arr) m_usuarios.append(UsuarioDto::fromJson(v.toObject()));
 
-        for (int i = 0; i < arr.size(); ++i) {
-            UsuarioDto u = UsuarioDto::fromJson(arr.at(i).toObject());
-            m_usuarios.append(u);
+        int activos = 0;
+        for (const UsuarioDto &u : std::as_const(m_usuarios)) {
+            const int r = appendRow(QString("%1 %2 %3 %4").arg(u.id_usuarios).arg(u.nombreCompleto(), Theme::roleName(u.id_roles)).arg(u.telefono));
+            Ui::cellText(m_table, r, 0, QString::number(u.id_usuarios), true);
 
-            m_table->setItem(i, 0, new QTableWidgetItem(QString::number(u.id_usuarios)));
+            auto *name = new QWidget();
+            auto *nl = new QHBoxLayout(name);
+            nl->setContentsMargins(16, 0, 16, 0);
+            nl->setSpacing(12);
+            nl->addWidget(Ui::avatar(u.nombreCompleto(), "gray", name));
+            nl->addWidget(new QLabel(u.nombreCompleto(), name));
+            nl->addStretch();
+            m_table->setCellWidget(r, 1, name);
 
-            auto *rolItem = new QTableWidgetItem(Theme::roleName(u.id_roles));
-            rolItem->setForeground(QColor(Theme::roleColor(u.id_roles)));
-            m_table->setItem(i, 1, rolItem);
+            Ui::cellWidget(m_table, r, 2, Ui::chip(Theme::roleName(u.id_roles), chipRol(u.id_roles).toUtf8().constData()));
+            Ui::cellText(m_table, r, 3, u.telefono > 0 ? QString::number(u.telefono) : "—", false, false, Theme::TextMuted);
+            Ui::cellWidget(m_table, r, 4, Ui::chip(u.activo() ? "● Activo" : "Inactivo", u.activo() ? "ok" : "neutral"));
+            if (u.activo()) ++activos;
 
-            m_table->setItem(i, 2, new QTableWidgetItem(u.nombre));
-            m_table->setItem(i, 3, new QTableWidgetItem(u.apellido_paterno));
-            m_table->setItem(i, 4, new QTableWidgetItem(u.apellido_materno));
-            m_table->setItem(i, 5, new QTableWidgetItem(u.telefono > 0 ? QString::number(u.telefono) : "-"));
+            Ui::cellWidgets(m_table, r, 5, rowActions(u.nombreCompleto(),
+                [this, u]() { abrirFormulario(&u); }, [this, u]() { darDeBaja(u); }));
         }
+        finishRows(QString("Total de usuarios: %1 · %2 activos · %3 inactivos")
+                       .arg(m_usuarios.size()).arg(activos).arg(m_usuarios.size() - activos));
     });
 }
 
-void JefeUsuariosView::onCrearUsuario() {
-    QDialog dlg(this);
-    dlg.setWindowTitle("Registrar Nuevo Usuario");
-    dlg.setFixedWidth(440);
+void JefeUsuariosView::abrirFormulario(const UsuarioDto *u) {
+    const bool edit = u != nullptr;
+    Ui::FormDialog dlg(edit ? "Modificar Empleado" : "Registrar Nuevo Empleado", edit ? "Actualizar Empleado" : "Registrar Empleado", this);
 
-    auto *dlgLayout = new QVBoxLayout(&dlg);
-    auto *form = new QFormLayout();
-    form->setSpacing(10);
-
-    auto *txtId = new QLineEdit(&dlg);
-    txtId->setPlaceholderText("Ej. 350976899");
-
+    auto *txtId = new QLineEdit(edit ? QString::number(u->id_usuarios) : QString(), &dlg);
+    txtId->setPlaceholderText("Ej: 350925976");
+    txtId->setEnabled(!edit);
+    auto *txtNombre = new QLineEdit(edit ? u->nombre : QString(), &dlg);
+    txtNombre->setPlaceholderText("Ej: Maria");
     auto *comboRol = new QComboBox(&dlg);
-    comboRol->addItem("Jefe de Departamento", 1);
-    comboRol->addItem("Personal de Bodega", 2);
     comboRol->addItem("Vendedor", 3);
-    comboRol->addItem("Gerente", 4);
-
-    auto *txtNombre = new QLineEdit(&dlg);
-    auto *txtApPaterno = new QLineEdit(&dlg);
-    auto *txtApMaterno = new QLineEdit(&dlg);
-    auto *txtTelefono = new QLineEdit(&dlg);
-    txtTelefono->setPlaceholderText("10 dígitos numéricos");
+    comboRol->addItem("Personal de Bodega", 2);
+    comboRol->addItem("Jefe de Departamento", 1);
+    comboRol->addItem("Gerente General", 4);
+    if (edit) comboRol->setCurrentIndex(comboRol->findData(u->id_roles));
+    auto *txtPat = new QLineEdit(edit ? u->apellido_paterno : QString(), &dlg);
+    txtPat->setPlaceholderText("Ej: Antonieta");
+    auto *txtMat = new QLineEdit(edit ? u->apellido_materno : QString(), &dlg);
+    txtMat->setPlaceholderText("Ej: de Las Nieves");
+    auto *txtTel = new QLineEdit(edit && u->telefono > 0 ? QString::number(u->telefono) : QString(), &dlg);
+    txtTel->setPlaceholderText("Ej: 8443509259");
     auto *txtPass = new QLineEdit(&dlg);
     txtPass->setEchoMode(QLineEdit::Password);
+    txtPass->setPlaceholderText(edit ? "Dejar vacío para conservar la actual" : "Contraseña");
 
-    form->addRow("ID Usuario (Numérico):", txtId);
-    form->addRow("Rol en el Sistema:", comboRol);
-    form->addRow("Nombre:", txtNombre);
-    form->addRow("Apellido Paterno:", txtApPaterno);
-    form->addRow("Apellido Materno:", txtApMaterno);
-    form->addRow("Teléfono:", txtTelefono);
-    form->addRow("Contraseña:", txtPass);
-    dlgLayout->addLayout(form);
+    dlg.addField("Número de Empleado", txtId, 0, 0);
+    dlg.addField("Nombre", txtNombre, 0, 1);
+    dlg.addField("Rol en sistema", comboRol, 1, 0, 2);
+    dlg.addField("Apellido Paterno", txtPat, 2, 0);
+    dlg.addField("Apellido Materno", txtMat, 2, 1);
+    dlg.addField("Teléfono", txtTel, 3, 0);
+    dlg.addField(edit ? "Nueva contraseña" : "Contraseña", txtPass, 3, 1);
 
-    auto *btnBox = new QHBoxLayout();
-    auto *btnGuardar = new QPushButton("Guardar Usuario", &dlg);
-    btnGuardar->setStyleSheet(Theme::buttonStyle(Theme::Success, Theme::BgDark, "#72D4A0"));
-    auto *btnCancelar = new QPushButton("Cancelar", &dlg);
-    btnCancelar->setStyleSheet(Theme::secondaryButtonStyle());
-    btnBox->addWidget(btnGuardar);
-    btnBox->addWidget(btnCancelar);
-    dlgLayout->addLayout(btnBox);
-
-    connect(btnCancelar, &QPushButton::clicked, &dlg, &QDialog::reject);
-    connect(btnGuardar, &QPushButton::clicked, [&]() {
-        bool ok = false;
-        qint64 id = txtId->text().trimmed().toLongLong(&ok);
-        if (!ok || id <= 0) {
-            Toast::showToast(&dlg, "El ID de usuario debe ser numérico y válido", Toast::Warning);
+    QPointer<QDialog> guard(&dlg);
+    connect(dlg.okButton(), &QPushButton::clicked, &dlg, [&, edit, u]() {
+        bool okId = false;
+        const qint64 id = txtId->text().trimmed().toLongLong(&okId);
+        if (!okId || id <= 0) {
+            Toast::showToast(&dlg, "El número de empleado debe ser numérico y válido", Toast::Warning);
             return;
         }
-        if (txtNombre->text().trimmed().isEmpty() || txtPass->text().isEmpty()) {
+        if (txtNombre->text().trimmed().isEmpty() || (!edit && txtPass->text().isEmpty())) {
             Toast::showToast(&dlg, "Nombre y contraseña son obligatorios", Toast::Warning);
             return;
         }
-
         QJsonObject obj;
-        obj["id_usuarios"] = id;
+        if (!edit) obj["id_usuarios"] = id;
         obj["id_roles"] = comboRol->currentData().toInt();
         obj["nombre"] = txtNombre->text().trimmed();
-        if (!txtApPaterno->text().trimmed().isEmpty()) obj["apellido_paterno"] = txtApPaterno->text().trimmed();
-        if (!txtApMaterno->text().trimmed().isEmpty()) obj["apellido_materno"] = txtApMaterno->text().trimmed();
-        if (!txtTelefono->text().trimmed().isEmpty()) obj["telefono"] = txtTelefono->text().trimmed().toLongLong();
-        obj["contrasena"] = txtPass->text();
+        obj["apellido_paterno"] = txtPat->text().trimmed();
+        obj["apellido_materno"] = txtMat->text().trimmed();
+        if (!txtTel->text().trimmed().isEmpty()) obj["telefono"] = txtTel->text().trimmed().toLongLong();
+        if (!txtPass->text().isEmpty()) obj["contrasena"] = txtPass->text();
 
-        ApiClient::instance()->crearUsuario(obj, [this, &dlg](bool success, const QJsonValue &, const QString &msg) {
-            if (success) {
-                Toast::showToast(this, "Usuario creado exitosamente", Toast::Success);
-                dlg.accept();
-                cargarUsuarios();
-            } else {
-                Toast::showToast(&dlg, "Error al crear: " + msg, Toast::Error);
+        auto done = [this, guard, edit](bool ok, const QJsonValue &, const QString &msg) {
+            if (!ok) {
+                Toast::showToast(guard ? guard.data() : static_cast<QWidget *>(this), "No se pudo guardar el usuario: " + msg, Toast::Error);
+                return;
             }
-        });
+            Toast::showToast(this, edit ? "Usuario actualizado correctamente" : "Usuario creado exitosamente", Toast::Success);
+            if (guard) guard->accept();
+            cargarUsuarios();
+        };
+        if (edit) ApiClient::instance()->actualizarUsuario(u->id_usuarios, obj, done);
+        else ApiClient::instance()->crearUsuario(obj, done);
     });
-
     dlg.exec();
 }
 
-void JefeUsuariosView::onEditarUsuario() {
-    int row = m_table->currentRow();
-    if (row < 0 || row >= m_usuarios.size()) {
-        Toast::showToast(this, "Selecciona un usuario para modificar", Toast::Warning);
-        return;
-    }
-
-    const UsuarioDto &u = m_usuarios.at(row);
-
-    QDialog dlg(this);
-    dlg.setWindowTitle(QString("Modificar Usuario #%1").arg(u.id_usuarios));
-    dlg.setFixedWidth(440);
-
-    auto *dlgLayout = new QVBoxLayout(&dlg);
-    auto *form = new QFormLayout();
-    form->setSpacing(10);
-
-    auto *comboRol = new QComboBox(&dlg);
-    comboRol->addItem("Jefe de Departamento", 1);
-    comboRol->addItem("Personal de Bodega", 2);
-    comboRol->addItem("Vendedor", 3);
-    comboRol->addItem("Gerente", 4);
-    int idx = comboRol->findData(u.id_roles);
-    if (idx >= 0) comboRol->setCurrentIndex(idx);
-
-    auto *txtNombre = new QLineEdit(u.nombre, &dlg);
-    auto *txtApPaterno = new QLineEdit(u.apellido_paterno, &dlg);
-    auto *txtApMaterno = new QLineEdit(u.apellido_materno, &dlg);
-    auto *txtTelefono = new QLineEdit(u.telefono > 0 ? QString::number(u.telefono) : "", &dlg);
-    auto *txtPass = new QLineEdit(&dlg);
-    txtPass->setPlaceholderText("Dejar vacío para mantener contraseña actual");
-    txtPass->setEchoMode(QLineEdit::Password);
-
-    form->addRow("Rol en el Sistema:", comboRol);
-    form->addRow("Nombre:", txtNombre);
-    form->addRow("Apellido Paterno:", txtApPaterno);
-    form->addRow("Apellido Materno:", txtApMaterno);
-    form->addRow("Teléfono:", txtTelefono);
-    form->addRow("Nueva Contraseña:", txtPass);
-    dlgLayout->addLayout(form);
-
-    auto *btnBox = new QHBoxLayout();
-    auto *btnGuardar = new QPushButton("Actualizar Datos", &dlg);
-    btnGuardar->setStyleSheet(Theme::buttonStyle());
-    auto *btnCancelar = new QPushButton("Cancelar", &dlg);
-    btnCancelar->setStyleSheet(Theme::secondaryButtonStyle());
-    btnBox->addWidget(btnGuardar);
-    btnBox->addWidget(btnCancelar);
-    dlgLayout->addLayout(btnBox);
-
-    connect(btnCancelar, &QPushButton::clicked, &dlg, &QDialog::reject);
-    connect(btnGuardar, &QPushButton::clicked, [&]() {
-        QJsonObject obj;
-        obj["id_roles"] = comboRol->currentData().toInt();
-        obj["nombre"] = txtNombre->text().trimmed();
-        obj["apellido_paterno"] = txtApPaterno->text().trimmed();
-        obj["apellido_materno"] = txtApMaterno->text().trimmed();
-        if (!txtTelefono->text().trimmed().isEmpty()) {
-            obj["telefono"] = txtTelefono->text().trimmed().toLongLong();
-        }
-        if (!txtPass->text().isEmpty()) {
-            obj["contrasena"] = txtPass->text();
-        }
-
-        ApiClient::instance()->actualizarUsuario(u.id_usuarios, obj, [this, &dlg](bool success, const QJsonValue &, const QString &msg) {
-            if (success) {
-                Toast::showToast(this, "Usuario actualizado correctamente", Toast::Success);
-                dlg.accept();
-                cargarUsuarios();
-            } else {
-                Toast::showToast(&dlg, "Error al actualizar: " + msg, Toast::Error);
-            }
-        });
-    });
-
-    dlg.exec();
-}
-
-void JefeUsuariosView::onEliminarUsuario() {
-    int row = m_table->currentRow();
-    if (row < 0 || row >= m_usuarios.size()) {
-        Toast::showToast(this, "Selecciona un usuario para dar de baja", Toast::Warning);
-        return;
-    }
-
-    const UsuarioDto &u = m_usuarios.at(row);
-
-    if (QMessageBox::question(this, "Confirmar Baja",
-        QString("¿Estás seguro de que deseas dar de baja al usuario %1 (%2)?").arg(u.nombreCompleto()).arg(u.id_usuarios),
-        QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
-        return;
-    }
-
+void JefeUsuariosView::darDeBaja(const UsuarioDto &u) {
+    if (!confirmDelete(QString("(dar de baja) al usuario %1 (%2)").arg(u.nombreCompleto()).arg(u.id_usuarios))) return;
     ApiClient::instance()->eliminarUsuario(u.id_usuarios, [this](bool ok, const QJsonValue &, const QString &msg) {
         if (ok) {
             Toast::showToast(this, "Usuario dado de baja exitosamente", Toast::Success);

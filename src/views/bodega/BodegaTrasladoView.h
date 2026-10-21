@@ -1,33 +1,18 @@
 #pragma once
 
-#include <QWidget>
-#include <QLineEdit>
-#include <QSpinBox>
-#include <QComboBox>
-#include <QPushButton>
-#include <QLabel>
-#include <QFrame>
+#include "RequisicionView.h"
 
-class BodegaTrasladoView : public QWidget {
+class BodegaTrasladoView : public RequisicionView {
     Q_OBJECT
 
 public:
-    explicit BodegaTrasladoView(QWidget *parent = nullptr);
+    explicit BodegaTrasladoView(QWidget *parent = nullptr)
+        : RequisicionView("Bodega · movimiento", "Requisición de Salida Bodega > Piso de Venta",
+                          "Registrar y Mandar a Piso", "Mercancía trasladada a Piso de Venta", parent) {}
 
-private slots:
-    void onEanChanged(const QString &text);
-    void onTrasladar();
-
-private:
-    QLineEdit *m_txtEan;
-    QLabel *m_lblEanStatus;
-    QSpinBox *m_spnCantidad;
-    QLineEdit *m_txtObs;
-    QPushButton *m_btnTrasladar;
-
-    // Result Card
-    QFrame *m_resCard;
-    QLabel *m_lblResMensaje;
-    QLabel *m_lblResBodega;
-    QLabel *m_lblResTienda;
+protected:
+    void trasladar(qint64 ean, const QString &tipo, int cantidad, ApiClient::ApiCallback cb) override {
+        if (tipo == "libro") ApiClient::instance()->trasladoBodegaLibros(ean, cantidad, QString(), cb);
+        else ApiClient::instance()->trasladoBodegaRevistas(ean, cantidad, QString(), cb);
+    }
 };

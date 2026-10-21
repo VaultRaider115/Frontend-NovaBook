@@ -7,12 +7,14 @@
 #include <QComboBox>
 #include <QPushButton>
 #include <QLabel>
-#include <QFrame>
+#include <QList>
+#include <QPair>
 #include "Models.h"
 
 struct ReturnItemDraft {
     qint64 ean = 0;
-    QString tipo = "Libro";
+    QString tipo = "libro";
+    QString nombre;
     int cantidad = 1;
     QString motivo;
 };
@@ -22,32 +24,34 @@ class VendedorDevolucionView : public QWidget {
 
 public:
     explicit VendedorDevolucionView(QWidget *parent = nullptr);
+    void cargarCatalogos();   // proveedores y motivos
 
 private slots:
     void onEanChanged(const QString &text);
     void onAgregarArticulo();
-    void onQuitarArticulo(int index);
     void onEnviarDevolucion();
     void onDescargarPdf();
 
 private:
+    void renderItems();
+    void actualizarProveedor();
+
     QComboBox *m_comboProveedor;
+    QLabel *m_lblRfc;
 
     QLineEdit *m_txtEan;
     QLabel *m_lblEanStatus;
     QSpinBox *m_spnCantidad;
-    QLineEdit *m_txtMotivo;
+    QComboBox *m_comboMotivo;
     QPushButton *m_btnAgregar;
 
     QTableWidget *m_tableItems;
+    QLabel *m_lblTotal;
+    QLabel *m_lblLote;
     QPushButton *m_btnEnviar;
-
-    // Result Card with PDF download
-    QFrame *m_resCard;
-    QLabel *m_lblResStatus;
-    QPushButton *m_btnDescargarPdf;
-    qint64 m_lastDevolucionId = 0;
-    QString m_lastTipo;
+    QPushButton *m_btnPdf;
 
     QList<ReturnItemDraft> m_items;
+    QList<ProveedorDto> m_proveedores;
+    QList<QPair<qint64, QString>> m_ultimas; // (id_devolucion, tipo) de la última solicitud registrada
 };

@@ -4,6 +4,8 @@ Cliente de escritorio nativo desarrollado en **C++ con Qt 6** para el sistema de
 
 ---
 
+> Interfaz rediseñada según el Figma “Proyecto S” (zinc + dorado `#D4A346`). Ver `CAMBIOS_FIGMA.md`.
+
 ## 🎨 Paleta de Colores Corporativa
 
 La aplicación aplica una interfaz en modo oscuro de alto contraste:

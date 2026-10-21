@@ -44,6 +44,21 @@ public:
 
     // --- Catálogo de Géneros ---
     void listarGeneros(ApiCallback cb);
+    void crearGenero(const QJsonObject &obj, ApiCallback cb);
+    void actualizarGenero(int id, const QJsonObject &obj, ApiCallback cb);
+    void eliminarGenero(int id, ApiCallback cb);
+
+    // --- Catálogo de Motivos de devolución (Jefe / Gerente) ---
+    void listarMotivos(ApiCallback cb);
+    void crearMotivo(const QJsonObject &obj, ApiCallback cb);
+    void actualizarMotivo(int id, const QJsonObject &obj, ApiCallback cb);
+    void eliminarMotivo(int id, ApiCallback cb);
+
+    // --- Catálogo de Muebles y estantería (Jefe / Gerente) ---
+    void listarMuebles(ApiCallback cb);
+    void crearMueble(const QJsonObject &obj, ApiCallback cb);
+    void actualizarMueble(int id, const QJsonObject &obj, ApiCallback cb);
+    void eliminarMueble(int id, ApiCallback cb);
 
     // --- CRUD Autores (Bodega / Gerente) ---
     void listarAutores(ApiCallback cb);

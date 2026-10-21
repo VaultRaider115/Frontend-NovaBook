@@ -1,28 +1,23 @@
 #pragma once
 
-#include <QWidget>
-#include <QTableWidget>
-#include <QPushButton>
-#include <QLabel>
+#include "CatalogView.h"
 #include "Models.h"
 
-class JefeUsuariosView : public QWidget {
+class JefeUsuariosView : public CatalogView {
     Q_OBJECT
 
 public:
     explicit JefeUsuariosView(QWidget *parent = nullptr);
     void cargarUsuarios();
 
-private slots:
-    void onCrearUsuario();
-    void onEditarUsuario();
-    void onEliminarUsuario();
+protected:
+    void onNew() override { abrirFormulario(nullptr); }
 
 private:
-    QPushButton *m_btnNuevo;
-    QPushButton *m_btnEditar;
-    QPushButton *m_btnEliminar;
-    QPushButton *m_btnRecargar;
-    QTableWidget *m_table;
+    void abrirFormulario(const UsuarioDto *existente);
+    void darDeBaja(const UsuarioDto &u);
+
     QList<UsuarioDto> m_usuarios;
+    int m_filtroEstado = 0; // 0 todos, 1 activos, 2 inactivos
+    QList<QPushButton *> m_segmentos;
 };

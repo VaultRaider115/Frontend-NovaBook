@@ -88,6 +88,7 @@ No mezclar ni exponer vistas entre roles no autorizados:
 - **Script de Pruebas E2E (`api_migrado/test_e2e.sh`)**: Suite automatizada con curl que verifica todos los endpoints REST y transacciones atómicas en MySQL para los 4 roles.
 
 ### 🔄 Modificado (Changed)
+- **Esquema de Base de Datos (Integración Clientes y Proveedores)**: Actualización del contrato de datos incorporando la entidad formal `clientes` (`id_cliente`, `nombre`, `direccion`, etc.) con clave foránea `FK_VENTAS_CLIENTE` en la cabecera de ventas, soporte para compras de múltiples artículos ($N$ libros y $N$ revistas) en `detalle_ventas`, y enriquecimiento de la entidad `proveedor` con `direccion` y su respectivo `id_proveedor`.
 - **`BodegaRegistroView.cpp` (Bodega - Registro de Mercancía)**: Refactorizado para utilizar el motor centralizado `EanClassifier::clasificar(text)` eliminando código duplicado y manteniendo el comportamiento de referencia para libros (ISBN) y revistas (ISSN).
 - **`BodegaTrasladoView.*` (Bodega - Requisición Bodega ➔ Tienda)**: Eliminado el menú desplegable manual `m_comboTipo`. La distinción entre Libro y Revista se determina de forma 100% automática a partir del código EAN (prefijo 978/979 vs 977) al procesar la requisición.
 - **`BodegaComprasView.*` (Bodega - Compras a Proveedor)**: Eliminado el selector manual de tipo `m_comboTipo` en la barra de adición de piezas; el tipo se clasifica e ingresa a la orden automáticamente según el EAN analizado.

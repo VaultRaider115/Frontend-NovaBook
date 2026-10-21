@@ -22,7 +22,6 @@ private slots:
 private:
     QLineEdit *m_txtUsuario;
     QLineEdit *m_txtPassword;
-    QLineEdit *m_txtServerUrl;
     QLabel *m_lblError;
     QPushButton *m_btnLogin;
 

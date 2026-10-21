@@ -1,6 +1,7 @@
 #include "JefeDashboardView.h"
 #include "StatCard.h"
 #include "Theme.h"
+#include "Ui.h"
 #include "ApiClient.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -15,13 +16,8 @@ JefeDashboardView::JefeDashboardView(QWidget *parent)
     layout->setSpacing(24);
 
     // Header
-    auto *title = new QLabel("Panel de Control — Jefe de Departamento", this);
-    title->setStyleSheet(QString("font-size: 22px; font-weight: bold; color: %1;").arg(Theme::TextPrimary));
-    auto *subtitle = new QLabel("Supervisión global de operaciones, autorizaciones y usuarios de Librería NovaBook", this);
-    subtitle->setStyleSheet(QString("font-size: 13px; color: %1;").arg(Theme::TextMuted));
+    layout->addWidget(Ui::pageHeader("Jefatura · Panel", "Panel de Control — Jefe de Departamento", "Supervisión global de operaciones, autorizaciones y usuarios de Librería NovaBook", this));
 
-    layout->addWidget(title);
-    layout->addWidget(subtitle);
 
     // Metrics Row
     auto *cardsLayout = new QHBoxLayout();
@@ -37,15 +33,7 @@ JefeDashboardView::JefeDashboardView(QWidget *parent)
     layout->addLayout(cardsLayout);
 
     // Information Banner / Summary Card
-    auto *infoCard = new QFrame(this);
-    infoCard->setStyleSheet(QString(R"(
-        QFrame {
-            background-color: %1;
-            border: 1px solid %2;
-            border-radius: 8px;
-            padding: 20px;
-        }
-    )").arg(Theme::BgCard).arg(Theme::Border));
+    auto *infoCard = Ui::card(this);
 
     auto *infoLayout = new QVBoxLayout(infoCard);
     infoLayout->setSpacing(12);

@@ -13,6 +13,9 @@ struct UsuarioDto {
     QString apellido_paterno;
     QString apellido_materno;
     qint64 telefono = 0;
+    QString estatus;   // vacío: la API no lo informa (se considera activo)
+
+    bool activo() const { return estatus.isEmpty() || estatus.compare("activo", Qt::CaseInsensitive) == 0; }
 
     QString nombreCompleto() const {
         QString full = nombre;
@@ -30,6 +33,7 @@ struct UsuarioDto {
         u.apellido_paterno = obj.value("apellido_paterno").toString();
         u.apellido_materno = obj.value("apellido_materno").toString();
         u.telefono = obj.value("telefono").toVariant().toLongLong();
+        u.estatus = obj.value("estatus").toString(obj.value("estado").toString());
         return u;
     }
 };
@@ -55,11 +59,15 @@ struct LoginResponse {
 struct GeneroDto {
     int id_genero = 0;
     QString genero_literario;
+    int total_libros = -1;    // -1: la API no lo informa
+    int total_revistas = -1;
 
     static GeneroDto fromJson(const QJsonObject &obj) {
         GeneroDto g;
         g.id_genero = obj.value("id_genero").toInt();
         g.genero_literario = obj.value("genero_literario").toString();
+        if (obj.contains("total_libros")) g.total_libros = obj.value("total_libros").toInt();
+        if (obj.contains("total_revistas")) g.total_revistas = obj.value("total_revistas").toInt();
         return g;
     }
 };
@@ -70,6 +78,8 @@ struct AutorDto {
     QString apellidos;
     QString nacionalidad;
     QString biografia;
+    int total_libros = -1;   // -1: la API no lo informa
+    QString estatus;         // vacío: la API no lo informa
 
     QString nombreCompleto() const {
         return QString("%1 %2").arg(nombre, apellidos).trimmed();
@@ -82,6 +92,12 @@ struct AutorDto {
         a.apellidos = obj.value("apellidos").toString();
         a.nacionalidad = obj.value("nacionalidad").toString();
         a.biografia = obj.value("biografia").toString();
+        for (const char *k : {"total_libros", "titulos_asociados", "libros"}) {
+            const QJsonValue v = obj.value(k);
+            if (v.isDouble()) { a.total_libros = v.toInt(); break; }
+            if (v.isArray()) { a.total_libros = v.toArray().size(); break; }
+        }
+        a.estatus = obj.value("estatus").toString(obj.value("estado").toString());
         return a;
     }
 };
@@ -361,5 +377,43 @@ struct ResumenMovimientoDiario {
             r.movimientos.append(MovimientoDiarioItem::fromJson(val.toObject()));
         }
         return r;
+    }
+};
+
+struct MotivoDto {
+    int id_motivo = 0;
+    QString nombre;
+    QString descripcion;
+
+    static MotivoDto fromJson(const QJsonObject &obj) {
+        MotivoDto m;
+        m.id_motivo = obj.value("id_motivo").toInt();
+        m.nombre = obj.value("nombre_motivo").toString(obj.value("motivo").toString(obj.value("nombre").toString()));
+        m.descripcion = obj.value("descripcion").toString();
+        return m;
+    }
+};
+
+struct MuebleDto {
+    int id_mueble = 0;
+    QString codigo;
+    QString nombre;
+    QString area;            // "Piso de Venta" | "Bodega"
+    QString genero_asignado;
+    int capacidad_actual = 0;
+    int capacidad_maxima = 0;
+    QString descripcion;
+
+    static MuebleDto fromJson(const QJsonObject &obj) {
+        MuebleDto m;
+        m.id_mueble = obj.value("id_mueble").toInt();
+        m.codigo = obj.value("codigo").toString(obj.value("codigo_mueble").toString());
+        m.nombre = obj.value("nombre_mueble").toString(obj.value("nombre").toString());
+        m.area = obj.value("area").toString(obj.value("ubicacion").toString());
+        m.genero_asignado = obj.value("genero_asignado").toString(obj.value("genero").toString());
+        m.capacidad_actual = obj.value("capacidad_actual").toInt(obj.value("piezas_actuales").toInt());
+        m.capacidad_maxima = obj.value("capacidad_maxima").toInt();
+        m.descripcion = obj.value("descripcion").toString();
+        return m;
     }
 };

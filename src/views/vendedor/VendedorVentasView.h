@@ -6,6 +6,7 @@
 #include <QSpinBox>
 #include <QComboBox>
 #include <QPushButton>
+#include <QList>
 #include <QLabel>
 #include "Models.h"
 
@@ -35,6 +36,9 @@ private:
     void recalcularTotales();
 
     QLineEdit *m_txtCliente;
+    QLabel *m_lblFecha;
+    QList<QPushButton *> m_btnsPago;
+    QString m_metodoPago = "Efectivo";
     QLineEdit *m_txtEan;
     QLabel *m_lblEanStatus;
     QSpinBox *m_spnCantidad;

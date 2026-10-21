@@ -222,6 +222,54 @@ void ApiClient::listarGeneros(ApiCallback cb) {
     sendRequest("GET", "/api/generos", QUrlQuery(), QByteArray(), cb);
 }
 
+void ApiClient::crearGenero(const QJsonObject &obj, ApiCallback cb) {
+    sendRequest("POST", "/api/generos", QUrlQuery(), QJsonDocument(obj).toJson(), cb);
+}
+
+void ApiClient::actualizarGenero(int id, const QJsonObject &obj, ApiCallback cb) {
+    sendRequest("PUT", QString("/api/generos/%1").arg(id), QUrlQuery(), QJsonDocument(obj).toJson(), cb);
+}
+
+void ApiClient::eliminarGenero(int id, ApiCallback cb) {
+    sendRequest("DELETE", QString("/api/generos/%1").arg(id), QUrlQuery(), QByteArray(), cb);
+}
+
+// --- Catálogo de Motivos ---
+
+void ApiClient::listarMotivos(ApiCallback cb) {
+    sendRequest("GET", "/api/motivos", QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::crearMotivo(const QJsonObject &obj, ApiCallback cb) {
+    sendRequest("POST", "/api/motivos", QUrlQuery(), QJsonDocument(obj).toJson(), cb);
+}
+
+void ApiClient::actualizarMotivo(int id, const QJsonObject &obj, ApiCallback cb) {
+    sendRequest("PUT", QString("/api/motivos/%1").arg(id), QUrlQuery(), QJsonDocument(obj).toJson(), cb);
+}
+
+void ApiClient::eliminarMotivo(int id, ApiCallback cb) {
+    sendRequest("DELETE", QString("/api/motivos/%1").arg(id), QUrlQuery(), QByteArray(), cb);
+}
+
+// --- Catálogo de Muebles ---
+
+void ApiClient::listarMuebles(ApiCallback cb) {
+    sendRequest("GET", "/api/muebles", QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::crearMueble(const QJsonObject &obj, ApiCallback cb) {
+    sendRequest("POST", "/api/muebles", QUrlQuery(), QJsonDocument(obj).toJson(), cb);
+}
+
+void ApiClient::actualizarMueble(int id, const QJsonObject &obj, ApiCallback cb) {
+    sendRequest("PUT", QString("/api/muebles/%1").arg(id), QUrlQuery(), QJsonDocument(obj).toJson(), cb);
+}
+
+void ApiClient::eliminarMueble(int id, ApiCallback cb) {
+    sendRequest("DELETE", QString("/api/muebles/%1").arg(id), QUrlQuery(), QByteArray(), cb);
+}
+
 // --- CRUD Autores ---
 
 void ApiClient::listarAutores(ApiCallback cb) {

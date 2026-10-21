@@ -9,133 +9,127 @@
 #include <QDialog>
 #include <QMessageBox>
 #include <QFrame>
+#include <QTimer>
+#include <QDateTime>
+#include <QLocale>
+#include <QIcon>
+#include "Ui.h"
 
 VendedorVentasView::VendedorVentasView(QWidget *parent)
     : QWidget(parent)
 {
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(32, 28, 32, 28);
+    layout->setContentsMargins(40, 32, 40, 32);
     layout->setSpacing(18);
+    layout->addWidget(Ui::pageHeader("Vendedor · Caja registradora", "Punto de Venta — Registro de Venta en Mostrador", "", this));
 
-    auto *title = new QLabel("Punto de Venta — Baja por Venta", this);
-    title->setStyleSheet(QString("font-size: 22px; font-weight: bold; color: %1;").arg(Theme::TextPrimary));
-    layout->addWidget(title);
-
-    // Cliente Obligatorio Bar
-    auto *clienteCard = new QFrame(this);
-    clienteCard->setStyleSheet(QString(R"(
-        QFrame {
-            background-color: %1;
-            border: 1px solid %2;
-            border-radius: 8px;
-            padding: 12px;
-        }
-    )").arg(Theme::BgCard).arg(Theme::Border));
-
-    auto *clienteLayout = new QHBoxLayout(clienteCard);
-    clienteLayout->setSpacing(12);
-
-    auto *lblCliente = new QLabel("Nombre del Cliente (Obligatorio):", clienteCard);
-    lblCliente->setStyleSheet(QString("font-weight: bold; color: %1; font-size: 13px;").arg(Theme::Accent));
-    clienteLayout->addWidget(lblCliente);
-
+    // Cliente + fecha/hora en vivo
+    auto *clienteCard = Ui::card(this);
+    auto *cl = new QHBoxLayout(clienteCard);
+    cl->setContentsMargins(20, 20, 20, 20);
+    cl->setSpacing(20);
     m_txtCliente = new QLineEdit(clienteCard);
-    m_txtCliente->setPlaceholderText("Ingresa el nombre completo del cliente que adquiere la mercancía...");
-    clienteLayout->addWidget(m_txtCliente, 1);
+    m_txtCliente->setPlaceholderText("Ej. Ignacio Zaragoza Seguín");
+    auto *lblCliente = Ui::label("Nombre del Cliente", "Gold", clienteCard);
+    lblCliente->setStyleSheet("font-weight: 600;");
+    auto *clienteBox = new QWidget(clienteCard);
+    auto *clienteLay = new QVBoxLayout(clienteBox);
+    clienteLay->setContentsMargins(0, 0, 0, 0);
+    clienteLay->setSpacing(8);
+    clienteLay->addWidget(lblCliente);
+    clienteLay->addWidget(m_txtCliente);
+    cl->addWidget(clienteBox, 1);
 
+    m_lblFecha = new QLabel(clienteCard);
+    m_lblFecha->setObjectName("Hint");
+    cl->addWidget(m_lblFecha, 0, Qt::AlignBottom);
     layout->addWidget(clienteCard);
 
-    // Scan / Add item bar
-    auto *addCard = new QFrame(this);
-    addCard->setStyleSheet(QString(R"(
-        QFrame {
-            background-color: %1;
-            border: 1px solid %2;
-            border-radius: 8px;
-            padding: 14px;
-        }
-    )").arg(Theme::BgCard).arg(Theme::Border));
+    auto *tick = new QTimer(this);
+    auto actualizarHora = [this]() {
+        m_lblFecha->setText(QLocale(QLocale::Spanish).toString(QDateTime::currentDateTime(), "d 'de' MMMM, yyyy. HH:mm:ss"));
+    };
+    connect(tick, &QTimer::timeout, this, actualizarHora);
+    actualizarHora();
+    tick->start(1000);
 
+    // Escaneo / alta al carrito
+    auto *addCard = Ui::card(this);
     auto *cardLayout = new QVBoxLayout(addCard);
-    cardLayout->setSpacing(8);
-
+    cardLayout->setContentsMargins(20, 20, 20, 20);
+    cardLayout->setSpacing(10);
     auto *addLayout = new QHBoxLayout();
-    addLayout->setSpacing(12);
+    addLayout->setSpacing(16);
 
     m_txtEan = new QLineEdit(addCard);
-    m_txtEan->setPlaceholderText("Escanear o ingresar EAN (13 dígitos)...");
-    addLayout->addWidget(m_txtEan, 2);
-
-    auto *lblCant = new QLabel("Cant:", addCard);
-    lblCant->setStyleSheet(QString("font-weight: bold; color: %1;").arg(Theme::TextMuted));
-    addLayout->addWidget(lblCant);
+    m_txtEan->setPlaceholderText("Escriba el código de barras");
+    m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
+    addLayout->addWidget(Ui::field("Código EAN-13 / ISSN-13", m_txtEan, addCard), 1);
 
     m_spnCantidad = new QSpinBox(addCard);
     m_spnCantidad->setRange(1, 999);
     m_spnCantidad->setValue(1);
-    m_spnCantidad->setFixedWidth(70);
-    addLayout->addWidget(m_spnCantidad);
+    addLayout->addWidget(Ui::field("Cantidad", Ui::stepper(m_spnCantidad, addCard), addCard));
 
-    m_btnAgregar = new QPushButton("＋ Añadir al Carrito", addCard);
-    m_btnAgregar->setStyleSheet(Theme::buttonStyle(Theme::Role3, Theme::BgDark, "#A5D67D"));
-    addLayout->addWidget(m_btnAgregar);
-
+    m_btnAgregar = Ui::button("Añadir al Carrito", "tint", addCard, "plus-gold");
+    m_btnAgregar->setStyleSheet("QPushButton { padding: 13px 24px; }");
+    addLayout->addWidget(m_btnAgregar, 0, Qt::AlignBottom);
     cardLayout->addLayout(addLayout);
 
     m_lblEanStatus = new QLabel("Ingresa el código EAN-13 para clasificar automáticamente como Libro o Revista", addCard);
-    m_lblEanStatus->setStyleSheet(QString("font-size: 12px; color: %1;").arg(Theme::TextMuted));
+    m_lblEanStatus->setObjectName("Muted");
     cardLayout->addWidget(m_lblEanStatus);
-
     layout->addWidget(addCard);
 
-    // Cart Table
-    m_tableCart = new QTableWidget(this);
-    m_tableCart->setColumnCount(6);
-    m_tableCart->setHorizontalHeaderLabels({"EAN", "Tipo", "Descripción", "Cantidad", "Precio Unit.", "Acción"});
-    m_tableCart->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    m_tableCart->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    m_tableCart->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
-    m_tableCart->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
-    m_tableCart->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
-    m_tableCart->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
-    m_tableCart->verticalHeader()->setVisible(false);
-    m_tableCart->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_tableCart->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    layout->addWidget(m_tableCart);
+    // Carrito
+    m_tableCart = Ui::table({"EAN", "Tipo", "Título / Descripción", "Cantidad", "Precio unit.", "Subtotal", "Acción"}, 2, this, 60);
+    layout->addWidget(m_tableCart, 1);
 
-    // Bottom Summary and Checkout
-    auto *bottomCard = new QFrame(this);
-    bottomCard->setStyleSheet(QString(R"(
-        QFrame {
-            background-color: %1;
-            border: 1px solid %2;
-            border-radius: 8px;
-            padding: 16px;
-        }
-    )").arg(Theme::BgCard).arg(Theme::Border));
+    // Resumen: método de pago, vaciar, artículos totales
+    auto *summary = Ui::card(this);
+    auto *sl = new QVBoxLayout(summary);
+    sl->setContentsMargins(20, 20, 20, 20);
+    sl->setSpacing(16);
 
-    auto *bottomLayout = new QHBoxLayout(bottomCard);
-    bottomLayout->setSpacing(20);
+    auto *payRow = new QHBoxLayout();
+    payRow->setSpacing(8);
+    payRow->addWidget(Ui::label("Método de pago", "FieldLabel", summary));
+    for (const QString &metodo : {"Efectivo", "Tarjeta", "Transferencia"}) {
+        auto *b = Ui::button(metodo, "pay", summary);
+        Ui::setCurrent(b, metodo == m_metodoPago);
+        connect(b, &QPushButton::clicked, this, [this, metodo]() {
+            m_metodoPago = metodo;
+            for (auto *x : std::as_const(m_btnsPago)) Ui::setCurrent(x, x->text() == metodo);
+        });
+        m_btnsPago << b;
+        payRow->addWidget(b);
+    }
+    payRow->addStretch();
+    m_btnVaciar = Ui::button("Vaciar carrito", "ghost", summary, "trash");
+    payRow->addWidget(m_btnVaciar);
+    m_lblTotalArticulos = new QLabel("Artículos totales: 0", summary);
+    m_lblTotalArticulos->setObjectName("Hint");
+    payRow->addWidget(m_lblTotalArticulos);
+    sl->addLayout(payRow);
 
-    m_btnVaciar = new QPushButton("Vaciar Carrito", bottomCard);
-    m_btnVaciar->setStyleSheet(Theme::secondaryButtonStyle());
-    bottomLayout->addWidget(m_btnVaciar);
+    auto *totalRow = new QHBoxLayout();
+    totalRow->setSpacing(16);
+    auto *totalBox = new QFrame(summary);
+    totalBox->setObjectName("Highlight");
+    auto *tbl = new QHBoxLayout(totalBox);
+    tbl->setContentsMargins(24, 16, 24, 16);
+    tbl->addWidget(Ui::label("Total a cobrar", "Muted", totalBox));
+    tbl->addStretch();
+    m_lblTotalPagar = new QLabel("$0.00", totalBox);
+    m_lblTotalPagar->setStyleSheet(QString("font-size: 44px; font-weight: 700; color: %1;").arg(Theme::Accent));
+    tbl->addWidget(m_lblTotalPagar);
+    totalRow->addWidget(totalBox, 1);
 
-    bottomLayout->addStretch();
-
-    m_lblTotalArticulos = new QLabel("Artículos: 0", bottomCard);
-    m_lblTotalArticulos->setStyleSheet(QString("font-size: 14px; font-weight: bold; color: %1;").arg(Theme::TextMuted));
-    bottomLayout->addWidget(m_lblTotalArticulos);
-
-    m_lblTotalPagar = new QLabel("Total a Cobrar: $ 0.00", bottomCard);
-    m_lblTotalPagar->setStyleSheet(QString("font-size: 18px; font-weight: bold; color: %1;").arg(Theme::Accent));
-    bottomLayout->addWidget(m_lblTotalPagar);
-
-    m_btnProcesar = new QPushButton("✔ Procesar y Cobrar Venta", bottomCard);
-    m_btnProcesar->setStyleSheet(Theme::buttonStyle(Theme::Success, Theme::BgDark, "#72D4A0"));
-    bottomLayout->addWidget(m_btnProcesar);
-
-    layout->addWidget(bottomCard);
+    m_btnProcesar = Ui::button("Procesar Venta e Imprimir Ticket", "primary", summary);
+    m_btnProcesar->setStyleSheet("QPushButton { padding: 26px 32px; font-size: 18px; font-weight: 700; }");
+    totalRow->addWidget(m_btnProcesar, 1);
+    sl->addLayout(totalRow);
+    layout->addWidget(summary);
 
     connect(m_txtEan, &QLineEdit::textChanged, this, &VendedorVentasView::onEanChanged);
     connect(m_btnAgregar, &QPushButton::clicked, this, &VendedorVentasView::onAgregarAlCarrito);
@@ -214,6 +208,7 @@ void VendedorVentasView::limpiarCarrito() {
 }
 
 void VendedorVentasView::recalcularTotales() {
+    m_tableCart->clearContents();
     m_tableCart->setRowCount(m_cart.size());
 
     int totalPiezas = 0;
@@ -224,22 +219,20 @@ void VendedorVentasView::recalcularTotales() {
         totalPiezas += item.cantidad;
         totalDinero += item.subtotal;
 
-        m_tableCart->setItem(i, 0, new QTableWidgetItem(QString::number(item.ean)));
-        m_tableCart->setItem(i, 1, new QTableWidgetItem(item.tipo.toUpper()));
-        m_tableCart->setItem(i, 2, new QTableWidgetItem(item.nombre));
-        m_tableCart->setItem(i, 3, new QTableWidgetItem(QString::number(item.cantidad)));
-        m_tableCart->setItem(i, 4, new QTableWidgetItem(item.precio > 0 ? QString("$ %1").arg(QString::number(item.precio, 'f', 2)) : "Al cobrar"));
+        Ui::cellText(m_tableCart, i, 0, QString::number(item.ean), true);
+        Ui::cellWidget(m_tableCart, i, 1, Ui::tipoChip(item.tipo));
+        Ui::cellText(m_tableCart, i, 2, item.nombre, false, true);
+        Ui::cellText(m_tableCart, i, 3, QString("%1 %2").arg(item.cantidad).arg(item.cantidad == 1 ? "pza" : "pzas"));
+        Ui::cellText(m_tableCart, i, 4, item.precio > 0 ? Ui::money(item.precio) : "Al cobrar", false, false, Theme::TextMuted);
+        Ui::cellText(m_tableCart, i, 5, item.precio > 0 ? Ui::money(item.subtotal) : "—", false, true);
 
-        auto *btnQuitar = new QPushButton("✖ Quitar", this);
-        btnQuitar->setStyleSheet(Theme::dangerButtonStyle());
-        connect(btnQuitar, &QPushButton::clicked, this, [this, i]() {
-            onQuitarFila(i);
-        });
-        m_tableCart->setCellWidget(i, 5, btnQuitar);
+        auto *btnQuitar = Ui::iconButton("trash", "Quitar del carrito");
+        connect(btnQuitar, &QPushButton::clicked, this, [this, i]() { onQuitarFila(i); });
+        Ui::cellWidget(m_tableCart, i, 6, btnQuitar);
     }
 
-    m_lblTotalArticulos->setText(QString("Artículos: %1").arg(totalPiezas));
-    m_lblTotalPagar->setText(QString("Total a Cobrar: $ %1").arg(QString::number(totalDinero, 'f', 2)));
+    m_lblTotalArticulos->setText(QString("Artículos totales: %1").arg(totalPiezas));
+    m_lblTotalPagar->setText(Ui::money(totalDinero));
 }
 
 void VendedorVentasView::onProcesarVenta() {
@@ -286,11 +279,12 @@ void VendedorVentasView::onProcesarVenta() {
             "<p style='color: %2; margin:2px;'>Ticket de Venta #%3</p>"
             "<p style='color: %2; margin:2px;'>Fecha: %4</p>"
             "<p style='color: %1; font-weight: bold; margin:4px;'>Cliente: %5</p>"
-            "</div><hr style='border: 1px solid #2A2A2A;'>"
-        ).arg(Theme::Accent).arg(Theme::TextMuted).arg(vr.id_venta).arg(vr.fecha_hora).arg(vr.cliente), &dlg);
+            "<p style='color: %2; margin:2px;'>Pago: %6</p>"
+            "</div><hr style='border: 1px solid #27272A;'>"
+        ).arg(Theme::Accent).arg(Theme::TextMuted).arg(vr.id_venta).arg(vr.fecha_hora).arg(vr.cliente).arg(m_metodoPago), &dlg);
         dlgLayout->addWidget(lblHeader);
 
-        QString detailHtml = "<table width='100%' style='color: #F0EDE8; font-size: 12px;'>";
+        QString detailHtml = "<table width='100%' style='color: #FAFAFA; font-size: 12px;'>";
         detailHtml += "<tr><th align='left'>Cant</th><th align='left'>Producto</th><th align='right'>Subtotal</th></tr>";
         for (const auto &it : vr.items) {
             detailHtml += QString("<tr><td>%1x</td><td>%2</td><td align='right'>$ %3</td></tr>")
@@ -298,7 +292,7 @@ void VendedorVentasView::onProcesarVenta() {
                 .arg(it.nombre_producto)
                 .arg(QString::number(it.subtotal, 'f', 2));
         }
-        detailHtml += "</table><hr style='border: 1px solid #2A2A2A;'>";
+        detailHtml += "</table><hr style='border: 1px solid #27272A;'>";
         detailHtml += QString("<h3 align='right' style='color: %1; margin: 4px;'>TOTAL PAGADO: $ %2</h3>")
             .arg(Theme::Success)
             .arg(QString::number(vr.total, 'f', 2));
@@ -306,8 +300,7 @@ void VendedorVentasView::onProcesarVenta() {
         auto *lblDetails = new QLabel(detailHtml, &dlg);
         dlgLayout->addWidget(lblDetails);
 
-        auto *btnCerrar = new QPushButton("Aceptar y Nueva Venta", &dlg);
-        btnCerrar->setStyleSheet(Theme::buttonStyle(Theme::Success, Theme::BgDark, "#72D4A0"));
+        auto *btnCerrar = Ui::button("Aceptar y Nueva Venta", "primary", &dlg);
         connect(btnCerrar, &QPushButton::clicked, &dlg, &QDialog::accept);
         dlgLayout->addWidget(btnCerrar);
 

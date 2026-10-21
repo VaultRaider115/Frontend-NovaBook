@@ -7,65 +7,47 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include "Ui.h"
 
 VendedorConsultaView::VendedorConsultaView(QWidget *parent)
     : QWidget(parent)
 {
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(32, 28, 32, 28);
+    layout->setContentsMargins(40, 32, 40, 32);
     layout->setSpacing(20);
+    layout->addWidget(Ui::pageHeader("Sanborns · Librería · Inventario", "Consulta de Existencias y Disponibilidad",
+                                     "Consulta el stock en piso de venta y bodega de libros y revistas por título, autor, EAN o SKU.", this));
 
-    auto *title = new QLabel("Consulta de Existencias y Disponibilidad", this);
-    title->setStyleSheet(QString("font-size: 22px; font-weight: bold; color: %1;").arg(Theme::TextPrimary));
-    layout->addWidget(title);
-
-    // Toolbar
-    auto *toolbar = new QHBoxLayout();
+    auto *filters = Ui::card(this);
+    auto *toolbar = new QHBoxLayout(filters);
+    toolbar->setContentsMargins(16, 16, 16, 16);
     toolbar->setSpacing(12);
 
-    m_txtBuscar = new QLineEdit(this);
-    m_txtBuscar->setPlaceholderText("Buscar por título, autor, código EAN o SKU...");
+    m_txtBuscar = Ui::searchBox("Buscar por título, autor, EAN o SKU...", filters);
     toolbar->addWidget(m_txtBuscar, 2);
 
-    m_comboTipo = new QComboBox(this);
+    m_comboTipo = new QComboBox(filters);
     m_comboTipo->addItem("Todos los Tipos", "");
     m_comboTipo->addItem("Libros", "libro");
     m_comboTipo->addItem("Revistas", "revista");
+    m_comboTipo->setMinimumWidth(190);
     toolbar->addWidget(m_comboTipo);
 
-    m_comboUbicacion = new QComboBox(this);
+    m_comboUbicacion = new QComboBox(filters);
     m_comboUbicacion->addItem("Toda la Sucursal", 0);
     m_comboUbicacion->addItem("Solo Piso de Tienda", 1);
     m_comboUbicacion->addItem("Solo Almacén / Bodega", 2);
+    m_comboUbicacion->setMinimumWidth(210);
     toolbar->addWidget(m_comboUbicacion);
 
-    m_btnBuscar = new QPushButton("Buscar", this);
-    m_btnBuscar->setStyleSheet(Theme::buttonStyle(Theme::Role3, Theme::BgDark, "#A5D67D"));
+    m_btnBuscar = Ui::button("Buscar", "primary", filters);
     toolbar->addWidget(m_btnBuscar);
-
-    m_btnLimpiar = new QPushButton("Restablecer", this);
-    m_btnLimpiar->setStyleSheet(Theme::secondaryButtonStyle());
+    m_btnLimpiar = Ui::button("Restablecer filtros", "outline", filters);
     toolbar->addWidget(m_btnLimpiar);
+    layout->addWidget(filters);
 
-    layout->addLayout(toolbar);
-
-    // Table
-    m_table = new QTableWidget(this);
-    m_table->setColumnCount(9);
-    m_table->setHorizontalHeaderLabels({"EAN", "SKU", "Título", "Tipo", "Autor / Editorial", "Géneros", "Stock Tienda", "Stock Bodega", "Precio"});
-    m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
-    m_table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(6, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(7, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(8, QHeaderView::ResizeToContents);
-    m_table->verticalHeader()->setVisible(false);
-    m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    layout->addWidget(m_table);
+    m_table = Ui::table({"EAN", "SKU", "Título", "Tipo", "Autor / Editorial", "Géneros / Categoría", "Stock Tienda", "Stock Bodega", "Precio"}, 2, this, 64);
+    layout->addWidget(m_table, 1);
 
     connect(m_btnBuscar, &QPushButton::clicked, this, &VendedorConsultaView::buscarExistencias);
     connect(m_txtBuscar, &QLineEdit::returnPressed, this, &VendedorConsultaView::buscarExistencias);
@@ -91,26 +73,30 @@ void VendedorConsultaView::buscarExistencias() {
         }
 
         QJsonArray arr = data.toArray();
+        m_table->clearContents();
         m_table->setRowCount(arr.size());
 
         for (int i = 0; i < arr.size(); ++i) {
             ExistenciaInventario ex = ExistenciaInventario::fromJson(arr.at(i).toObject());
-            m_table->setItem(i, 0, new QTableWidgetItem(QString::number(ex.codigo_ean)));
-            m_table->setItem(i, 1, new QTableWidgetItem(ex.sku > 0 ? QString::number(ex.sku) : "-"));
-            m_table->setItem(i, 2, new QTableWidgetItem(ex.titulo));
-            m_table->setItem(i, 3, new QTableWidgetItem(ex.tipo_producto));
-            m_table->setItem(i, 4, new QTableWidgetItem(ex.autor_o_editorial.isEmpty() ? "-" : ex.autor_o_editorial));
-            m_table->setItem(i, 5, new QTableWidgetItem(ex.generos.isEmpty() ? "General" : ex.generos));
+            Ui::cellText(m_table, i, 0, QString::number(ex.codigo_ean), true);
+            Ui::cellText(m_table, i, 1, ex.sku > 0 ? QString::number(ex.sku) : "—", true);
+            Ui::cellText(m_table, i, 2, ex.titulo, false, true);
+            Ui::cellWidget(m_table, i, 3, Ui::tipoChip(ex.tipo_producto));
+            Ui::cellText(m_table, i, 4, ex.autor_o_editorial.isEmpty() ? "—" : ex.autor_o_editorial);
 
-            auto *itemTienda = new QTableWidgetItem(QString::number(ex.stock_tienda));
-            itemTienda->setForeground(QColor(Theme::Role3));
-            m_table->setItem(i, 6, itemTienda);
+            QList<QWidget *> generos;
+            const QStringList lista = ex.generos.split(',', Qt::SkipEmptyParts);
+            for (const QString &g : lista) generos << Ui::chip(g.trimmed(), "neutral");
+            if (generos.isEmpty()) generos << Ui::chip("General", "neutral");
+            Ui::cellWidgets(m_table, i, 5, generos);
 
-            auto *itemBodega = new QTableWidgetItem(QString::number(ex.stock_bodega));
-            itemBodega->setForeground(QColor(Theme::Role2));
-            m_table->setItem(i, 7, itemBodega);
+            // Stock en cero se marca en rojo (el color no es el único indicador: el número se muestra siempre)
+            if (ex.stock_tienda == 0) Ui::cellWidget(m_table, i, 6, Ui::chip("0", "danger"));
+            else Ui::cellText(m_table, i, 6, QString::number(ex.stock_tienda), false, true);
+            if (ex.stock_bodega == 0) Ui::cellWidget(m_table, i, 7, Ui::chip("0", "danger"));
+            else Ui::cellText(m_table, i, 7, QString::number(ex.stock_bodega), false, true);
 
-            m_table->setItem(i, 8, new QTableWidgetItem(QString("$ %1").arg(QString::number(ex.precio, 'f', 2))));
+            Ui::cellText(m_table, i, 8, Ui::money(ex.precio), false, true, Theme::Accent);
         }
     });
 }

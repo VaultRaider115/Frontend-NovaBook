@@ -27,23 +27,27 @@ set(SOURCES
     src/core/ApiClient.cpp
     src/widgets/StatCard.cpp
     src/widgets/Toast.cpp
+    src/widgets/Ui.cpp
+    src/widgets/CatalogView.cpp
+    src/widgets/RequisicionView.cpp
     src/views/LoginWindow.cpp
     src/views/MainWindow.cpp
     src/views/jefe/JefeDashboardView.cpp
     src/views/jefe/JefeBitacoraView.cpp
     src/views/jefe/JefeDevolucionesView.cpp
     src/views/jefe/JefeUsuariosView.cpp
+    src/views/jefe/JefeGenerosView.cpp
+    src/views/jefe/JefeMotivosView.cpp
+    src/views/jefe/JefeMueblesView.cpp
     src/views/bodega/BodegaDashboardView.cpp
     src/views/bodega/BodegaRegistroView.cpp
     src/views/bodega/BodegaAutoresView.cpp
     src/views/bodega/BodegaProveedoresView.cpp
     src/views/bodega/BodegaComprasView.cpp
-    src/views/bodega/BodegaTrasladoView.cpp
     src/views/bodega/BodegaInventarioView.cpp
     src/views/vendedor/VendedorDashboardView.cpp
     src/views/vendedor/VendedorConsultaView.cpp
     src/views/vendedor/VendedorVentasView.cpp
-    src/views/vendedor/VendedorTrasladoView.cpp
     src/views/vendedor/VendedorDevolucionView.cpp
 )
 
@@ -54,12 +58,18 @@ set(HEADERS
     src/core/EanClassifier.h
     src/widgets/StatCard.h
     src/widgets/Toast.h
+    src/widgets/Ui.h
+    src/widgets/CatalogView.h
+    src/widgets/RequisicionView.h
     src/views/LoginWindow.h
     src/views/MainWindow.h
     src/views/jefe/JefeDashboardView.h
     src/views/jefe/JefeBitacoraView.h
     src/views/jefe/JefeDevolucionesView.h
     src/views/jefe/JefeUsuariosView.h
+    src/views/jefe/JefeGenerosView.h
+    src/views/jefe/JefeMotivosView.h
+    src/views/jefe/JefeMueblesView.h
     src/views/bodega/BodegaDashboardView.h
     src/views/bodega/BodegaRegistroView.h
     src/views/bodega/BodegaAutoresView.h
@@ -74,7 +84,7 @@ set(HEADERS
     src/views/vendedor/VendedorDevolucionView.h
 )
 
-add_executable(novabook_frontend ${SOURCES} ${HEADERS})
+add_executable(novabook_frontend ${SOURCES} ${HEADERS} src/resources/resources.qrc)
 
 target_link_libraries(novabook_frontend PRIVATE
     Qt6::Core

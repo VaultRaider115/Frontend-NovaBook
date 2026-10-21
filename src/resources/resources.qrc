@@ -1,0 +1,22 @@
+<RCC>
+  <qresource prefix="/icons">
+    <file alias="chevron-down.svg">icons/chevron-down.svg</file>
+    <file alias="check.svg">icons/check.svg</file>
+    <file alias="check-gold.svg">icons/check-gold.svg</file>
+    <file alias="trash.svg">icons/trash.svg</file>
+    <file alias="edit.svg">icons/edit.svg</file>
+    <file alias="plus-gold.svg">icons/plus-gold.svg</file>
+    <file alias="plus-dark.svg">icons/plus-dark.svg</file>
+    <file alias="plus-muted.svg">icons/plus-muted.svg</file>
+    <file alias="minus-muted.svg">icons/minus-muted.svg</file>
+    <file alias="search.svg">icons/search.svg</file>
+    <file alias="scan-gold.svg">icons/scan-gold.svg</file>
+    <file alias="x.svg">icons/x.svg</file>
+    <file alias="eye.svg">icons/eye.svg</file>
+    <file alias="eye-off.svg">icons/eye-off.svg</file>
+    <file alias="pdf.svg">icons/pdf.svg</file>
+    <file alias="check-dark.svg">icons/check-dark.svg</file>
+    <file alias="building.svg">icons/building.svg</file>
+    <file alias="receipt.svg">icons/receipt.svg</file>
+  </qresource>
+</RCC>
