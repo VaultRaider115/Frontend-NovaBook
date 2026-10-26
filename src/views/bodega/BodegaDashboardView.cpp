@@ -16,7 +16,7 @@ BodegaDashboardView::BodegaDashboardView(QWidget *parent)
     layout->setSpacing(24);
 
     // Header
-    layout->addWidget(Ui::pageHeader("Bodega · Panel", "Panel de Almacén — Personal de Bodega", "Control de entradas, altas de producto y requisiciones hacia piso de venta", this));
+    layout->addWidget(Ui::pageHeader("Bodega · Panel", "Panel de Almacén", "Control de entradas, altas de producto y requisiciones hacia piso de venta", this));
 
 
     // Metrics Row

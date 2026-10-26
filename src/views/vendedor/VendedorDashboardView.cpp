@@ -16,7 +16,7 @@ VendedorDashboardView::VendedorDashboardView(QWidget *parent)
     layout->setSpacing(24);
 
     // Header
-    layout->addWidget(Ui::pageHeader("Vendedor · Panel", "Punto de Atención — Vendedor de Piso", "Atención a clientes, consultas de existencias, bajas por venta y devoluciones", this));
+    layout->addWidget(Ui::pageHeader("Vendedor · Panel", "Punto de Atención", "Atención a clientes, consultas de existencias, bajas por venta y devoluciones", this));
 
 
     // Metrics Row

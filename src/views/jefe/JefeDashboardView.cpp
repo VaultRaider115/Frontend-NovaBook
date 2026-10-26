@@ -16,7 +16,7 @@ JefeDashboardView::JefeDashboardView(QWidget *parent)
     layout->setSpacing(24);
 
     // Header
-    layout->addWidget(Ui::pageHeader("Jefatura · Panel", "Panel de Control — Jefe de Departamento", "Supervisión global de operaciones, autorizaciones y usuarios de Librería NovaBook", this));
+    layout->addWidget(Ui::pageHeader("Jefatura · Panel", "Panel de Control", "Supervisión global de operaciones, autorizaciones y usuarios de Librería NovaBook", this));
 
 
     // Metrics Row

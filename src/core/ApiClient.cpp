@@ -49,7 +49,7 @@ static string loadApiUrl() {
         }
     }
 
-    return string("http://localhost:3000");
+    return string("http://localhost:8080");
 }
 
 ApiClient* ApiClient::instance() {
