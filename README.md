@@ -53,9 +53,11 @@ frontend_migrado/
         │   ├── JefeDashboardView.h / .cpp
         │   ├── JefeBitacoraView.h / .cpp
         │   ├── JefeDevolucionesView.h / .cpp
+        │   ├── JefeGenerosView.h / .cpp
         │   └── JefeUsuariosView.h / .cpp
         ├── bodega/               # Vistas exclusivas de Bodega
         │   ├── BodegaDashboardView.h / .cpp
+        │   ├── BodegaAutoresView.h / .cpp
         │   ├── BodegaRegistroView.h / .cpp
         │   ├── BodegaTrasladoView.h / .cpp
         │   └── BodegaInventarioView.h / .cpp
@@ -66,6 +68,15 @@ frontend_migrado/
             ├── VendedorTrasladoView.h / .cpp
             └── VendedorDevolucionView.h / .cpp
 ```
+
+## 📚 Catálogos y títulos asociados
+
+Las pantallas de gestión de autores y géneros consultan los catálogos con `ApiClient` y muestran las relaciones registradas en la API:
+
+- **Autores** (`BodegaAutoresView`): `GET /api/autores` entrega `total_libros`, obtenido de `autores_has_libros`.
+- **Géneros** (`JefeGenerosView`): `GET /api/generos` entrega `total_libros` y `total_revistas`, obtenidos de `productos_has_genero` y las tablas `libros` / `revistas`.
+
+Los valores representan títulos/productos asociados únicos, no la cantidad de ejemplares en inventario. El catálogo de géneros muestra ambos conteos.
 
 ---
 

@@ -46,7 +46,8 @@ protected:
     void clearRows();
     int appendRow(const QString &searchKey);          // devuelve el índice de la fila nueva
     void finishRows(const QString &totalText, const QString &noun = QString());
-    QList<QWidget *> rowActions(const QString &what, std::function<void()> edit, std::function<void()> del);
+    QList<QWidget *> rowActions(const QString &what, std::function<void()> edit, std::function<void()> del,
+                                const QString &actionIcon = "trash", const QString &actionName = "Eliminar");
     QWidget *nameCell(const QString &name, const QString &sub = QString());
     bool confirmDelete(const QString &what);
 

@@ -123,9 +123,10 @@ void CatalogView::applyVisibility() {
     }
 }
 
-QList<QWidget *> CatalogView::rowActions(const QString &what, std::function<void()> edit, std::function<void()> del) {
+QList<QWidget *> CatalogView::rowActions(const QString &what, std::function<void()> edit, std::function<void()> del,
+                                         const QString &actionIcon, const QString &actionName) {
     auto *e = Ui::iconButton("edit", "Editar " + what);
-    auto *d = Ui::iconButton("trash", "Eliminar " + what);
+    auto *d = Ui::iconButton(actionIcon, actionName + " " + what);
     connect(e, &QPushButton::clicked, this, [edit]() { edit(); });
     connect(d, &QPushButton::clicked, this, [del]() { del(); });
     return {e, d};

@@ -82,6 +82,10 @@ No mezclar ni exponer vistas entre roles no autorizados:
 
 ## [Unreleased]
 
+### 🔄 Modificado (Changed)
+- **`JefeGenerosView.cpp` / `GeneroDto` (Catálogo de Géneros)**: La columna **Títulos asociados** consume `total_libros` y `total_revistas` incluidos en `GET /api/generos`, y muestra las cantidades de libros y revistas relacionados con cada género. Son conteos de títulos únicos, no de ejemplares.
+- **`BodegaAutoresView.cpp` / `AutorDto` (Catálogo de Autores)**: La columna **Títulos asociados** consume `total_libros` de `GET /api/autores`; la API calcula el dato desde la relación autor-libro.
+
 ### ➕ Añadido (Added)
 - **Motor Centralizado de Clasificación EAN (`src/core/EanClassifier.h`)**: Módulo header-only reutilizable con la función `EanClassifier::clasificar(ean)` y `EanClassifier::aplicarAControles(ean, lblStatus, comboTipo, ...)`. Implementa validación estricta de 13 dígitos numéricos, cálculo de suma ponderada módulo 10 (odd + even * 3) para verificación de dígito de control, y autoclasificación GS1 por prefijo (`978`/`979` $\to$ Libro en verde `#5CBF8A`, `977` $\to$ Revista en azul `#7BB9D9`, y rechazo inmediato para otros prefijos).
 - **Web SPA (`web/index.html`, `web/styles.css`, `web/app.js`)**: Aplicación web SPA completa responsiva y corporativa construida con la paleta oficial (`#0D0D0D`, `#161616`, `#C8973A`), con vistas dedicadas para Gerente (CRUD Usuarios), Bodega (Alta libros/revistas y traslados Bodega $\to$ Tienda), Jefe (Historial de devoluciones, evaluación/aprobación y bitácora) y Vendedor (POS interactivo multilínea, consulta en vivo, traslados y solicitudes con descarga directa de PDF).

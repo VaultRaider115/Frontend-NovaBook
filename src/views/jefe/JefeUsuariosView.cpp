@@ -80,8 +80,11 @@ void JefeUsuariosView::cargarUsuarios() {
             Ui::cellWidget(m_table, r, 4, Ui::chip(u.activo() ? "● Activo" : "Inactivo", u.activo() ? "ok" : "neutral"));
             if (u.activo()) ++activos;
 
+            const bool activo = u.activo();
             Ui::cellWidgets(m_table, r, 5, rowActions(u.nombreCompleto(),
-                [this, u]() { abrirFormulario(&u); }, [this, u]() { darDeBaja(u); }));
+                [this, u]() { abrirFormulario(&u); },
+                [this, u]() { if (u.activo()) darDeBaja(u); else reactivar(u); },
+                activo ? "trash" : "check-gold", activo ? "Eliminar" : "Reactivar"));
         }
         finishRows(QString("Total de usuarios: %1 · %2 activos · %3 inactivos")
                        .arg(m_usuarios.size()).arg(activos).arg(m_usuarios.size() - activos));
@@ -165,6 +168,19 @@ void JefeUsuariosView::darDeBaja(const UsuarioDto &u) {
             cargarUsuarios();
         } else {
             Toast::showToast(this, "Error al dar de baja: " + msg, Toast::Error);
+        }
+    });
+}
+
+void JefeUsuariosView::reactivar(const UsuarioDto &u) {
+    QJsonObject obj;
+    obj["estatus"] = true;
+    ApiClient::instance()->actualizarUsuario(u.id_usuarios, obj, [this](bool ok, const QJsonValue &, const QString &msg) {
+        if (ok) {
+            Toast::showToast(this, "Usuario reactivado exitosamente", Toast::Success);
+            cargarUsuarios();
+        } else {
+            Toast::showToast(this, "Error al reactivar: " + msg, Toast::Error);
         }
     });
 }

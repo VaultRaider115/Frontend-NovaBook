@@ -38,7 +38,8 @@ QWidget *pageHeader(const QString &eyebrow, const QString &title, const QString 
     auto *lay = new QVBoxLayout(w);
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(6);
-    if (!eyebrow.isEmpty()) lay->addWidget(label(eyebrow.toUpper(), "Eyebrow", w));
+    const QString &panelName = title.isEmpty() ? eyebrow : title;
+    if (!panelName.isEmpty()) lay->addWidget(label(panelName.toUpper(), "Eyebrow", w));
     lay->addWidget(label(title, "PageTitle", w));
     if (!subtitle.isEmpty()) {
         auto *s = label(subtitle, "PageSubtitle", w);

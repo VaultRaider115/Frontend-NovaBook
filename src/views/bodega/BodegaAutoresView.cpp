@@ -55,7 +55,7 @@ void BodegaAutoresView::cargarAutores() {
             }
 
             Ui::cellText(m_table, r, 3, a.total_libros < 0 ? "—"
-                         : QString("%1 %2").arg(a.total_libros).arg(a.total_libros == 1 ? "libro" : "libros"),
+                         : QString("%1 %2").arg(a.total_libros).arg(a.total_libros == 1 ? "título" : "títulos"),
                          false, false, Theme::TextMuted);
 
             if (a.estatus.isEmpty())

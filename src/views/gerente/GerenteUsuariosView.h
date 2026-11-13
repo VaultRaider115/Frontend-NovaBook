@@ -20,6 +20,7 @@ protected:
 private:
     void abrirFormulario(const UsuarioDto *existente);
     void darDeBaja(const UsuarioDto &u);
+    void reactivar(const UsuarioDto &u);
 
     QList<UsuarioDto> m_usuarios;
     int m_filtroEstado = 0; // 0 todos, 1 activos, 2 inactivos
