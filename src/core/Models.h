@@ -13,9 +13,9 @@ struct UsuarioDto {
     QString apellido_paterno;
     QString apellido_materno;
     qint64 telefono = 0;
-    QString estatus;   // vacío: la API no lo informa (se considera activo)
+    bool estatus = true;   // true = activo; si la API no lo informa, se considera activo
 
-    bool activo() const { return estatus.isEmpty() || estatus.compare("activo", Qt::CaseInsensitive) == 0; }
+    bool activo() const { return estatus; }
 
     QString nombreCompleto() const {
         QString full = nombre;
@@ -33,7 +33,7 @@ struct UsuarioDto {
         u.apellido_paterno = obj.value("apellido_paterno").toString();
         u.apellido_materno = obj.value("apellido_materno").toString();
         u.telefono = obj.value("telefono").toVariant().toLongLong();
-        u.estatus = obj.value("estatus").toString(obj.value("estado").toString());
+        u.estatus = obj.value("estatus").toBool(true);
         return u;
     }
 };

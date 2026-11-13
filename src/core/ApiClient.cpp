@@ -396,7 +396,11 @@ void ApiClient::crearDevolucion(int idProveedor, const QString &tipo, const QJso
 
 void ApiClient::descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo, PdfCallback cb) {
     QString subpath = (tipo.toLower() == "revista") ? "revistas" : "libros";
-    QUrl url(QString("%1/api/vendedor/devoluciones/%2/pdf/%3").arg(m_baseUrl).arg(idDevolucion).arg(subpath));
+    const QString rolPath = m_currentUser.id_roles == 1 ? "jefe" : "vendedor";
+    QUrl url(QString("%1/api/%2/devoluciones/%3/pdf/%4")
+                 .arg(m_baseUrl, rolPath)
+                 .arg(idDevolucion)
+                 .arg(subpath));
 
     QNetworkRequest request(url);
     if (!m_token.isEmpty()) {

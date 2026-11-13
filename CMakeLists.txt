@@ -19,6 +19,7 @@ include_directories(
     src/views/jefe
     src/views/bodega
     src/views/vendedor
+    src/views/gerente
 )
 
 set(SOURCES
@@ -49,6 +50,8 @@ set(SOURCES
     src/views/vendedor/VendedorConsultaView.cpp
     src/views/vendedor/VendedorVentasView.cpp
     src/views/vendedor/VendedorDevolucionView.cpp
+    src/views/gerente/GerenteDashboardView.cpp
+    src/views/gerente/GerenteUsuariosView.cpp
 )
 
 set(HEADERS
@@ -82,6 +85,8 @@ set(HEADERS
     src/views/vendedor/VendedorVentasView.h
     src/views/vendedor/VendedorTrasladoView.h
     src/views/vendedor/VendedorDevolucionView.h
+    src/views/gerente/GerenteDashboardView.h
+    src/views/gerente/GerenteUsuariosView.h
 )
 
 add_executable(novabook_frontend ${SOURCES} ${HEADERS} src/resources/resources.qrc)

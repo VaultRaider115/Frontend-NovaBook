@@ -18,6 +18,10 @@
 #include "JefeMotivosView.h"
 #include "JefeMueblesView.h"
 
+// Gerente Views
+#include "GerenteDashboardView.h"
+#include "GerenteUsuariosView.h"
+
 // Bodega Views
 #include "BodegaDashboardView.h"
 #include "BodegaRegistroView.h"
@@ -149,25 +153,41 @@ void MainWindow::buildRoleViews() {
         delete w;
     }
 
-    if (m_user.id_roles == 1 || m_user.id_roles == 4) {
-        // --- JEFE / GERENTE ---
-        auto *dash = new JefeDashboardView(m_stack);
-        auto *bitacora = new JefeBitacoraView(m_stack);
-        auto *devs = new JefeDevolucionesView(m_stack);
-        auto *usuarios = new JefeUsuariosView(m_stack);
-        auto *autores = new BodegaAutoresView("Jefatura · Gestión de autores", m_stack);
-        auto *generos = new JefeGenerosView(m_stack);
-        auto *motivos = new JefeMotivosView(m_stack);
-        auto *muebles = new JefeMueblesView(m_stack);
+    if (m_user.id_roles == 4) {
+        // --- GERENTE / SUBGERENTE  (RF01: CRUD Usuarios) ---
+        auto *dash     = new GerenteDashboardView(m_stack);
+        auto *usuarios = new GerenteUsuariosView(m_stack);
 
-        addPage("Panel Principal", dash, [dash]() { dash->refreshData(); });
-        addPage("Historial de Movimientos", bitacora, [bitacora]() { bitacora->cargarMovimientos(); });
-        addPage("Aprobación de Devoluciones", devs, [devs]() { devs->cargarDevoluciones(); });
+        addPage("Panel Principal",     dash,     [dash]()     { dash->refreshData(); });
         addPage("Gestión de Usuarios", usuarios, [usuarios]() { usuarios->cargarUsuarios(); });
-        addPage("Catálogo de Autores", autores, [autores]() { autores->cargarAutores(); });
-        addPage("Catálogo de Géneros", generos, [generos]() { generos->cargarGeneros(); });
-        addPage("Catálogo de Motivos", motivos, [motivos]() { motivos->cargarMotivos(); });
-        addPage("Muebles y Estantería", muebles, [muebles]() { muebles->cargarMuebles(); });
+
+    } else if (m_user.id_roles == 1) {
+        // --- JEFE DE DEPARTAMENTO ---
+        // RF03: Consultar Movimiento Diario
+        // RF02: Consultar Historial de Devoluciones
+        // RF04: Aprobar Devoluciones
+        // RF16: Gestionar Usuarios (consultar, modificar, eliminar)
+        // RF18: Gestionar Catálogo de Autores
+        // RF19: Gestionar Catálogo de Géneros
+        // RF20: Gestionar Motivos de Devolución
+        // RF21: Gestionar Muebles y Estantería
+        auto *dash     = new JefeDashboardView(m_stack);
+        auto *bitacora = new JefeBitacoraView(m_stack);
+        auto *devs     = new JefeDevolucionesView(m_stack);
+        auto *usuarios = new JefeUsuariosView(m_stack);
+        auto *autores  = new BodegaAutoresView("Jefatura · Gestión de autores", m_stack);
+        auto *generos  = new JefeGenerosView(m_stack);
+        auto *motivos  = new JefeMotivosView(m_stack);
+        auto *muebles  = new JefeMueblesView(m_stack);
+
+        addPage("Panel Principal",            dash,     [dash]()     { dash->refreshData(); });
+        addPage("Historial de Movimientos",   bitacora, [bitacora]() { bitacora->cargarMovimientos(); });
+        addPage("Aprobación de Devoluciones", devs,     [devs]()     { devs->cargarDevoluciones(); });
+        addPage("Gestión de Usuarios",        usuarios, [usuarios]() { usuarios->cargarUsuarios(); });
+        addPage("Catálogo de Autores",        autores,  [autores]()  { autores->cargarAutores(); });
+        addPage("Catálogo de Géneros",        generos,  [generos]()  { generos->cargarGeneros(); });
+        addPage("Catálogo de Motivos",        motivos,  [motivos]()  { motivos->cargarMotivos(); });
+        addPage("Muebles y Estantería",       muebles,  [muebles]()  { muebles->cargarMuebles(); });
 
     } else if (m_user.id_roles == 2) {
         // --- BODEGA ---

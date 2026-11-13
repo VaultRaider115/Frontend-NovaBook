@@ -9,11 +9,13 @@
 #include <QPointer>
 
 JefeUsuariosView::JefeUsuariosView(QWidget *parent)
-    : CatalogView("Gerencia · Catálogo de usuarios", "Administración y Gestión de Usuarios",
-                  "Control de acceso del personal de la librería.",
+    : CatalogView("Jefatura · Gestión de usuarios", "Gestión de Usuarios",
+                  "Consulta, modifica y da de baja al personal de la librería.",
                   "Buscar por ID, nombre, rol o teléfono...", "Registrar Nuevo Usuario",
                   {"Número de empleado", "Colaborador", "Rol en sistema", "Teléfono", "Estado", "Acciones"}, 1, 0, parent)
 {
+    // RF16: El Jefe de Departamento NO puede crear usuarios, solo consultar/modificar/eliminar.
+    m_btnNew->hide();
     // Filtro segmentado Todos / Activos / Inactivos
     auto *seg = new QWidget(this);
     auto *sl = new QHBoxLayout(seg);

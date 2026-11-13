@@ -91,7 +91,9 @@ QLabel *chip(const QString &text, const char *kind, QWidget *parent) {
     auto *l = new QLabel(text, parent);
     l->setProperty("chip", kind);
     l->setAlignment(Qt::AlignCenter);
-    l->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+    l->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    l->ensurePolished();            // aplica el stylesheet para que el sizeHint incluya el padding
+    l->setMinimumWidth(l->sizeHint().width() +26);
     return l;
 }
 

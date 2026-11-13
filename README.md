@@ -107,4 +107,4 @@ cmake --build build -j$(nproc)
 | **Personal de Bodega** | `628777130` | `7777` | Dashboard, Registrar Mercancía, Requisición Salida, Inventario |
 | **Vendedor** | `628777129` | `8888` | Dashboard, Consultar Existencias, Baja por Venta (POS), Requisición a Bodega, Devoluciones |
 
-> **Nota:** La aplicación apunta por defecto a `http://127.0.0.1:3000`. Puedes cambiar la dirección del servidor en la pantalla de inicio de sesión si el backend `api_migrado` está alojado en otro host o puerto.
+> **Nota:** La aplicación apunta por defecto a `http://localhost:8080`, igual que `api_migrado`. Puedes cambiar la dirección configurando la variable de entorno `API_URL` si el backend está alojado en otro host o puerto.

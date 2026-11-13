@@ -101,6 +101,9 @@ No mezclar ni exponer vistas entre roles no autorizados:
 - **`api_migrado/src/productos/service/producto.rs`**: Conexión a métodos transaccionales del repositorio y limpieza de advertencias de compilación.
 
 ### 🐛 Corregido (Fixed)
+- **`ApiClient.cpp` (Descarga de actas PDF)**: La descarga ahora usa `/api/jefe/devoluciones/{id}/pdf/{libros|revistas}` para Jefatura (rol 1) y conserva `/api/vendedor/devoluciones/{id}/pdf/{libros|revistas}` para Vendedor (rol 3), respetando las rutas protegidas por rol del backend.
+- **`ApiClient.cpp` (Rutas de usuarios)**: Las operaciones de listar y crear usuarios llaman a `/api/usuarios` sin barra final. La instancia desplegada responde 404 con `/api/usuarios/`, pero reconoce `/api/usuarios` y devuelve 401 cuando falta autenticación.
+- **`README.md` (URL de API)**: La URL predeterminada documentada se actualizó a `http://localhost:8080`, y se documentó `API_URL` como la opción para configurar otra dirección.
 - **Transacciones de Venta en Almacén (`repo/producto.rs`)**: Corrección de validación de `tipo_producto` ("libro" vs "revista") para el descuento atómico de stock en Piso de Ventas (`id_ubicacion = 1`) y serialización correcta en `detalle_ventas`.
 - **Restricciones de Llaves Foráneas (`test_e2e.sh`)**: Corrección de valores de `id_genero` e `id_mueble` a claves existentes (`11`) en la base de datos `Libreria`.
 
