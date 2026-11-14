@@ -3,10 +3,14 @@
 #include "Theme.h"
 #include "ApiClient.h"
 #include "Toast.h"
+#include <QAction>
 #include <QComboBox>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLineEdit>
 #include <QPointer>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 
 GerenteUsuariosView::GerenteUsuariosView(QWidget *parent)
     : CatalogView("Gerencia · CRUD Usuarios", "Administración de Usuarios",
@@ -95,9 +99,12 @@ void GerenteUsuariosView::abrirFormulario(const UsuarioDto *u) {
 
     auto *txtId = new QLineEdit(edit ? QString::number(u->id_usuarios) : QString(), &dlg);
     txtId->setPlaceholderText("Ej: 350925976");
+    txtId->setMaxLength(19);
+    txtId->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,19}"), txtId));
     txtId->setEnabled(!edit);
     auto *txtNombre = new QLineEdit(edit ? u->nombre : QString(), &dlg);
     txtNombre->setPlaceholderText("Ej: Maria");
+    txtNombre->setMaxLength(50);
     auto *comboRol = new QComboBox(&dlg);
     comboRol->addItem("Vendedor", 3);
     comboRol->addItem("Personal de Bodega", 2);
@@ -106,21 +113,34 @@ void GerenteUsuariosView::abrirFormulario(const UsuarioDto *u) {
     if (edit) comboRol->setCurrentIndex(comboRol->findData(u->id_roles));
     auto *txtPat = new QLineEdit(edit ? u->apellido_paterno : QString(), &dlg);
     txtPat->setPlaceholderText("Ej: Antonieta");
+    txtPat->setMaxLength(30);
     auto *txtMat = new QLineEdit(edit ? u->apellido_materno : QString(), &dlg);
     txtMat->setPlaceholderText("Ej: de Las Nieves");
+    txtMat->setMaxLength(30);
     auto *txtTel = new QLineEdit(edit && u->telefono > 0 ? QString::number(u->telefono) : QString(), &dlg);
-    txtTel->setPlaceholderText("Ej: 8443509259");
+    txtTel->setPlaceholderText("10 dígitos, ej. 8443509259");
+    txtTel->setMaxLength(10);
+    txtTel->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,10}"), txtTel));
     auto *txtPass = new QLineEdit(&dlg);
     txtPass->setEchoMode(QLineEdit::Password);
-    txtPass->setPlaceholderText(edit ? "Dejar vacío para conservar la actual" : "Contraseña");
+    txtPass->setMaxLength(16);
+    txtPass->setPlaceholderText(edit ? "Vacío conserva la actual (máx. 16)" : "Máximo 16 caracteres");
+    auto *eye = txtPass->addAction(QIcon(":/icons/eye.svg"), QLineEdit::TrailingPosition);
+    eye->setToolTip("Mostrar contraseña");
+    connect(eye, &QAction::triggered, &dlg, [txtPass, eye]() {
+        const bool hidden = txtPass->echoMode() == QLineEdit::Password;
+        txtPass->setEchoMode(hidden ? QLineEdit::Normal : QLineEdit::Password);
+        eye->setIcon(QIcon(hidden ? ":/icons/eye-off.svg" : ":/icons/eye.svg"));
+        eye->setToolTip(hidden ? "Ocultar contraseña" : "Mostrar contraseña");
+    });
 
     dlg.addField("Número de Empleado", txtId, 0, 0);
     dlg.addField("Nombre", txtNombre, 0, 1);
-    dlg.addField("Rol en sistema", comboRol, 1, 0, 2);
-    dlg.addField("Apellido Paterno", txtPat, 2, 0);
-    dlg.addField("Apellido Materno", txtMat, 2, 1);
-    dlg.addField("Teléfono", txtTel, 3, 0);
-    dlg.addField(edit ? "Nueva contraseña" : "Contraseña", txtPass, 3, 1);
+    dlg.addField("Apellido Paterno", txtPat, 1, 0);
+    dlg.addField("Apellido Materno", txtMat, 1, 1);
+    dlg.addField("Teléfono", txtTel, 2, 0);
+    dlg.addField(edit ? "Nueva contraseña" : "Contraseña", txtPass, 2, 1);
+    dlg.addField("Rol en sistema", comboRol, 3, 0, 2);
 
     QPointer<QDialog> guard(&dlg);
     connect(dlg.okButton(), &QPushButton::clicked, &dlg, [&, edit, u]() {
@@ -130,8 +150,20 @@ void GerenteUsuariosView::abrirFormulario(const UsuarioDto *u) {
             Toast::showToast(&dlg, "El número de empleado debe ser numérico y válido", Toast::Warning);
             return;
         }
-        if (txtNombre->text().trimmed().isEmpty() || (!edit && txtPass->text().isEmpty())) {
+        if (txtNombre->text().trimmed().isEmpty() || (!edit && txtPass->text().trimmed().isEmpty())) {
             Toast::showToast(&dlg, "Nombre y contraseña son obligatorios", Toast::Warning);
+            return;
+        }
+        if (!txtTel->text().trimmed().isEmpty() && txtTel->text().trimmed().size() != 10) {
+            Toast::showToast(&dlg, "El teléfono debe contener exactamente 10 dígitos", Toast::Warning);
+            return;
+        }
+        if (!txtPass->text().isEmpty() && txtPass->text().trimmed().isEmpty()) {
+            Toast::showToast(&dlg, "La contraseña no puede contener solo espacios", Toast::Warning);
+            return;
+        }
+        if (txtPass->text().size() > 16) {
+            Toast::showToast(&dlg, "La contraseña no puede exceder 16 caracteres", Toast::Warning);
             return;
         }
         QJsonObject obj;
@@ -140,7 +172,15 @@ void GerenteUsuariosView::abrirFormulario(const UsuarioDto *u) {
         obj["nombre"] = txtNombre->text().trimmed();
         obj["apellido_paterno"] = txtPat->text().trimmed();
         obj["apellido_materno"] = txtMat->text().trimmed();
-        if (!txtTel->text().trimmed().isEmpty()) obj["telefono"] = txtTel->text().trimmed().toLongLong();
+        if (!txtTel->text().trimmed().isEmpty()) {
+            bool okTelefono = false;
+            const qint64 telefono = txtTel->text().trimmed().toLongLong(&okTelefono);
+            if (!okTelefono) {
+                Toast::showToast(&dlg, "El teléfono debe ser numérico", Toast::Warning);
+                return;
+            }
+            obj["telefono"] = telefono;
+        }
         if (!txtPass->text().isEmpty()) obj["contrasena"] = txtPass->text();
 
         auto done = [this, guard, edit](bool ok, const QJsonValue &, const QString &msg) {

@@ -396,6 +396,8 @@ struct MotivoDto {
 
 struct MuebleDto {
     int id_mueble = 0;
+    int id_genero = 0;
+    int id_ubicacion = 0;
     QString codigo;
     QString nombre;
     QString area;            // "Piso de Venta" | "Bodega"
@@ -407,12 +409,19 @@ struct MuebleDto {
     static MuebleDto fromJson(const QJsonObject &obj) {
         MuebleDto m;
         m.id_mueble = obj.value("id_mueble").toInt();
+        m.id_genero = obj.value("id_genero").toInt();
+        m.id_ubicacion = obj.value("id_ubicacion").toInt();
         m.codigo = obj.value("codigo").toString(obj.value("codigo_mueble").toString());
         m.nombre = obj.value("nombre_mueble").toString(obj.value("nombre").toString());
         m.area = obj.value("area").toString(obj.value("ubicacion").toString());
-        m.genero_asignado = obj.value("genero_asignado").toString(obj.value("genero").toString());
+        if (m.area.isEmpty()) {
+            if (m.id_ubicacion == 1) m.area = "Piso de Venta";
+            else if (m.id_ubicacion == 2) m.area = "Bodega";
+        }
+        m.genero_asignado = obj.value("genero_literario").toString(
+            obj.value("genero_asignado").toString(obj.value("genero").toString()));
         m.capacidad_actual = obj.value("capacidad_actual").toInt(obj.value("piezas_actuales").toInt());
-        m.capacidad_maxima = obj.value("capacidad_maxima").toInt();
+        m.capacidad_maxima = obj.value("capacidad").toInt(obj.value("capacidad_maxima").toInt());
         m.descripcion = obj.value("descripcion").toString();
         return m;
     }

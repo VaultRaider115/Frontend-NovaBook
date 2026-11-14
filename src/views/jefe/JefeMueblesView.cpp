@@ -19,39 +19,42 @@ JefeMueblesView::JefeMueblesView(QWidget *parent)
 }
 
 void JefeMueblesView::cargarMuebles() {
-    ApiClient::instance()->listarGeneros([this](bool ok, const QJsonValue &data, const QString &) {
-        if (!ok || !data.isArray()) return;
+    ApiClient::instance()->listarGeneros([this](bool ok, const QJsonValue &data, const QString &msg) {
+        if (!ok || !data.isArray()) {
+            Toast::showToast(this, "Error al cargar géneros para muebles: " + msg, Toast::Error);
+            return;
+        }
         m_generos.clear();
         const QJsonArray arr = data.toArray();
         for (const auto &v : arr) m_generos.append(GeneroDto::fromJson(v.toObject()));
-    });
 
-    ApiClient::instance()->listarMuebles([this](bool ok, const QJsonValue &data, const QString &msg) {
-        if (!ok || !data.isArray()) {
-            Toast::showToast(this, "Error al cargar muebles: " + msg, Toast::Error);
-            return;
-        }
-        m_muebles.clear();
-        clearRows();
-        const QJsonArray arr = data.toArray();
-        for (const auto &v : arr) m_muebles.append(MuebleDto::fromJson(v.toObject()));
+        ApiClient::instance()->listarMuebles([this](bool mueblesOk, const QJsonValue &mueblesData, const QString &mueblesMsg) {
+            if (!mueblesOk || !mueblesData.isArray()) {
+                Toast::showToast(this, "Error al cargar muebles: " + mueblesMsg, Toast::Error);
+                return;
+            }
+            m_muebles.clear();
+            clearRows();
+            const QJsonArray mueblesArr = mueblesData.toArray();
+            for (const auto &v : mueblesArr) m_muebles.append(MuebleDto::fromJson(v.toObject()));
 
-        for (const MuebleDto &m : std::as_const(m_muebles)) {
-            const int r = appendRow(m.codigo + " " + m.nombre + " " + m.area + " " + m.genero_asignado);
-            Ui::cellText(m_table, r, 0, m.codigo.isEmpty() ? QString::number(m.id_mueble) : m.codigo, true);
-            Ui::cellText(m_table, r, 1, m.nombre);
-            const bool piso = m.area.contains("piso", Qt::CaseInsensitive);
-            Ui::cellWidget(m_table, r, 2, Ui::chip(m.area.isEmpty() ? "—" : m.area, piso ? "indigo" : "amber"));
-            Ui::cellText(m_table, r, 3, m.genero_asignado.isEmpty() ? "—" : m.genero_asignado);
-            Ui::cellText(m_table, r, 4, m.capacidad_maxima > 0
-                         ? QString("%1 / %2 piezas").arg(m.capacidad_actual).arg(m.capacidad_maxima) : "—");
-            const bool llena = m.capacidad_maxima > 0 && m.capacidad_actual >= m.capacidad_maxima;
-            Ui::cellWidget(m_table, r, 5, m.capacidad_maxima > 0
-                           ? Ui::chip(llena ? "Capacidad Llena" : "Disponible", llena ? "danger" : "ok") : Ui::chip("—", "neutral"));
-            Ui::cellWidgets(m_table, r, 6, rowActions(m.nombre,
-                [this, m]() { abrirFormulario(&m); }, [this, m]() { eliminar(m); }));
-        }
-        finishRows(QString("Total de Muebles: %1").arg(m_muebles.size()), "ubicaciones registradas");
+            for (const MuebleDto &m : std::as_const(m_muebles)) {
+                const int r = appendRow(m.codigo + " " + m.nombre + " " + m.area + " " + m.genero_asignado);
+                Ui::cellText(m_table, r, 0, m.codigo.isEmpty() ? QString::number(m.id_mueble) : m.codigo, true);
+                Ui::cellText(m_table, r, 1, m.nombre);
+                const bool piso = m.area.contains("piso", Qt::CaseInsensitive);
+                Ui::cellWidget(m_table, r, 2, Ui::chip(m.area.isEmpty() ? "—" : m.area, piso ? "indigo" : "amber"));
+                Ui::cellText(m_table, r, 3, m.genero_asignado.isEmpty() ? "—" : m.genero_asignado);
+                Ui::cellText(m_table, r, 4, m.capacidad_maxima > 0
+                             ? QString("%1 / %2 piezas").arg(m.capacidad_actual).arg(m.capacidad_maxima) : "—");
+                const bool llena = m.capacidad_maxima > 0 && m.capacidad_actual >= m.capacidad_maxima;
+                Ui::cellWidget(m_table, r, 5, m.capacidad_maxima > 0
+                               ? Ui::chip(llena ? "Capacidad Llena" : "Disponible", llena ? "danger" : "ok") : Ui::chip("—", "neutral"));
+                Ui::cellWidgets(m_table, r, 6, rowActions(m.nombre,
+                    [this, m]() { abrirFormulario(&m); }, [this, m]() { eliminar(m); }));
+            }
+            finishRows(QString("Total de Muebles: %1").arg(m_muebles.size()), "ubicaciones registradas");
+        });
     });
 }
 
@@ -65,13 +68,17 @@ void JefeMueblesView::abrirFormulario(const MuebleDto *m) {
     txtNombre->setPlaceholderText("Ej: Mueble 11 Autoayuda");
 
     auto *comboArea = new QComboBox(&dlg);
-    comboArea->addItems({"Piso de Venta", "Bodega"});
-    if (edit) comboArea->setCurrentText(m->area);
+    comboArea->addItem("Piso de Venta", 1);
+    comboArea->addItem("Bodega", 2);
+    if (edit) comboArea->setCurrentIndex(comboArea->findData(m->id_ubicacion));
 
     auto *comboGenero = new QComboBox(&dlg);
-    comboGenero->addItem("Sin género asignado", 0);
     for (const GeneroDto &g : std::as_const(m_generos)) comboGenero->addItem(g.genero_literario, g.id_genero);
-    if (edit) comboGenero->setCurrentText(m->genero_asignado);
+    if (edit) comboGenero->setCurrentIndex(comboGenero->findData(m->id_genero));
+    if (comboGenero->count() == 0) {
+        Toast::showToast(this, "No hay géneros disponibles para asignar al mueble", Toast::Warning);
+        return;
+    }
 
     auto *spnCap = new QSpinBox(&dlg);
     spnCap->setRange(1, 99999);
@@ -94,10 +101,10 @@ void JefeMueblesView::abrirFormulario(const MuebleDto *m) {
             Toast::showToast(&dlg, "Código y nombre del mueble son obligatorios", Toast::Warning);
             return;
         }
-        QJsonObject req{{"codigo", txtCodigo->text().trimmed()}, {"nombre_mueble", txtNombre->text().trimmed()},
-                        {"area", comboArea->currentText()}, {"capacidad_maxima", spnCap->value()},
+        QJsonObject req{{"codigo_mueble", txtCodigo->text().trimmed()}, {"nombre_mueble", txtNombre->text().trimmed()},
+                        {"id_ubicacion", comboArea->currentData().toInt()}, {"id_genero", comboGenero->currentData().toInt()},
+                        {"capacidad", spnCap->value()},
                         {"descripcion", txtDesc->toPlainText().trimmed()}};
-        if (comboGenero->currentData().toInt() > 0) req["id_genero"] = comboGenero->currentData().toInt();
         auto done = [this, guard, edit](bool ok, const QJsonValue &, const QString &msg) {
             if (!ok) {
                 Toast::showToast(guard ? guard.data() : static_cast<QWidget *>(this), "No se pudo guardar el mueble: " + msg, Toast::Error);

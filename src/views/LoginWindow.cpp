@@ -79,7 +79,8 @@ LoginWindow::LoginWindow(QWidget *parent)
 
     m_txtPassword = new QLineEdit(card);
     m_txtPassword->setEchoMode(QLineEdit::Password);
-    m_txtPassword->setPlaceholderText("Ingresa tu contraseña");
+    m_txtPassword->setMaxLength(16);
+    m_txtPassword->setPlaceholderText("Ingresa tu contraseña (máx. 16 caracteres)");
     m_txtPassword->setStyleSheet(inputQss);
     m_txtPassword->setAccessibleName("Contraseña");
     auto *eye = m_txtPassword->addAction(QIcon(":/icons/eye.svg"), QLineEdit::TrailingPosition);
@@ -136,6 +137,11 @@ void LoginWindow::onLoginClicked() {
     }
     if (pass.isEmpty()) {
         m_lblError->setText("Ingresa tu contraseña.");
+        m_lblError->show();
+        return;
+    }
+    if (pass.size() > 16) {
+        m_lblError->setText("La contraseña no puede exceder 16 caracteres.");
         m_lblError->show();
         return;
     }

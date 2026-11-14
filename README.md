@@ -1,121 +1,155 @@
-# NovaBook — Frontend de Escritorio en C++ (Qt 6)
+# NovaBook — Frontend de escritorio en C++ / Qt 6
 
-Cliente de escritorio nativo desarrollado en **C++ con Qt 6** para el sistema de gestión de librería **NovaBook**, consumiendo los servicios REST de `api_migrado`.
+Este frontend consume la API REST del backend `api_migrado` y presenta una interfaz de escritorio moderna, con navegación por roles y acceso a inventario, ventas, bitácora y gestión de usuarios.
 
----
+## 1. Objetivo
 
-> Interfaz rediseñada según el Figma “Proyecto S” (zinc + dorado `#D4A346`). Ver `CAMBIOS_FIGMA.md`.
+La aplicación tiene como objetivo operar una librería con cuatro perfiles funcionales:
 
-## 🎨 Paleta de Colores Corporativa
+- Jefe de Departamento
+- Gerente
+- Personal de Bodega
+- Vendedor
 
-La aplicación aplica una interfaz en modo oscuro de alto contraste:
+Cada rol tiene rutas, accesos y vistas distintas, con una capa de permisos aplicada tanto en UI como en la API del backend.
 
-- **Fondos:**
-  - `bg_dark`: `#0D0D0D` (Fondo de ventana y vistas)
-  - `bg_card`: `#161616` (Tarjetas, formularios y tablas)
-  - `bg_input`: `#1F1F1F` (Inputs y cajas de selección)
-  - `bg_sidebar`: `#111111` (Barra lateral fija de navegación)
-  - `bg_row_alt`: `#1A1A1A` (Filas alternas de tablas)
-- **Acentos y Estados:**
-  - `accent`: `#C8973A` (Dorado distintivo corporativo)
-  - `accent_hover`: `#E0AE52`
-  - `accent_dim`: `#7A5A1E`
-  - `error` / `error_bg`: `#E05C5C` / `#2A1010`
-  - `success` / `success_bg`: `#5CBF8A` / `#0F2A1A`
-  - `warning`: `#E0B84A`
-- **Distintivos de Rol:**
-  - **Role 1 (Jefe / Gerente):** `#C8973A` (Dorado)
-  - **Role 2 (Personal de Bodega):** `#5C9FBF` (Azul)
-  - **Role 3 (Vendedor):** `#8ABF5C` (Verde)
+## 2. Stack técnico
 
----
+- C++ 23
+- Qt 6 Core / Gui / Widgets / Network
+- CMake
+- HTTP client centralizado con `QNetworkAccessManager`
+- Integración REST con `api_migrado`
 
-## 🏛 Estructura y Arquitectura
+## 3. Estructura actual del proyecto
 
-```
+```text
 frontend_migrado/
-├── CMakeLists.txt                 # Configuración de compilación con Qt6
-├── CHANGELOG.md                  # Registro de cambios y directivas para IA / desarrolladores
-├── README.md                      # Documentación del proyecto
-└── src/
-    ├── main.cpp                  # Inicialización y arranque de QApplication
-    ├── core/
-    │   ├── Theme.h / .cpp        # Paleta de colores y hoja de estilos global QSS
-    │   ├── Models.h              # Estructuras de datos (Usuario, Inventario, Venta, etc.)
-    │   └── ApiClient.h / .cpp    # Cliente HTTP asíncrono sobre Qt Network (JWT Bearer)
-    ├── widgets/
-    │   ├── StatCard.h / .cpp     # Tarjetas de métricas con borde de acento
-    │   └── Toast.h / .cpp        # Notificaciones flotantes animadas
-    └── views/
-        ├── LoginWindow.h / .cpp  # Pantalla de acceso con selector de servidor y validación
-        ├── MainWindow.h / .cpp   # Ventana contenedora principal con sidebar dinámico
-        ├── jefe/                 # Vistas exclusivas de Jefe / Gerente
-        │   ├── JefeDashboardView.h / .cpp
-        │   ├── JefeBitacoraView.h / .cpp
-        │   ├── JefeDevolucionesView.h / .cpp
-        │   ├── JefeGenerosView.h / .cpp
-        │   └── JefeUsuariosView.h / .cpp
-        ├── bodega/               # Vistas exclusivas de Bodega
-        │   ├── BodegaDashboardView.h / .cpp
-        │   ├── BodegaAutoresView.h / .cpp
-        │   ├── BodegaRegistroView.h / .cpp
-        │   ├── BodegaTrasladoView.h / .cpp
-        │   └── BodegaInventarioView.h / .cpp
-        └── vendedor/             # Vistas exclusivas de Vendedor
-            ├── VendedorDashboardView.h / .cpp
-            ├── VendedorConsultaView.h / .cpp
-            ├── VendedorVentasView.h / .cpp
-            ├── VendedorTrasladoView.h / .cpp
-            └── VendedorDevolucionView.h / .cpp
+├── CMakeLists.txt
+├── CHANGELOG.md
+├── README.md
+├── CAMBIOS_FIGMA.md
+├── build/
+├── src/
+│   ├── main.cpp
+│   ├── core/
+│   │   ├── ApiClient.h
+│   │   ├── ApiClient.cpp
+│   │   ├── EanClassifier.h
+│   │   ├── Models.h
+│   │   ├── Theme.h
+│   │   └── Theme.cpp
+│   ├── widgets/
+│   │   ├── CatalogView.h
+│   │   ├── CatalogView.cpp
+│   │   ├── RequisicionView.h
+│   │   ├── RequisicionView.cpp
+│   │   ├── StatCard.h
+│   │   ├── StatCard.cpp
+│   │   ├── Toast.h
+│   │   ├── Toast.cpp
+│   │   ├── Ui.h
+│   │   └── Ui.cpp
+│   ├── views/
+│   │   ├── LoginWindow.h
+│   │   ├── LoginWindow.cpp
+│   │   ├── MainWindow.h
+│   │   ├── MainWindow.cpp
+│   │   ├── gerente/
+│   │   ├── jefe/
+│   │   ├── bodega/
+│   │   └── vendedor/
+│   └── resources/
+│       ├── resources.qrc
+│       └── icons/
+└── ...
 ```
 
-## 📚 Catálogos y títulos asociados
+## 4. Módulos principales
 
-Las pantallas de gestión de autores y géneros consultan los catálogos con `ApiClient` y muestran las relaciones registradas en la API:
+### `src/core/`
 
-- **Autores** (`BodegaAutoresView`): `GET /api/autores` entrega `total_libros`, obtenido de `autores_has_libros`.
-- **Géneros** (`JefeGenerosView`): `GET /api/generos` entrega `total_libros` y `total_revistas`, obtenidos de `productos_has_genero` y las tablas `libros` / `revistas`.
+- `Theme`: paleta corporativa, estilos globales y colores por rol.
+- `ApiClient`: cliente HTTP centralizado con manejo de JWT y sesión.
+- `EanClassifier`: validación y clasificación de códigos EAN.
+- `Models`: DTOs del dominio.
 
-Los valores representan títulos/productos asociados únicos, no la cantidad de ejemplares en inventario. El catálogo de géneros muestra ambos conteos.
+### `src/widgets/`
 
----
+- `Ui`: kit visual reutilizable.
+- `CatalogView`: tablas y flujos de catálogo.
+- `RequisicionView`: pantallas de requisición para traslados y movimientos.
+- `StatCard`: tarjetas de KPI.
+- `Toast`: notificaciones de éxito/error.
 
-## ⚙️ Requisitos
+### `src/views/`
 
-- Compilador C++ compatible con **C++17** (`g++` o `clang++`).
-- **CMake** >= 3.16.
-- **Qt 6** con los módulos:
-  - `Qt6Core`
-  - `Qt6Gui`
-  - `Qt6Widgets`
-  - `Qt6Network`
+Cada vista corresponde a un flujo operativo del negocio:
 
----
+- `jefe/`: devoluciones, movimientos, usuarios y catálogos de dominio.
+- `bodega/`: registro, proveedores, compras, inventario y traslado.
+- `vendedor/`: ventas, consulta, devoluciones y traslado.
+- `gerente/`: dashboard y administración.
 
-## 🚀 Compilación y Ejecución
+## 5. Roles y permisos
 
-### 1. Configurar y Compilar con CMake
+| Rol | Código | Acceso principal |
+|---|---:|---|
+| Jefe de Departamento | 1 | dashboard, devoluciones, bitácora, gestión de catálogo |
+| Personal de Bodega | 2 | inventario, registrar productos, proveedores, compras y traslados |
+| Vendedor | 3 | ventas, consulta de existencias, devoluciones y traslado |
+| Gerente | 4 | dashboard ejecutivo y administración de usuarios |
+
+La navegación debe filtrarse por rol para no mostrar vistas no autorizadas.
+
+## 6. Integración con la API
+
+La comunicación con el backend pasa por `ApiClient` y se espera un esquema de respuestas tipo:
+
+```json
+{
+  "success": true,
+  "data": { "...": "..." },
+  "message": "OK"
+}
+```
+
+En caso de error, la API puede responder con payload estructurado de error y la aplicación debe reaccionar según el código HTTP.
+
+## 7. Compilación y ejecución
+
+### Requisitos
+
+- CMake >= 3.16
+- Qt 6 instalado con los módulos Core, Gui, Widgets y Network
+- compilador compatible con C++17 o superior
+
+### Comandos
 
 ```bash
-cd "/home/iron/Proyectos/Ingenieria de Software/frontend_migrado"
+cd /home/iron/Proyectos/Ingenieria de Software/frontend_migrado
 cmake -B build -S .
 cmake --build build -j$(nproc)
-```
-
-### 2. Ejecutar la Aplicación
-
-```bash
 ./build/novabook_frontend
 ```
 
----
+## 8. Credenciales de prueba
 
-## 🔑 Credenciales de Prueba
+Las credenciales de ejemplo deben validar según la base de datos real del backend. En la práctica, los usuarios de referencia son los que aparecen en los scripts y en la base de datos del proyecto, con los siguientes perfiles:
 
-| Rol | ID Usuario | Contraseña | Vistas Habilitadas |
-|---|---|---|---|
-| **Jefe de Departamento** | `350976899` | `2501` | Dashboard, Historial del Día, Devoluciones, Usuarios |
-| **Personal de Bodega** | `628777130` | `7777` | Dashboard, Registrar Mercancía, Requisición Salida, Inventario |
-| **Vendedor** | `628777129` | `8888` | Dashboard, Consultar Existencias, Baja por Venta (POS), Requisición a Bodega, Devoluciones |
+- Gerente
+- Jefe de Departamento
+- Personal de Bodega
+- Vendedor
 
-> **Nota:** La aplicación apunta por defecto a `http://localhost:8080`, igual que `api_migrado`. Puedes cambiar la dirección configurando la variable de entorno `API_URL` si el backend está alojado en otro host o puerto.
+## 9. Convenciones de desarrollo
+
+- Toda comunicación HTTP debe pasarse por `ApiClient`.
+- No se deben escribir colores hexadecimales en bruto dentro de vistas, sino reutilizar `Theme`.
+- Los identificadores grandes deben manejarse como `qint64` cuando corresponda.
+- Si se agrega una nueva clase o vista, debe registrarse en `CMakeLists.txt`.
+- Si se cambian rutas, permisos o payloads del backend, también debe reflejarse en el cliente.
+
+## 10. Nota de estado
+
+La documentación del frontend se ha actualizado para reflejar el estado real del repositorio: aplicación desktop Qt con arquitectura modular, no una SPA web ni un cliente móvil.
