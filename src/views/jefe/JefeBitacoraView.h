@@ -7,6 +7,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include "Models.h"
+#include <QCheckBox>
 
 class PagerBar;
 
@@ -19,10 +20,12 @@ public:
 
 private:
     void renderPagina();
-
+    void aplicarFiltros();
+    
     QDateEdit *m_desde;
     QDateEdit *m_hasta;
     QComboBox *m_comboTipo;
+    QCheckBox *m_chkOcultarConsultas;
     QPushButton *m_btnBuscar;
     QTableWidget *m_table;
     QLabel *m_lblTotal;
