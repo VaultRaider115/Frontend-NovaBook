@@ -89,8 +89,8 @@ de editoriales).
 
 ## 7. Documentos PDF
 
-Se guardan en `Documentos/NovaBook` y se abren en el visor del sistema para
-imprimir.
+La app pregunta dónde guardarlos (propone `Documentos/NovaBook`) y los abre
+en el visor del sistema para imprimir.
 
 - **Requisición:** la genera Qt (`Documentos::pdfRequisicion`). Lleva folio
   `REQ-AAAA-n`, editorial, origen y destino, partidas y firmas.
