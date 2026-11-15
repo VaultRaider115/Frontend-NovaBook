@@ -6,6 +6,7 @@
 #include "Toast.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QHeaderView>
 #include <QDate>
 #include <QSharedPointer>
 #include <algorithm>
@@ -61,6 +62,7 @@ JefeBitacoraView::JefeBitacoraView(QWidget *parent)
         d->setCalendarPopup(true);
         d->setDisplayFormat("dd 'de' MMMM, yyyy");
         d->setMinimumWidth(190);
+        d->setMaximumDate(QDate::currentDate());   // sin fechas futuras
     }
     m_comboTipo = new QComboBox(filters);
     m_comboTipo->addItem("Todos los eventos", "");
@@ -76,10 +78,34 @@ JefeBitacoraView::JefeBitacoraView(QWidget *parent)
     layout->addWidget(filters);
 
     m_table = Ui::table({"Hora", "Día", "Empleado", "Rol en tienda", "Evento", "Descripción"}, 5, this);
+    // Anchos para que no se corten nombres de empleados ni roles.
+    auto *hh = m_table->horizontalHeader();
+    hh->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    hh->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    hh->setSectionResizeMode(2, QHeaderView::Interactive);
+    m_table->setColumnWidth(2, 220);
+    hh->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    hh->setSectionResizeMode(4, QHeaderView::Interactive);
+    m_table->setColumnWidth(4, 185);
+    hh->setSectionResizeMode(5, QHeaderView::Stretch);
     layout->addWidget(m_table, 1);
 
     m_pager = new PagerBar(5, this);
     layout->addWidget(m_pager);
+
+    // Mantener el rango coherente: la fecha final nunca queda antes de la inicial.
+    connect(m_desde, &QDateEdit::dateChanged, this, [this](const QDate &fecha) {
+        if (m_hasta->date() < fecha) {
+            QSignalBlocker b(m_hasta);
+            m_hasta->setDate(fecha);
+        }
+    });
+    connect(m_hasta, &QDateEdit::dateChanged, this, [this](const QDate &fecha) {
+        if (fecha < m_desde->date()) {
+            QSignalBlocker b(m_desde);
+            m_desde->setDate(fecha);
+        }
+    });
 
     connect(m_btnBuscar, &QPushButton::clicked, this, [this]() { m_pager->reset(); cargarMovimientos(); });
     connect(m_comboTipo, QOverload<int>::of(&QComboBox::activated), this, [this]() { m_pager->reset(); cargarMovimientos(); });
@@ -88,6 +114,12 @@ JefeBitacoraView::JefeBitacoraView(QWidget *parent)
 
 void JefeBitacoraView::cargarMovimientos() {
     if (m_cargando) return;
+
+    // Si la app quedó abierta de un día para otro, el máximo avanza con la fecha.
+    const QDate hoy = QDate::currentDate();
+    m_desde->setMaximumDate(hoy);
+    m_hasta->setMaximumDate(hoy);
+
     if (m_hasta->date() < m_desde->date()) {
         Toast::showToast(this, "La fecha final no puede ser anterior a la inicial", Toast::Warning);
         return;

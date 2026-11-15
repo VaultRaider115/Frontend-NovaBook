@@ -178,8 +178,74 @@ QString globalStyleSheet() {
         QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 
         /* ---------- Calendario (QDateEdit) ---------- */
+         QCalendarWidget {
+            background-color: {{BgCard}};
+            border: 1px solid {{Border}};
+        }
         QCalendarWidget QWidget { background-color: {{BgCard}}; color: {{TextPrimary}}; }
-        QCalendarWidget QAbstractItemView { selection-background-color: {{Accent}}; selection-color: {{BgDark}}; }
+        QCalendarWidget QWidget#qt_calendar_navigationbar {
+            background-color: {{BgHeader}};
+            border-bottom: 1px solid {{Border}};
+            padding: 4px;
+        }
+        QCalendarWidget QToolButton {
+            background-color: transparent;
+            color: {{TextPrimary}};
+            border: 1px solid transparent;
+            border-radius: 6px;
+            padding: 4px 8px;
+            min-height: 22px;
+            min-width: 22px;
+            font-weight: 600;
+        }
+        QCalendarWidget QToolButton:hover {
+            background-color: #202024;
+            border-color: {{Border}};
+        }
+        QCalendarWidget QToolButton::menu-indicator { image: none; }
+        QCalendarWidget QSpinBox {
+            background-color: {{BgInput}};
+            color: {{TextPrimary}};
+            border: 1px solid {{Border}};
+            border-radius: 6px;
+            padding: 2px 6px;
+            min-height: 20px;
+        }
+        QCalendarWidget QMenu {
+            background-color: {{BgCard}};
+            color: {{TextPrimary}};
+            border: 1px solid {{Border}};
+        }
+        QCalendarWidget QMenu::item:selected {
+            background-color: {{Accent}};
+            color: {{BgDark}};
+        }
+        QCalendarWidget QAbstractItemView {
+            background-color: {{BgCard}};
+            alternate-background-color: {{BgHeader}};
+            color: {{TextPrimary}};
+            border: none;
+            border-radius: 0px;
+            selection-background-color: {{Accent}};
+            selection-color: {{BgDark}};
+            outline: 0;
+        }
+        QCalendarWidget QAbstractItemView::item {
+            padding: 2px;
+            border-bottom: none;
+        }
+        QCalendarWidget QAbstractItemView::item:selected {
+            background-color: {{Accent}};
+            color: {{BgDark}};
+            border-radius: 4px;
+        }
+        QCalendarWidget QHeaderView::section {
+            background-color: {{BgHeader}};
+            color: {{TextMuted}};
+            padding: 4px 2px;
+            font-size: 11px;
+            border-bottom: 1px solid {{Border}};
+        }
 
         QMessageBox { background-color: {{BgCard}}; }
     )");
