@@ -7,7 +7,7 @@ class BodegaTrasladoView : public RequisicionView {
 
 public:
     explicit BodegaTrasladoView(QWidget *parent = nullptr)
-        : RequisicionView("Bodega · movimiento", "Requisición de Salida Bodega > Piso de Venta",
+        : RequisicionView("Bodega · movimiento", "Requisición de Salida Bodega > Venta",
                           "Registrar y Mandar a Piso", "Mercancía trasladada a Piso de Venta", parent) {}
 
 protected:

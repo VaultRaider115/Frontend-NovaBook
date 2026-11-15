@@ -1,6 +1,7 @@
 #include "CatalogView.h"
 #include "Ui.h"
 #include <QMessageBox>
+#include <QRegularExpression>
 #include <QVBoxLayout>
 
 PagerBar::PagerBar(int pageSize, QWidget *parent) : QWidget(parent), m_pageSize(pageSize) {
@@ -99,7 +100,10 @@ int CatalogView::appendRow(const QString &searchKey) {
 }
 
 void CatalogView::finishRows(const QString &totalText, const QString &noun) {
-    m_lblTotal->setText(totalText);
+    // Diseños 1/12/18: el número del total va resaltado ("Total de autores: 5").
+    QString html = totalText.toHtmlEscaped();
+    html.replace(QRegularExpression("(\\d+)"), "<b style=\"color:#FFFFFF;\">\\1</b>");
+    m_lblTotal->setText(html);
     m_noun = noun;
     applyVisibility();
 }
@@ -135,7 +139,7 @@ QList<QWidget *> CatalogView::rowActions(const QString &what, std::function<void
 QWidget *CatalogView::nameCell(const QString &name, const QString &sub) {
     auto *w = new QWidget();
     auto *l = new QHBoxLayout(w);
-    l->setContentsMargins(16, 0, 16, 0);
+    l->setContentsMargins(0, 0, 0, 0);   // el padding del ítem ya da el margen
     l->setSpacing(12);
     l->addWidget(Ui::avatar(name, "gold", w));
     l->addWidget(new QLabel(name, w));

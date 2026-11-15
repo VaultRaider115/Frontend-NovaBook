@@ -61,20 +61,27 @@ JefeBitacoraView::JefeBitacoraView(QWidget *parent)
     for (auto *d : {m_desde, m_hasta}) {
         d->setCalendarPopup(true);
         d->setDisplayFormat("dd 'de' MMMM, yyyy");
-        d->setMinimumWidth(190);
+        d->setMinimumWidth(235);
         d->setMaximumDate(QDate::currentDate());   // sin fechas futuras
+        Ui::decorateDate(d);
     }
+    m_desde->setToolTip("Desde");
+    m_desde->setAccessibleName("Fecha inicial");
+    m_hasta->setToolTip("Hasta");
+    m_hasta->setAccessibleName("Fecha final");
+    // Diseño 7: sin etiquetas; el combo muestra "Tipo de Evento:".
     m_comboTipo = new QComboBox(filters);
-    m_comboTipo->addItem("Todos los eventos", "");
-    for (const auto &c : kCategorias) m_comboTipo->addItem(c.etiqueta, c.codigo);
-    m_comboTipo->setMinimumWidth(190);
-    m_btnBuscar = Ui::button("Consultar", "primary", filters);
+    m_comboTipo->addItem("Tipo de Evento: Todos", "");
+    for (const auto &c : kCategorias) m_comboTipo->addItem(QString("Tipo de Evento: %1").arg(c.etiqueta), c.codigo);
+    m_comboTipo->setMinimumWidth(260);
+    m_comboTipo->setAccessibleName("Tipo de evento");
+    m_btnBuscar = Ui::button("Consultar", "primary", filters, "search-dark");
 
-    fl->addWidget(Ui::field("Desde", m_desde, filters));
-    fl->addWidget(Ui::field("Hasta", m_hasta, filters));
-    fl->addWidget(Ui::field("Tipo de Evento:", m_comboTipo, filters));
+    fl->addWidget(m_desde);
+    fl->addWidget(m_hasta);
+    fl->addWidget(m_comboTipo);
+    fl->addWidget(m_btnBuscar);
     fl->addStretch();
-    fl->addWidget(m_btnBuscar, 0, Qt::AlignBottom);
     layout->addWidget(filters);
 
     m_table = Ui::table({"Hora", "Día", "Empleado", "Rol en tienda", "Evento", "Descripción"}, 5, this);
@@ -156,13 +163,15 @@ void JefeBitacoraView::renderPagina() {
         const QString fh = QString(m.fecha_hora).replace('T', ' ');
         const QStringList partes = fh.split(' ', Qt::SkipEmptyParts);
         Ui::cellText(m_table, r, 0, partes.size() > 1 ? partes.at(1).left(8) : "—", true);
-        Ui::cellText(m_table, r, 1, partes.value(0, "—"), true);
+        // Día como en el diseño: 14/10/26
+        const QDate dia = QDate::fromString(partes.value(0), "yyyy-MM-dd");
+        Ui::cellText(m_table, r, 1, dia.isValid() ? dia.toString("dd/MM/yy") : partes.value(0, "—"), true);
 
         auto *emp = new QWidget();
         auto *el = new QHBoxLayout(emp);
-        el->setContentsMargins(16, 0, 16, 0);
+        el->setContentsMargins(0, 0, 0, 0);
         el->setSpacing(10);
-        el->addWidget(Ui::avatar(m.usuario, "gray", emp));
+        el->addWidget(Ui::avatar(m.usuario, "gold", emp));
         el->addWidget(new QLabel(m.usuario, emp));
         el->addStretch();
         m_table->setCellWidget(r, 2, emp);

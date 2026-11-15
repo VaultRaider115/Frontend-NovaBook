@@ -21,37 +21,21 @@ VendedorVentasView::VendedorVentasView(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(40, 32, 40, 32);
     layout->setSpacing(18);
-    layout->addWidget(Ui::pageHeader("Vendedor · Caja registradora", "Punto de Venta — Registro de Venta en Mostrador", "", this));
+    layout->addWidget(Ui::pageHeader("Vendedor · Caja registradora", "Punto de Venta — Registro de Venta al Mostrador", "", this));
 
-    // Cliente + fecha/hora en vivo
+    // Cliente (diseño 3: etiqueta dorada y campo con ícono de persona)
     auto *clienteCard = Ui::card(this);
-    auto *cl = new QHBoxLayout(clienteCard);
+    auto *cl = new QVBoxLayout(clienteCard);
     cl->setContentsMargins(20, 20, 20, 20);
-    cl->setSpacing(20);
-    m_txtCliente = new QLineEdit(clienteCard);
-    m_txtCliente->setPlaceholderText("Ej. Ignacio Zaragoza Seguín");
+    cl->setSpacing(8);
     auto *lblCliente = Ui::label("Nombre del Cliente", "Gold", clienteCard);
     lblCliente->setStyleSheet("font-weight: 600;");
-    auto *clienteBox = new QWidget(clienteCard);
-    auto *clienteLay = new QVBoxLayout(clienteBox);
-    clienteLay->setContentsMargins(0, 0, 0, 0);
-    clienteLay->setSpacing(8);
-    clienteLay->addWidget(lblCliente);
-    clienteLay->addWidget(m_txtCliente);
-    cl->addWidget(clienteBox, 1);
-
-    m_lblFecha = new QLabel(clienteCard);
-    m_lblFecha->setObjectName("Hint");
-    cl->addWidget(m_lblFecha, 0, Qt::AlignBottom);
+    cl->addWidget(lblCliente);
+    m_txtCliente = new QLineEdit(clienteCard);
+    m_txtCliente->setPlaceholderText("Ej. Ignacio Zaragoza Seguín");
+    m_txtCliente->addAction(QIcon(":/icons/user.svg"), QLineEdit::LeadingPosition);
+    cl->addWidget(m_txtCliente);
     layout->addWidget(clienteCard);
-
-    auto *tick = new QTimer(this);
-    auto actualizarHora = [this]() {
-        m_lblFecha->setText(QLocale(QLocale::Spanish).toString(QDateTime::currentDateTime(), "d 'de' MMMM, yyyy. HH:mm:ss"));
-    };
-    connect(tick, &QTimer::timeout, this, actualizarHora);
-    actualizarHora();
-    tick->start(1000);
 
     // Escaneo / alta al carrito
     auto *addCard = Ui::card(this);
@@ -91,11 +75,15 @@ VendedorVentasView::VendedorVentasView(QWidget *parent)
     sl->setContentsMargins(20, 20, 20, 20);
     sl->setSpacing(16);
 
+    // Diseño 3: "MÉTODO DE PAGO" arriba de píldoras con ícono.
+    auto *payLabel = Ui::label("MÉTODO DE PAGO", "FieldLabel", summary);
+    Ui::spaced(payLabel, 0.8);
+    sl->addWidget(payLabel);
     auto *payRow = new QHBoxLayout();
     payRow->setSpacing(8);
-    payRow->addWidget(Ui::label("Método de pago", "FieldLabel", summary));
-    for (const QString &metodo : {"Efectivo", "Tarjeta", "Transferencia"}) {
-        auto *b = Ui::button(metodo, "pay", summary);
+    const QList<QPair<QString, QString>> metodos = {{"Efectivo", "cash"}, {"Tarjeta", "card"}, {"Transferencia", "phone"}};
+    for (const auto &[metodo, icono] : metodos) {
+        auto *b = Ui::button(metodo, "pay", summary, icono);
         Ui::setCurrent(b, metodo == m_metodoPago);
         connect(b, &QPushButton::clicked, this, [this, metodo]() {
             m_metodoPago = metodo;
@@ -105,12 +93,28 @@ VendedorVentasView::VendedorVentasView(QWidget *parent)
         payRow->addWidget(b);
     }
     payRow->addStretch();
-    m_btnVaciar = Ui::button("Vaciar carrito", "ghost", summary, "trash");
-    payRow->addWidget(m_btnVaciar);
-    m_lblTotalArticulos = new QLabel("Artículos totales: 0", summary);
-    m_lblTotalArticulos->setObjectName("Hint");
-    payRow->addWidget(m_lblTotalArticulos);
     sl->addLayout(payRow);
+
+    // Vaciar carrito + recuadro "ARTÍCULOS TOTALES" con el número grande.
+    auto *countRow = new QHBoxLayout();
+    countRow->setSpacing(12);
+    m_btnVaciar = Ui::button("Vaciar carrito", "outline", summary, "trash");
+    countRow->addWidget(m_btnVaciar, 0, Qt::AlignVCenter);
+    auto *countBox = new QFrame(summary);
+    countBox->setObjectName("StatBox");
+    auto *cbl = new QVBoxLayout(countBox);
+    cbl->setContentsMargins(16, 8, 16, 8);
+    cbl->setSpacing(2);
+    auto *countLbl = Ui::label("ARTÍCULOS TOTALES", "FieldLabel", countBox);
+    Ui::spaced(countLbl, 0.8);
+    cbl->addWidget(countLbl, 0, Qt::AlignHCenter);
+    m_lblTotalArticulos = new QLabel("0", countBox);
+    m_lblTotalArticulos->setStyleSheet("font-size: 20px; font-weight: 700;");
+    cbl->addWidget(m_lblTotalArticulos, 0, Qt::AlignHCenter);
+    countRow->addWidget(countBox);
+    countRow->addStretch();
+    sl->addLayout(countRow);
+    sl->addWidget(Ui::divider(summary));
 
     auto *totalRow = new QHBoxLayout();
     totalRow->setSpacing(16);
@@ -118,14 +122,18 @@ VendedorVentasView::VendedorVentasView(QWidget *parent)
     totalBox->setObjectName("Highlight");
     auto *tbl = new QHBoxLayout(totalBox);
     tbl->setContentsMargins(24, 16, 24, 16);
-    tbl->addWidget(Ui::label("Total a cobrar", "Muted", totalBox));
+    auto *totalLbl = Ui::label("TOTAL A COBRAR", "Muted", totalBox);
+    totalLbl->setStyleSheet("font-weight: 600;");
+    Ui::spaced(totalLbl, 1.2);
+    tbl->addWidget(totalLbl);
     tbl->addStretch();
     m_lblTotalPagar = new QLabel("$0.00", totalBox);
     m_lblTotalPagar->setStyleSheet(QString("font-size: 44px; font-weight: 700; color: %1;").arg(Theme::Accent));
     tbl->addWidget(m_lblTotalPagar);
     totalRow->addWidget(totalBox, 1);
 
-    m_btnProcesar = Ui::button("Procesar Venta e Imprimir Ticket", "primary", summary);
+    m_btnProcesar = Ui::button("Procesar Venta e Imprimir Ticket", "primary", summary, "printer-dark");
+    m_btnProcesar->setIconSize(QSize(20, 20));
     m_btnProcesar->setStyleSheet("QPushButton { padding: 26px 32px; font-size: 18px; font-weight: 700; }");
     totalRow->addWidget(m_btnProcesar, 1);
     sl->addLayout(totalRow);
@@ -231,7 +239,7 @@ void VendedorVentasView::recalcularTotales() {
         Ui::cellWidget(m_tableCart, i, 6, btnQuitar);
     }
 
-    m_lblTotalArticulos->setText(QString("Artículos totales: %1").arg(totalPiezas));
+    m_lblTotalArticulos->setText(QString::number(totalPiezas));
     m_lblTotalPagar->setText(Ui::money(totalDinero));
 }
 

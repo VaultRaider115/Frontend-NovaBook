@@ -74,7 +74,7 @@ void JefeUsuariosView::cargarUsuarios() {
 
             auto *name = new QWidget();
             auto *nl = new QHBoxLayout(name);
-            nl->setContentsMargins(16, 0, 16, 0);
+            nl->setContentsMargins(0, 0, 0, 0);
             nl->setSpacing(12);
             nl->addWidget(Ui::avatar(u.nombreCompleto(), "gray", name));
             nl->addWidget(new QLabel(u.nombreCompleto(), name));
@@ -82,7 +82,7 @@ void JefeUsuariosView::cargarUsuarios() {
             m_table->setCellWidget(r, 1, name);
 
             Ui::cellWidget(m_table, r, 2, Ui::chip(Theme::roleName(u.id_roles), chipRol(u.id_roles).toUtf8().constData()));
-            Ui::cellText(m_table, r, 3, u.telefono > 0 ? QString::number(u.telefono) : "—", false, false, Theme::TextMuted);
+            Ui::cellText(m_table, r, 3, u.telefono > 0 ? Ui::phone(u.telefono) : "—", false, false, Theme::TextMuted);
             Ui::cellWidget(m_table, r, 4, Ui::chip(u.activo() ? "● Activo" : "Inactivo", u.activo() ? "ok" : "neutral"));
             if (u.activo()) ++activos;
 

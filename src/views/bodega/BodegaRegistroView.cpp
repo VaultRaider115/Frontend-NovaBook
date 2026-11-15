@@ -9,6 +9,8 @@
 #include "Ui.h"
 #include <QLabel>
 #include <QFrame>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 
 BodegaRegistroView::BodegaRegistroView(QWidget *parent)
     : QWidget(parent)
@@ -38,7 +40,10 @@ BodegaRegistroView::BodegaRegistroView(QWidget *parent)
     cardLayout->addWidget(Ui::rowField("Código EAN-13:", eanBox, card));
 
     m_txtSku = new QLineEdit(card);
-    m_txtSku->setPlaceholderText("SKU numérico interno");
+    m_txtSku->setPlaceholderText("SKU interno de 6 a 7 dígitos");
+    m_txtSku->setMaxLength(7);
+    // Solo dígitos y sin cero inicial (el SKU se guarda como número).
+    m_txtSku->setValidator(new QRegularExpressionValidator(QRegularExpression("[1-9][0-9]{0,6}"), m_txtSku));
     cardLayout->addWidget(Ui::rowField("SKU Interno:", m_txtSku, card));
 
     m_txtNombre = new QLineEdit(card);
@@ -89,7 +94,7 @@ BodegaRegistroView::BodegaRegistroView(QWidget *parent)
     // La cantidad ya no se captura aquí: el stock entra por Compras a Proveedor.
 
     m_comboMueble = new QComboBox(card);
-    cardLayout->addWidget(Ui::rowField("Mueble de Asignación (Bodega):", m_comboMueble, card));
+    cardLayout->addWidget(Ui::rowField("Mueble de Asignación:", m_comboMueble, card));
 
     m_comboProveedor = new QComboBox(card);
     cardLayout->addWidget(Ui::rowField("Proveedor Oficial:", m_comboProveedor, card));
@@ -249,6 +254,14 @@ void BodegaRegistroView::onRegistrar() {
         return;
     }
 
+    // El SKU es obligatorio para un producto nuevo; la API lo exige y avisa si falta.
+    const QString sku = m_txtSku->text().trimmed();
+    if (!sku.isEmpty() && (sku.size() < 6 || sku.size() > 7)) {
+        Toast::showToast(this, "El SKU debe tener de 6 a 7 dígitos", Toast::Warning);
+        m_txtSku->setFocus();
+        return;
+    }
+
     if (m_comboMueble->currentIndex() < 0) {
         Toast::showToast(this, "Selecciona el mueble de bodega donde se ubicará el producto", Toast::Warning);
         return;
@@ -269,8 +282,8 @@ void BodegaRegistroView::onRegistrar() {
 
     QJsonObject obj;
     obj["codigo_ean"] = ean;
-    if (!m_txtSku->text().trimmed().isEmpty()) {
-        obj["sku"] = m_txtSku->text().trimmed().toLongLong();
+    if (!sku.isEmpty()) {
+        obj["sku"] = sku.toLongLong();
     }
     obj["id_mueble"] = m_comboMueble->currentData().toInt();
     obj["id_proveedor"] = m_comboProveedor->currentData().toInt();

@@ -41,7 +41,8 @@ RequisicionView::RequisicionView(const QString &eyebrow, const QString &title, c
     cl->addWidget(m_lblStatus);
     layout->addWidget(addCard);
 
-    m_table = Ui::table({"Descripción", "EAN", "Tipo", "Cantidad", "Acción"}, 0, this, 56);
+    // Orden de columnas de los diseños 5 y 8.
+    m_table = Ui::table({"EAN", "Tipo", "Descripción", "Cantidad", ""}, 2, this, 56);
     layout->addWidget(m_table, 1);
 
     auto *foot = Ui::card(this);
@@ -51,7 +52,7 @@ RequisicionView::RequisicionView(const QString &eyebrow, const QString &title, c
     auto *btnClear = Ui::button("Vaciar Lista", "ghost", foot, "trash");
     fl->addWidget(btnClear);
     fl->addStretch();
-    m_lblTotal = new QLabel("Piezas Totales: 0", foot);
+    m_lblTotal = new QLabel("Piezas Totales: <b style=\"color:#FFFFFF;\">0</b>", foot);
     m_lblTotal->setObjectName("Muted");
     fl->addWidget(m_lblTotal);
     m_btnEnviar = Ui::button(sendText, "primary", foot, "check-dark");
@@ -102,15 +103,15 @@ void RequisicionView::render() {
     for (int i = 0; i < m_items.size(); ++i) {
         const Partida &p = m_items.at(i);
         total += p.cantidad;
-        Ui::cellText(m_table, i, 0, p.nombre, false, true);
-        Ui::cellText(m_table, i, 1, QString::number(p.ean), true);
-        Ui::cellWidget(m_table, i, 2, Ui::tipoChip(p.tipo));
+        Ui::cellText(m_table, i, 0, QString::number(p.ean), true);
+        Ui::cellWidget(m_table, i, 1, Ui::tipoChip(p.tipo));
+        Ui::cellText(m_table, i, 2, p.nombre);
         Ui::cellText(m_table, i, 3, QString::number(p.cantidad));
         auto *quitar = Ui::iconButton("trash", "Quitar partida");
         connect(quitar, &QPushButton::clicked, this, [this, i]() { m_items.removeAt(i); render(); });
         Ui::cellWidget(m_table, i, 4, quitar);
     }
-    m_lblTotal->setText(QString("Piezas Totales: %1").arg(total));
+    m_lblTotal->setText(QString("Piezas Totales: <b style=\"color:#FFFFFF;\">%1</b>").arg(total));
 }
 
 void RequisicionView::enviarTodo() {

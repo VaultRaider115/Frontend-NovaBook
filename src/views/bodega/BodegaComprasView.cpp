@@ -16,7 +16,10 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(40, 32, 40, 32);
     layout->setSpacing(18);
-    layout->addWidget(Ui::pageHeader("Bodega · Compras", "Recepción de Mercancía — Compras a Proveedor", "", this));
+    // Diseño 6: la segunda parte del título va atenuada.
+    layout->addWidget(Ui::pageHeader("Bodega · Compras",
+        QString("Recepción de Mercancía <span style=\"color:%1; font-weight:400;\">— Compras a Proveedor</span>")
+            .arg(Theme::TextMuted), "", this));
 
     // Datos de factura: proveedor + número de factura / observaciones
     auto *headerCard = Ui::card(this);
@@ -27,6 +30,7 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     m_txtObs = new QLineEdit(headerCard);
     m_txtObs->setPlaceholderText("Ej. F-1024");
     m_txtObs->setMaxLength(30);
+    m_txtObs->addAction(QIcon(":/icons/receipt.svg"), QLineEdit::LeadingPosition);
     hl->addWidget(Ui::field("Proveedor Oficial", m_comboProveedor, headerCard), 1);
     hl->addWidget(Ui::field("Número de Factura", m_txtObs, headerCard), 1);
     layout->addWidget(headerCard);
@@ -53,6 +57,7 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     m_spnCosto->setRange(0.0, 99999.0);
     m_spnCosto->setValue(150.0);
     m_spnCosto->setPrefix("$ ");
+    m_spnCosto->setButtonSymbols(QAbstractSpinBox::NoButtons);
     m_spnCosto->setFixedWidth(130);
     addLayout->addWidget(Ui::field("Costo unitario", m_spnCosto, addCard));
 

@@ -22,7 +22,7 @@ VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
     // Encabezado + proveedor destino
     auto *top = new QHBoxLayout();
     top->setSpacing(24);
-    top->addWidget(Ui::pageHeader("Logística", "Gestión de Devoluciones a Proveedor",
+    top->addWidget(Ui::pageHeader("Vendedor · Logística","Gestión de Devoluciones a Proveedor",
                                   "Registra artículos para devolución con descarga de acta PDF.", this), 1);
 
     auto *provCard = Ui::card(this);
@@ -82,7 +82,9 @@ VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
     auto *tl = new QVBoxLayout(tot);
     tl->setContentsMargins(0, 0, 0, 0);
     tl->setSpacing(2);
-    tl->addWidget(Ui::label("Total piezas a devolver", "FieldLabel", tot));
+    auto *totLbl = Ui::label("TOTAL PIEZAS A DEVOLVER", "FieldLabel", tot);
+    Ui::spaced(totLbl, 0.8);
+    tl->addWidget(totLbl);
     m_lblTotal = Ui::label("0", "BigNumber", tot);
     tl->addWidget(m_lblTotal);
     fl->addWidget(tot);
@@ -92,7 +94,9 @@ VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
     auto *ll = new QVBoxLayout(lote);
     ll->setContentsMargins(0, 0, 0, 0);
     ll->setSpacing(2);
-    ll->addWidget(Ui::label("Lote de devolución", "FieldLabel", lote));
+    auto *loteLbl = Ui::label("LOTE DE DEVOLUCIÓN", "FieldLabel", lote);
+    Ui::spaced(loteLbl, 0.8);
+    ll->addWidget(loteLbl);
     m_lblLote = Ui::label("—", "Gold", lote);
     m_lblLote->setStyleSheet(QString("font-family: %1; font-size: 18px;").arg(Theme::FontMono));
     ll->addWidget(m_lblLote);

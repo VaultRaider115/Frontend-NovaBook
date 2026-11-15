@@ -13,8 +13,8 @@
 #include <QRegularExpressionValidator>
 
 GerenteUsuariosView::GerenteUsuariosView(QWidget *parent)
-    : CatalogView("Gerencia · CRUD Usuarios", "Administración de Usuarios",
-                  "Control completo de acceso del personal de la librería.",
+    : CatalogView("Gerencia · Catálogo de usuarios", "Administración y Gestión de Usuarios",
+                  "Control de acceso del personal de la librería.",
                   "Buscar por ID, nombre, rol o teléfono...", "Registrar Nuevo Usuario",
                   {"Número de empleado", "Colaborador", "Rol en sistema", "Teléfono", "Estado", "Acciones"}, 1, 0, parent)
 {
@@ -80,7 +80,7 @@ void GerenteUsuariosView::cargarUsuarios() {
 
             auto *name = new QWidget();
             auto *nl = new QHBoxLayout(name);
-            nl->setContentsMargins(16, 0, 16, 0);
+            nl->setContentsMargins(0, 0, 0, 0);
             nl->setSpacing(12);
             nl->addWidget(Ui::avatar(u.nombreCompleto(), "gray", name));
             nl->addWidget(new QLabel(u.nombreCompleto(), name));
@@ -88,7 +88,7 @@ void GerenteUsuariosView::cargarUsuarios() {
             m_table->setCellWidget(r, 1, name);
 
             Ui::cellWidget(m_table, r, 2, Ui::chip(Theme::roleName(u.id_roles), chipRol(u.id_roles).toUtf8().constData()));
-            Ui::cellText(m_table, r, 3, u.telefono > 0 ? QString::number(u.telefono) : "—", false, false, Theme::TextMuted);
+            Ui::cellText(m_table, r, 3, u.telefono > 0 ? Ui::phone(u.telefono) : "—", false, false, Theme::TextMuted);
             Ui::cellWidget(m_table, r, 4, Ui::chip(u.activo() ? "● Activo" : "Inactivo", u.activo() ? "ok" : "neutral"));
 
             const bool activo = u.activo();

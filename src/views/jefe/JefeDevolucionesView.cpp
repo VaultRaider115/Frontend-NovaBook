@@ -43,7 +43,7 @@ JefeDevolucionesView::JefeDevolucionesView(QWidget *parent)
     m_fecha = new QDateEdit(hoy, filters);
     m_fecha->setCalendarPopup(true);
     m_fecha->setDisplayFormat("dd 'de' MMMM, yyyy");
-    m_fecha->setMinimumWidth(200);
+    m_fecha->setMinimumWidth(235);
     m_fecha->setMaximumDate(hoy);
     if (auto *le = m_fecha->findChild<QLineEdit *>()) le->setReadOnly(true);
     if (auto *cal = m_fecha->calendarWidget()) {
@@ -54,19 +54,24 @@ JefeDevolucionesView::JefeDevolucionesView(QWidget *parent)
     m_btnHoy = Ui::button("Hoy", "outline", filters);
     m_chkTodasFechas = new QCheckBox("Todas las fechas", filters);
     m_comboEstado = new QComboBox(filters);
-    m_comboEstado->addItem("Todos", "Todos");
-    m_comboEstado->addItem("Pendiente", "PENDIENTE");
-    m_comboEstado->addItem("Aprobado", "APROBADO");
-    m_comboEstado->addItem("Rechazado", "RECHAZADO");
-    m_comboEstado->setMinimumWidth(160);
-    m_btnBuscar = Ui::button("Consultar", "primary", filters);
+    // Diseño 20: sin etiquetas; el combo muestra "Estado:".
+    m_comboEstado->addItem("Estado: Todos", "Todos");
+    m_comboEstado->addItem("Estado: Pendiente", "PENDIENTE");
+    m_comboEstado->addItem("Estado: Aprobado", "APROBADO");
+    m_comboEstado->addItem("Estado: Rechazado", "RECHAZADO");
+    m_comboEstado->setMinimumWidth(200);
+    m_comboEstado->setAccessibleName("Estado");
+    m_btnBuscar = Ui::button("Consultar", "primary", filters, "search-dark");
+    Ui::decorateDate(m_fecha);
+    m_fecha->setAccessibleName("Fecha");
 
-    fl->addWidget(Ui::field("Fecha", m_fecha, filters));
-    fl->addWidget(m_btnHoy, 0, Qt::AlignBottom);
-    fl->addWidget(m_chkTodasFechas, 0, Qt::AlignBottom);
-    fl->addWidget(Ui::field("Estado:", m_comboEstado, filters));
+    fl->addWidget(m_fecha);
+    fl->addWidget(m_btnHoy);
+    fl->addWidget(m_chkTodasFechas);
+    fl->addWidget(Ui::divider(filters, true));
+    fl->addWidget(m_comboEstado);
+    fl->addWidget(m_btnBuscar);
     fl->addStretch();
-    fl->addWidget(m_btnBuscar, 0, Qt::AlignBottom);
     layout->addWidget(filters);
 
     m_table = Ui::table({"Folio / Lote", "Fecha", "Proveedor", "Solicitante", "Piezas", "Motivo principal", "Estado", "Acciones"}, 2, this, 64);
@@ -136,9 +141,16 @@ void JefeDevolucionesView::cargarDevoluciones() {
             Ui::cellText(m_table, i, 0, "#" + (d.folio.isEmpty() ? QString("DEV-%1").arg(d.id_devolucion) : d.folio), true);
             Ui::cellText(m_table, i, 1, d.fecha.isEmpty() ? "—" : d.fecha, true, false, Theme::TextMuted);
             Ui::cellText(m_table, i, 2, d.nombre_proveedor.isEmpty() ? QString("Proveedor #%1").arg(d.id_proveedor) : d.nombre_proveedor, false, true);
-            Ui::cellText(m_table, i, 3, d.vendedor_nombre.isEmpty() ? "—"
-                         : (d.solicitante_rol.isEmpty() ? d.vendedor_nombre : QString("%1 · %2").arg(d.vendedor_nombre, d.solicitante_rol)));
-            Ui::cellText(m_table, i, 4, QString("%1 %2").arg(d.total_piezas).arg(d.total_piezas == 1 ? "pieza" : "piezas"), true, true, Theme::TextPrimary);
+            // Diseño 20: nombre y, debajo, el rol en pequeño.
+            auto *sol = new QLabel(d.vendedor_nombre.isEmpty() ? "—"
+                : QString("%1<br><span style=\"color:%2; font-size:11px;\">%3</span>")
+                      .arg(d.vendedor_nombre.toHtmlEscaped(), Theme::TextMuted, d.solicitante_rol.toHtmlEscaped()));
+            sol->setTextFormat(Qt::RichText);
+            Ui::cellWidget(m_table, i, 3, sol);
+            auto *pzs = new QLabel(QString("<b>%1</b> <span style=\"color:%2;\">%3</span>")
+                .arg(d.total_piezas).arg(Theme::TextMuted, d.total_piezas == 1 ? "pieza" : "piezas"));
+            pzs->setTextFormat(Qt::RichText);
+            Ui::cellWidget(m_table, i, 4, pzs);
             Ui::cellText(m_table, i, 5, d.items.isEmpty() || d.items.first().motivo.isEmpty() ? "—" : d.items.first().motivo, false, false, Theme::TextMuted);
 
             const QString est = d.estado.toLower();
@@ -155,8 +167,8 @@ void JefeDevolucionesView::cargarDevoluciones() {
             } else if (rechazado) {
                 Ui::cellWidget(m_table, i, 7, Ui::label("Sin acciones", "Muted"));
             } else {
-                auto *ok = Ui::button("Aprobar", "approve");
-                auto *no = Ui::button("Rechazar", "reject");
+                auto *ok = Ui::button("Aprobar", "approve", nullptr, "check");
+                auto *no = Ui::button("Rechazar", "reject", nullptr, "x");
                 ok->setAccessibleName(QString("Aprobar devolución %1").arg(d.id_devolucion));
                 no->setAccessibleName(QString("Rechazar devolución %1").arg(d.id_devolucion));
                 connect(ok, &QPushButton::clicked, this, [this, d]() { evaluar(d, true); });

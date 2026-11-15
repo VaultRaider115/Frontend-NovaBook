@@ -7,6 +7,8 @@
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPointer>
+#include <QProgressBar>
+#include <QVBoxLayout>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include <QSpinBox>
@@ -45,13 +47,30 @@ void JefeMueblesView::cargarMuebles() {
                 Ui::cellText(m_table, r, 0, m.codigo.isEmpty() ? QString::number(m.id_mueble) : m.codigo, true);
                 Ui::cellText(m_table, r, 1, m.nombre);
                 const bool piso = m.area.contains("piso", Qt::CaseInsensitive);
-                Ui::cellWidget(m_table, r, 2, Ui::chip(m.area.isEmpty() ? "—" : m.area, piso ? "indigo" : "amber"));
+                Ui::cellWidget(m_table, r, 2, Ui::chip(m.area.isEmpty() ? "—" : m.area, piso ? "indigo" : "purple"));
                 Ui::cellText(m_table, r, 3, m.genero_asignado.isEmpty() ? "—" : m.genero_asignado);
-                Ui::cellText(m_table, r, 4, m.capacidad_maxima > 0
-                             ? QString("%1 / %2 piezas").arg(m.capacidad_actual).arg(m.capacidad_maxima) : "—");
+                if (m.capacidad_maxima > 0) {
+                    // Diseño 18: "35 / 50 piezas" con barra de ocupación debajo.
+                    auto *cap = new QWidget();
+                    auto *cl = new QVBoxLayout(cap);
+                    cl->setContentsMargins(0, 0, 0, 0);
+                    cl->setSpacing(6);
+                    cl->addWidget(new QLabel(QString("<b>%1</b> <span style=\"color:%3;\">/ %2 piezas</span>")
+                                                 .arg(m.capacidad_actual).arg(m.capacidad_maxima).arg(Theme::TextMuted), cap));
+                    auto *bar = new QProgressBar(cap);
+                    bar->setObjectName("CapBar");
+                    bar->setRange(0, m.capacidad_maxima);
+                    bar->setValue(qMin(m.capacidad_actual, m.capacidad_maxima));
+                    bar->setTextVisible(false);
+                    bar->setFixedSize(130, 4);
+                    cl->addWidget(bar);
+                    Ui::cellWidget(m_table, r, 4, cap);
+                } else {
+                    Ui::cellText(m_table, r, 4, "—");
+                }
                 const bool llena = m.capacidad_maxima > 0 && m.capacidad_actual >= m.capacidad_maxima;
                 Ui::cellWidget(m_table, r, 5, m.capacidad_maxima > 0
-                               ? Ui::chip(llena ? "Capacidad Llena" : "Disponible", llena ? "danger" : "ok") : Ui::chip("—", "neutral"));
+                               ? Ui::chip(llena ? "Capacidad Llena" : "Disponible", llena ? "amber" : "ok") : Ui::chip("—", "neutral"));
 
                 const bool tieneStock = (m.capacidad_actual > 0);
                 auto actions = rowActions(m.nombre,

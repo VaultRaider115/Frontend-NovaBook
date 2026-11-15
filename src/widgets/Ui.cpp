@@ -14,12 +14,24 @@ QString money(double value) {
     return "$" + QLocale(QLocale::English).toString(value, 'f', 2);
 }
 
+QString phone(qint64 number) {
+    // 8441112233 → "844 111 2233" (diseño 12)
+    const QString s = QString::number(number);
+    if (s.size() != 10) return s;
+    return QString("%1 %2 %3").arg(s.left(3), s.mid(3, 3), s.mid(6));
+}
+
 QString initials(const QString &fullName) {
-    const QStringList parts = fullName.simplified().split(' ', Qt::SkipEmptyParts);
+    // Como en los diseños: iniciales de las dos primeras palabras
+    // ("Valeria Morales Gómez" → VM); una sola palabra → dos letras ("Fantasia" → FA).
+    // Los conectores no cuentan: "Defecto de fábrica" → DF, "Logística y Envío" → LE.
+    static const QStringList conectores = {"de", "del", "la", "las", "los", "el", "y", "e", "o", "u", "a", "en"};
+    QStringList parts;
+    for (const QString &p : fullName.simplified().split(' ', Qt::SkipEmptyParts))
+        if (!conectores.contains(p.toLower())) parts << p;
     if (parts.isEmpty()) return "?";
-    QString r = parts.first().left(1);
-    if (parts.size() > 1) r += parts.last().left(1);
-    return r.toUpper();
+    if (parts.size() == 1) return parts.first().left(2).toUpper();
+    return (parts.at(0).left(1) + parts.at(1).left(1)).toUpper();
 }
 
 void repolish(QWidget *w) {
@@ -33,13 +45,23 @@ QLabel *label(const QString &text, const char *objectName, QWidget *parent) {
     return l;
 }
 
+void spaced(QWidget *w, qreal px) {
+    // QSS no soporta letter-spacing; se aplica sobre la fuente.
+    QFont f = w->font();
+    f.setLetterSpacing(QFont::AbsoluteSpacing, px);
+    w->setFont(f);
+}
+
 QWidget *pageHeader(const QString &eyebrow, const QString &title, const QString &subtitle, QWidget *parent) {
     auto *w = new QWidget(parent);
     auto *lay = new QVBoxLayout(w);
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(6);
-    const QString &panelName = title.isEmpty() ? eyebrow : title;
-    if (!panelName.isEmpty()) lay->addWidget(label(panelName.toUpper(), "Eyebrow", w));
+    if (!eyebrow.isEmpty()) {
+        auto *eb = label(eyebrow.toUpper(), "Eyebrow", w);
+        spaced(eb, 1.5);
+        lay->addWidget(eb);
+    }
     lay->addWidget(label(title, "PageTitle", w));
     if (!subtitle.isEmpty()) {
         auto *s = label(subtitle, "PageSubtitle", w);
@@ -92,9 +114,11 @@ QLabel *chip(const QString &text, const char *kind, QWidget *parent) {
     auto *l = new QLabel(text, parent);
     l->setProperty("chip", kind);
     l->setAlignment(Qt::AlignCenter);
-    l->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    l->ensurePolished();            // aplica el stylesheet para que el sizeHint incluya el padding
-    l->setMinimumWidth(l->sizeHint().width() +26);
+    l->ensurePolished();            // aplica el stylesheet (fuente y padding del chip)
+    // Ancho fijo = texto + padding horizontal (10px por lado) + margen de redondeo.
+    // Un mínimo mayor que el sizeHint hacía que el chip se pintara recortado.
+    const int w = l->fontMetrics().horizontalAdvance(text) + 2 * 10 + 8;
+    l->setFixedSize(w, 22);
     return l;
 }
 
@@ -108,6 +132,13 @@ QLabel *avatar(const QString &fullName, const char *tone, QWidget *parent) {
     l->setProperty("avatar", tone);
     l->setFixedSize(36, 36);
     return l;
+}
+
+void decorateDate(QDateEdit *d) {
+    // Ícono de calendario a la izquierda (diseños 7 y 20). QDateEdit no expone
+    // su QLineEdit, pero es hijo directo y acepta acciones.
+    if (auto *le = d->findChild<QLineEdit *>())
+        le->addAction(QIcon(":/icons/calendar-gold.svg"), QLineEdit::LeadingPosition);
 }
 
 QLineEdit *searchBox(const QString &placeholder, QWidget *parent) {
@@ -143,14 +174,22 @@ QFrame *stepper(QSpinBox *spin, QWidget *parent) {
     return f;
 }
 
-QWidget *field(const QString &labelText, QWidget *input, QWidget *parent) {
+static QWidget *fieldImpl(const QString &labelText, QWidget *input, QWidget *parent, bool upper) {
     auto *w = new QWidget(parent);
     auto *lay = new QVBoxLayout(w);
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(6);
-    lay->addWidget(label(labelText, "FieldLabel", w));
+    auto *l = label(upper ? labelText.toUpper() : labelText, "FieldLabel", w);
+    if (upper) spaced(l, 0.8);
+    lay->addWidget(l);
     lay->addWidget(input);
     return w;
+}
+
+// En las pantallas los diseños usan etiquetas en mayúsculas espaciadas
+// ("CÓDIGO EAN-13", "CANTIDAD"); en los diálogos van en tipo oración.
+QWidget *field(const QString &labelText, QWidget *input, QWidget *parent) {
+    return fieldImpl(labelText, input, parent, true);
 }
 
 QWidget *rowField(const QString &labelText, QWidget *input, QWidget *parent) {
@@ -203,11 +242,27 @@ QTableWidgetItem *cellText(QTableWidget *t, int row, int col, const QString &tex
 void cellWidgets(QTableWidget *t, int row, int col, const QList<QWidget *> &ws) {
     auto *host = new QWidget();
     auto *lay = new QHBoxLayout(host);
-    lay->setContentsMargins(16, 0, 16, 0);
+    lay->setContentsMargins(0, 0, 0, 0);   // el padding del ítem ya da el margen
     lay->setSpacing(6);
     for (auto *w : ws) lay->addWidget(w);
     lay->addStretch();
     t->setCellWidget(row, col, host);
+    fitColumn(t, col, host);
+}
+
+void fitColumn(QTableWidget *t, int col, QWidget *content) {
+    // ResizeToContents solo mide el texto de las celdas, no los widgets (chips,
+    // botones); sin esto el contenido queda recortado por la derecha.
+    auto *hh = t->horizontalHeader();
+    if (hh->sectionResizeMode(col) == QHeaderView::Stretch) return;
+    // El delegado coloca los widgets de celda dentro del padding de
+    // QTableWidget::item (ver Theme.cpp), así que se suma.
+    constexpr int kItemPadX = 12;
+    const int need = content->sizeHint().width() + 2 * kItemPadX;
+    if (t->columnWidth(col) < need) {
+        hh->setSectionResizeMode(col, QHeaderView::Interactive);
+        t->setColumnWidth(col, need);
+    }
 }
 
 void cellWidget(QTableWidget *t, int row, int col, QWidget *w) {
@@ -249,7 +304,7 @@ FormDialog::FormDialog(const QString &title, const QString &okText, QWidget *par
     fl->setSpacing(12);
     fl->addStretch();
     auto *cancel = button("Cancelar", "", foot);
-    m_ok = button(okText, "primary", foot);
+    m_ok = button(okText, "primary", foot, "check-dark");   // "✓ Guardar …" como en los diseños
     m_ok->setDefault(true);
     connect(cancel, &QPushButton::clicked, this, &QDialog::reject);
     fl->addWidget(cancel);
@@ -258,7 +313,7 @@ FormDialog::FormDialog(const QString &title, const QString &okText, QWidget *par
 }
 
 void FormDialog::addField(const QString &labelText, QWidget *input, int row, int col, int colSpan) {
-    m_grid->addWidget(field(labelText, input, this), row, col, 1, colSpan);
+    m_grid->addWidget(fieldImpl(labelText, input, this, false), row, col, 1, colSpan);
 }
 
 } // namespace Ui
