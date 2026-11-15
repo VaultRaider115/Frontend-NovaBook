@@ -103,6 +103,9 @@ public:
     void descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo, PdfCallback cb);
     // Vendedor: sus propias solicitudes de devolución (estado: "Todos", "PENDIENTE", ...)
     void consultarMisDevoluciones(const QString &estado, ApiCallback cb);
+    // Devolución de cliente con ticket (máx. 15 días): consulta y registro.
+    void consultarTicket(qint64 idVenta, ApiCallback cb);
+    void registrarDevolucionCliente(const QJsonObject &req, ApiCallback cb);
 
     // --- Jefe de Departamento ---
     void consultarHistorialDevoluciones(const QString &fecha, const QString &estado, int idProveedor, ApiCallback cb);

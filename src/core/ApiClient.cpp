@@ -445,6 +445,14 @@ void ApiClient::consultarMisDevoluciones(const QString &estado, ApiCallback cb) 
     sendRequest("GET", "/api/vendedor/devoluciones", query, QByteArray(), cb);
 }
 
+void ApiClient::consultarTicket(qint64 idVenta, ApiCallback cb) {
+    sendRequest("GET", QString("/api/vendedor/tickets/%1").arg(idVenta), QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::registrarDevolucionCliente(const QJsonObject &req, ApiCallback cb) {
+    sendRequest("POST", "/api/vendedor/devoluciones-cliente", QUrlQuery(), QJsonDocument(req).toJson(), cb);
+}
+
 void ApiClient::descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo, PdfCallback cb) {
     QString subpath = (tipo.toLower() == "revista") ? "revistas" : "libros";
     // El acta la descargan su solicitante (ruta de vendedor), el Jefe o el Gerente.
