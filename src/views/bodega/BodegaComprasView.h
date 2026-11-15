@@ -15,7 +15,8 @@ struct CompraCartItem {
     qint64 ean = 0;
     QString tipo;
     QString nombre;
-    int cantidad = 0;
+    int cantidad = 0;      // piezas que dice la factura
+    int recibidas = 0;     // piezas que llegaron (si son menos, se abre una incidencia)
     double costo_unitario = 0.0;
     double subtotal = 0.0;
 };
@@ -40,7 +41,8 @@ private:
     QComboBox *m_comboProveedor;
     QLineEdit *m_txtEan;
     QLabel *m_lblEanStatus;
-    QSpinBox *m_spnCantidad;
+    QSpinBox *m_spnCantidad;      // facturadas
+    QSpinBox *m_spnRecibidas;     // llegaron
     QDoubleSpinBox *m_spnCosto;
     QPushButton *m_btnAgregar;
 

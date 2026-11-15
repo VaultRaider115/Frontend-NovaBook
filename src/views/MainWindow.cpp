@@ -26,6 +26,8 @@
 #include "BodegaDashboardView.h"
 #include "BodegaRegistroView.h"
 #include "BodegaComprasView.h"
+#include "BodegaIncidenciasView.h"
+#include "VendedorRecepcionView.h"
 #include "BodegaAutoresView.h"
 #include "BodegaProveedoresView.h"
 #include "BodegaTrasladoView.h"
@@ -209,13 +211,17 @@ void MainWindow::buildRoleViews() {
         // autores, géneros y muebles los administra el Jefe.
         auto *prov = new BodegaProveedoresView("Bodega · Proveedores", false, m_stack);
         auto *traslado = new BodegaTrasladoView(m_stack);
+        auto *salidas = new VendedorRecepcionView(/*puedeRecibir=*/false, m_stack);
+        auto *incidencias = new BodegaIncidenciasView(m_stack);
         auto *inv = new BodegaInventarioView(m_stack);
 
         addPage("Panel Principal", dash, [dash]() { dash->refreshData(); });
         addPage("Alta de Mercancía (EAN)", registro, [registro]() { registro->cargarCatalogos(); });
         addPage("Compras a Proveedor", compras, [compras]() { compras->cargarProveedores(); });
+        addPage("Incidencias de Compra", incidencias, [incidencias]() { incidencias->cargar(); });
         addPage("Proveedores", prov, [prov]() { prov->cargarProveedores(); });
         addPage("Requisición de Salida", traslado);
+        addPage("Seguimiento de Salidas", salidas, [salidas]() { salidas->cargar(); });
         addPage("Consultar Inventario", inv, [inv]() { inv->cargarInventario(); });
 
     } else {
@@ -224,6 +230,7 @@ void MainWindow::buildRoleViews() {
         auto *consulta = new VendedorConsultaView(m_stack);
         auto *ventas = new VendedorVentasView(m_stack);
         auto *traslado = new VendedorTrasladoView(m_stack);
+        auto *recepcion = new VendedorRecepcionView(/*puedeRecibir=*/true, m_stack);
         auto *devolucion = new VendedorDevolucionView(m_stack);
         auto *misDevs = new VendedorMisDevolucionesView(m_stack);
         auto *devCliente = new VendedorDevolucionClienteView(m_stack);
@@ -233,6 +240,7 @@ void MainWindow::buildRoleViews() {
         addPage("Consulta de Existencias", consulta, [consulta]() { consulta->buscarExistencias(); });
         addPage("Punto de Venta", ventas);
         addPage("Devolución de Cliente", devCliente);
+        addPage("Recepción de Salida", recepcion, [recepcion]() { recepcion->cargar(); });
         addPage("Requisición de Entrada", traslado);
         addPage("Devoluciones a Proveedor", devolucion, [devolucion]() { devolucion->cargarCatalogos(); });
         addPage("Mis Devoluciones", misDevs, [misDevs]() { misDevs->cargar(); });

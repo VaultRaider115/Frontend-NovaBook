@@ -1,6 +1,9 @@
 #include "Documentos.h"
 #include "Toast.h"
+#include <QApplication>
 #include <QBuffer>
+#include <QClipboard>
+#include <QJsonArray>
 #include <QDate>
 #include <QDateTime>
 #include <QDesktopServices>
@@ -18,6 +21,55 @@
 #include <QUrl>
 
 namespace Documentos {
+
+Requisicion Requisicion::desdeJson(const QJsonObject &o) {
+    Requisicion r;
+    r.folio = o.value("folio").toString();
+    r.fechaHora = o.value("fecha_hora").toString();
+    r.salida = o.value("tipo").toString("SALIDA") == "SALIDA";
+    r.elaboro = o.value("registro").toString();
+    r.editorial = o.value("editorial").toString();
+    r.estado = o.value("estado").toString();
+    r.recibio = o.value("recibio").toString();
+    r.fechaRecepcion = o.value("fecha_recepcion").toString();
+    r.observaciones = o.value("observaciones").toString();
+    for (const auto &v : o.value("items").toArray()) {
+        const QJsonObject it = v.toObject();
+        PartidaReq p;
+        p.ean = it.value("codigo_ean").toVariant().toLongLong();
+        p.tipo = it.value("tipo_producto").toString();
+        p.titulo = it.value("titulo").toString();
+        p.cantidad = it.value("cantidad").toInt();
+        p.recibida = it.value("cantidad_recibida").isNull() ? -1 : it.value("cantidad_recibida").toInt(-1);
+        if (p.recibida >= 0 && r.salida) p.mueble = it.value("mueble").toString();
+        r.partidas.append(p);
+    }
+    return r;
+}
+
+bool abrirCorreo(QWidget *parent, const QJsonObject &correo) {
+    const QString para = correo.value("para").toString().trimmed();
+    const QString asunto = correo.value("asunto").toString();
+    QString cuerpo = correo.value("cuerpo").toString();
+    if (para.isEmpty()) {
+        QApplication::clipboard()->setText(asunto + "\n\n" + cuerpo);
+        Toast::showToast(parent, "El proveedor no tiene correo registrado: el texto del aviso se copió al portapapeles",
+                         Toast::Warning, 7000);
+        return false;
+    }
+    // mailto: con asunto y cuerpo codificados (saltos de línea como CRLF).
+    cuerpo.replace("\n", "\r\n");
+    const QByteArray url = "mailto:" + QUrl::toPercentEncoding(para, "@") + "?subject=" + QUrl::toPercentEncoding(asunto)
+                           + "&body=" + QUrl::toPercentEncoding(cuerpo);
+    if (QDesktopServices::openUrl(QUrl::fromEncoded(url))) {
+        Toast::showToast(parent, "Se abrió el correo para " + para + ": revísalo y envíalo", Toast::Success, 6000);
+        return true;
+    }
+    QApplication::clipboard()->setText(cuerpo);
+    Toast::showToast(parent, "No hay un programa de correo configurado: el texto se copió al portapapeles para enviarlo a " + para,
+                     Toast::Warning, 8000);
+    return false;
+}
 
 bool guardarYAbrir(QWidget *parent, const QByteArray &pdf, const QString &nombreSugerido) {
     if (pdf.isEmpty()) {
@@ -98,20 +150,39 @@ QByteArray pdfRequisicion(const Requisicion &req) {
 
     const QString titulo = req.salida ? "Requisición de Salida Bodega > Piso de Venta"
                                       : "Requisición de Entrada Piso de Venta > Bodega";
+    const bool recibida = !req.partidas.isEmpty() && req.partidas.first().recibida >= 0;
+    const bool corregida = req.estado == "CORREGIDA";
+    const bool conMueble = recibida && req.salida;
+    // Con mueble, la descripción cede espacio a la columna MUEBLE.
+    constexpr qreal kColMueble = 398;
+    const qreal finDesc = conMueble ? kColMueble - 10 : kColCantDer - 50;
+    auto cantidadDe = [](const PartidaReq &it) { return it.recibida >= 0 ? it.recibida : it.cantidad; };
     int total = 0;
-    for (const auto &it : req.partidas) total += it.cantidad;
+    for (const auto &it : req.partidas) total += cantidadDe(it);
 
     auto encabezadoTabla = [&](qreal y) {
         texto(p, kColEan + 4, y, "EAN", 7.5, true, 90);
         texto(p, kColTipo, y, "TIPO", 7.5, true, 90);
         texto(p, kColDesc, y, "DESCRIPCIÓN", 7.5, true, 90);
-        texto(p, kColCantDer, y, "CANT.", 7.5, true, 90, Qt::AlignRight);
+        if (conMueble) texto(p, kColMueble, y, "MUEBLE", 7.5, true, 90);
+        texto(p, kColCantDer, y, recibida ? "RECIBIDO" : "CANT.", 7.5, true, 90, Qt::AlignRight);
         linea(p, kMargen, y + 7, kDerecha, 1.2, 25);
         return y + 7;
     };
 
     qreal y = 70;
     texto(p, kMargen, y, titulo, 15, true, 20);
+    if (corregida) {
+        // Sello: el documento se reimprimió con lo que realmente llegó.
+        const QString sello = "CORREGIDA";
+        const qreal w = QFontMetricsF(fuente(9, true), &pdf).horizontalAdvance(sello) + 16;
+        p.setPen(QPen(QColor(180, 83, 9), 1.2));
+        p.setBrush(Qt::NoBrush);
+        p.drawRoundedRect(QRectF(kDerecha - w, y - 14, w, 19), 3, 3);
+        p.setFont(fuente(9, true));
+        p.setPen(QColor(180, 83, 9));
+        p.drawText(QPointF(kDerecha - w + 8, y), sello);
+    }
     y += 18;
     linea(p, kMargen, y, kDerecha, 0.5, 215);
     y += 20;
@@ -140,14 +211,41 @@ QByteArray pdfRequisicion(const Requisicion &req) {
         texto(p, kColEan + 4, base, QString::number(it.ean), 9, false);
         texto(p, kColTipo, base, it.tipo, 9, false);
         const QFontMetricsF fm(fuente(9, true), &pdf);
-        texto(p, kColDesc, base, fm.elidedText(it.titulo, Qt::ElideRight, kColCantDer - kColDesc - 50), 9, true);
-        texto(p, kColCantDer, base, QString::number(it.cantidad), 9, false, 25, Qt::AlignRight);
+        texto(p, kColDesc, base, fm.elidedText(it.titulo, Qt::ElideRight, finDesc - kColDesc), 9, true);
+        if (conMueble) {
+            const QFontMetricsF fmM(fuente(8.5, false), &pdf);
+            texto(p, kColMueble, base, fmM.elidedText(it.mueble, Qt::ElideRight, kColCantDer - kColMueble - 60), 8.5, false, 60);
+        }
+        const bool difiere = it.recibida >= 0 && it.recibida != it.cantidad;
+        const QString cant = QString::number(cantidadDe(it));
+        texto(p, kColCantDer, base, cant, 9, difiere, 25, Qt::AlignRight);
+        if (difiere) {
+            // Lo que decía el documento original, tachado a la izquierda.
+            const QString antes = QString::number(it.cantidad);
+            const qreal xA = kColCantDer - QFontMetricsF(fuente(9, true), &pdf).horizontalAdvance(cant) - 8;
+            texto(p, xA, base, antes, 8, false, 140, Qt::AlignRight);
+            linea(p, xA - QFontMetricsF(fuente(8, false), &pdf).horizontalAdvance(antes), base - 3, xA, 0.6, 140);
+        }
         y += kFila;
         linea(p, kMargen, y, kDerecha, 0.5, 225);
     }
 
     y += 18;
     texto(p, kDerecha, y, QString("Piezas totales: %1").arg(total), 9.5, true, 25, Qt::AlignRight);
+    const QFontMetricsF fmNota(fuente(8, false), &pdf);
+    if (recibida) {
+        QString nota = corregida ? "Corregida al recibir: la cantidad tachada es la del documento original."
+                                 : "Recibida en piso sin diferencias.";
+        if (!req.recibio.isEmpty())
+            nota += " Recibió: " + req.recibio + (req.fechaRecepcion.isEmpty() ? "" : ", " + fechaLarga(req.fechaRecepcion)) + ".";
+        y += 16;
+        texto(p, kMargen, y, fmNota.elidedText(nota, Qt::ElideRight, kDerecha - kMargen), 8, false, 90);
+    }
+    if (!req.observaciones.trimmed().isEmpty()) {
+        y += 13;
+        texto(p, kMargen, y, fmNota.elidedText("Observaciones: " + req.observaciones.trimmed(), Qt::ElideRight, kDerecha - kMargen),
+              8, false, 90);
+    }
 
     y += 70;
     const qreal mitad = (kMargen + kDerecha) / 2;

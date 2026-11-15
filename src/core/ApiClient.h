@@ -87,6 +87,10 @@ public:
     void trasladoBodegaRevistas(qint64 ean, int cant, const QString &obs, ApiCallback cb);
     void registrarCompra(const QJsonObject &compraObj, ApiCallback cb);
     void listarCompras(ApiCallback cb);
+    // Incidencias por paquete incompleto (diagrama, paso 1). estado: "", "ABIERTA", "CERRADA".
+    void listarIncidencias(const QString &estado, ApiCallback cb);
+    // items: [{codigo_ean, cantidad}] que llegaron después.
+    void reponerIncidencia(qint64 idIncidencia, const QJsonArray &items, ApiCallback cb);
 
     // --- Vendedor ---
     void consultarExistencias(const QString &q, const QString &tipo, int ubicacion, ApiCallback cb);
@@ -97,6 +101,12 @@ public:
     // salida = true: Bodega → Piso (rol Bodega); false: Piso → Bodega (rol Vendedor).
     // items: [{codigo_ean, cantidad}]
     void registrarRequisicion(bool salida, const QJsonArray &items, ApiCallback cb);
+    // Requisiciones con su estado (Bodega y Vendedor; la ruta depende del rol en sesión).
+    // tipo: "", "SALIDA", "ENTRADA"; estado: "", "PENDIENTE", "CONFIRMADA", "CORREGIDA", "REGISTRADA".
+    void listarRequisiciones(const QString &tipo, const QString &estado, ApiCallback cb);
+    void obtenerRequisicion(const QString &folio, ApiCallback cb);
+    // Vendedor recibe la salida en piso (pasos 2 y 3): items [{codigo_ean, cantidad_recibida, id_mueble}].
+    void recibirRequisicion(const QString &folio, const QJsonArray &items, const QString &observaciones, ApiCallback cb);
     void trasladoTiendaLibros(qint64 ean, int cant, const QString &obs, ApiCallback cb);
     void trasladoTiendaRevistas(qint64 ean, int cant, const QString &obs, ApiCallback cb);
     void crearDevolucion(int idProveedor, const QString &tipo, const QJsonArray &items, ApiCallback cb);

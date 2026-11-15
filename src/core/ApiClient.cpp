@@ -441,6 +441,44 @@ void ApiClient::registrarRequisicion(bool salida, const QJsonArray &items, ApiCa
                 QUrlQuery(), QJsonDocument(req).toJson(), cb);
 }
 
+namespace {
+// Bodega (rol 2) y Vendedor (rol 3) consultan requisiciones bajo su propio prefijo.
+QString prefijoRequisiciones(int rol) {
+    return rol == 2 ? QStringLiteral("/api/bodega/requisiciones") : QStringLiteral("/api/vendedor/requisiciones");
+}
+} // namespace
+
+void ApiClient::listarRequisiciones(const QString &tipo, const QString &estado, ApiCallback cb) {
+    QUrlQuery query;
+    if (!tipo.isEmpty()) query.addQueryItem("tipo", tipo);
+    if (!estado.isEmpty()) query.addQueryItem("estado", estado);
+    sendRequest("GET", prefijoRequisiciones(m_currentUser.id_roles), query, QByteArray(), cb);
+}
+
+void ApiClient::obtenerRequisicion(const QString &folio, ApiCallback cb) {
+    sendRequest("GET", prefijoRequisiciones(m_currentUser.id_roles) + "/" + QUrl::toPercentEncoding(folio),
+                QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::recibirRequisicion(const QString &folio, const QJsonArray &items, const QString &observaciones, ApiCallback cb) {
+    QJsonObject req;
+    req["items"] = items;
+    if (!observaciones.trimmed().isEmpty()) req["observaciones"] = observaciones.trimmed();
+    sendRequest("POST", "/api/vendedor/requisiciones/" + QUrl::toPercentEncoding(folio) + "/recepcion",
+                QUrlQuery(), QJsonDocument(req).toJson(), cb);
+}
+
+void ApiClient::listarIncidencias(const QString &estado, ApiCallback cb) {
+    QUrlQuery query;
+    if (!estado.isEmpty()) query.addQueryItem("estado", estado);
+    sendRequest("GET", "/api/bodega/incidencias", query, QByteArray(), cb);
+}
+
+void ApiClient::reponerIncidencia(qint64 idIncidencia, const QJsonArray &items, ApiCallback cb) {
+    sendRequest("POST", QString("/api/bodega/incidencias/%1/reposicion").arg(idIncidencia), QUrlQuery(),
+                QJsonDocument(QJsonObject{{"items", items}}).toJson(), cb);
+}
+
 void ApiClient::consultarMisDevoluciones(const QString &estado, ApiCallback cb) {
     QUrlQuery query;
     if (!estado.isEmpty()) query.addQueryItem("estado", estado);

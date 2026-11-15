@@ -48,6 +48,7 @@ set(SOURCES
     src/views/bodega/BodegaAutoresView.cpp
     src/views/bodega/BodegaProveedoresView.cpp
     src/views/bodega/BodegaComprasView.cpp
+    src/views/bodega/BodegaIncidenciasView.cpp
     src/views/bodega/BodegaInventarioView.cpp
     src/views/vendedor/VendedorDashboardView.cpp
     src/views/vendedor/VendedorConsultaView.cpp
@@ -56,6 +57,7 @@ set(SOURCES
     src/views/vendedor/VendedorMisDevolucionesView.cpp
     src/views/vendedor/VendedorDevolucionClienteView.cpp
     src/views/vendedor/VendedorInventarioView.cpp
+    src/views/vendedor/VendedorRecepcionView.cpp
     src/views/gerente/GerenteDashboardView.cpp
     src/views/gerente/GerenteUsuariosView.cpp
 )
@@ -87,6 +89,7 @@ set(HEADERS
     src/views/bodega/BodegaAutoresView.h
     src/views/bodega/BodegaProveedoresView.h
     src/views/bodega/BodegaComprasView.h
+    src/views/bodega/BodegaIncidenciasView.h
     src/views/bodega/BodegaTrasladoView.h
     src/views/bodega/BodegaInventarioView.h
     src/views/vendedor/VendedorDashboardView.h
@@ -97,6 +100,7 @@ set(HEADERS
     src/views/vendedor/VendedorMisDevolucionesView.h
     src/views/vendedor/VendedorDevolucionClienteView.h
     src/views/vendedor/VendedorInventarioView.h
+    src/views/vendedor/VendedorRecepcionView.h
     src/views/gerente/GerenteDashboardView.h
     src/views/gerente/GerenteUsuariosView.h
 )
