@@ -27,6 +27,7 @@ set(SOURCES
     src/core/Theme.cpp
     src/core/ApiClient.cpp
     src/core/InactivityWatcher.cpp
+    src/core/Documentos.cpp
     src/widgets/StatCard.cpp
     src/widgets/Toast.cpp
     src/widgets/Ui.cpp
@@ -60,6 +61,7 @@ set(HEADERS
     src/core/Models.h
     src/core/ApiClient.h
     src/core/InactivityWatcher.h
+    src/core/Documentos.h
     src/core/EanClassifier.h
     src/widgets/StatCard.h
     src/widgets/Toast.h

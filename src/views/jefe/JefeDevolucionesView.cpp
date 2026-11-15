@@ -4,13 +4,12 @@
 #include "Ui.h"
 #include "ApiClient.h"
 #include "Toast.h"
+#include "Documentos.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QCalendarWidget>
 #include <QHeaderView>
 #include <QLineEdit>
-#include <QFileDialog>
-#include <QFile>
 #include <QMessageBox>
 
 JefeDevolucionesView::JefeDevolucionesView(QWidget *parent)
@@ -215,17 +214,13 @@ void JefeDevolucionesView::evaluar(const Devolucion &dev, bool aprobar) {
 
 void JefeDevolucionesView::verActaPdf(const Devolucion &dev) {
     const QString tipo = dev.tipo_producto.isEmpty() ? "libro" : dev.tipo_producto;
-    const QString savePath = QFileDialog::getSaveFileName(this, "Guardar Acta de Devolución en PDF",
-        QString("acta_devolucion_%1.pdf").arg(dev.id_devolucion), "Archivos PDF (*.pdf)");
-    if (savePath.isEmpty()) return;
-
-    ApiClient::instance()->descargarPdfDevolucion(dev.id_devolucion, tipo, [this, savePath](bool ok, const QByteArray &bytes, const QString &msg) {
-        QFile f(savePath);
-        if (!ok || bytes.isEmpty() || !f.open(QIODevice::WriteOnly)) {
-            Toast::showToast(this, "No se pudo guardar el acta: " + msg, Toast::Error);
+    const QString folio = dev.folio.isEmpty() ? QString("DEV-%1").arg(dev.id_devolucion) : dev.folio;
+    ApiClient::instance()->descargarPdfDevolucion(dev.id_devolucion, tipo, [this, folio](bool ok, const QByteArray &bytes, const QString &msg) {
+        if (!ok) {
+            Toast::showToast(this, "No se pudo obtener el acta: " + msg, Toast::Error);
             return;
         }
-        f.write(bytes);
-        Toast::showToast(this, "Acta PDF guardada exitosamente", Toast::Success);
+        // Se guarda y se abre en el visor del sistema para imprimirla.
+        Documentos::guardarYAbrir(this, bytes, QString("acta_%1.pdf").arg(folio));
     });
 }

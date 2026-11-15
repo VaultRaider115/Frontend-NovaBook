@@ -4,12 +4,13 @@
 #include "Toast.h"
 #include "EanClassifier.h"
 #include <QHBoxLayout>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QVBoxLayout>
-#include <QSharedPointer>
 
 RequisicionView::RequisicionView(const QString &eyebrow, const QString &title, const QString &sendText,
-                                 const QString &addedMessage, QWidget *parent)
-    : QWidget(parent), m_okMessage(addedMessage)
+                                 const QString &addedMessage, bool salida, QWidget *parent)
+    : QWidget(parent), m_okMessage(addedMessage), m_salida(salida)
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(40, 32, 40, 32);
@@ -51,6 +52,14 @@ RequisicionView::RequisicionView(const QString &eyebrow, const QString &title, c
     fl->setSpacing(16);
     auto *btnClear = Ui::button("Vaciar Lista", "ghost", foot, "trash");
     fl->addWidget(btnClear);
+    // Folio de la última requisición registrada + reimpresión.
+    m_lblFolio = new QLabel(foot);
+    m_lblFolio->setObjectName("Muted");
+    m_lblFolio->hide();
+    fl->addWidget(m_lblFolio);
+    m_btnImprimir = Ui::button("Imprimir requisición", "outline", foot, "pdf");
+    m_btnImprimir->hide();
+    fl->addWidget(m_btnImprimir);
     fl->addStretch();
     m_lblTotal = new QLabel("Piezas Totales: <b style=\"color:#FFFFFF;\">0</b>", foot);
     m_lblTotal->setObjectName("Muted");
@@ -65,6 +74,7 @@ RequisicionView::RequisicionView(const QString &eyebrow, const QString &title, c
     connect(btnAdd, &QPushButton::clicked, this, &RequisicionView::agregar);
     connect(btnClear, &QPushButton::clicked, this, [this]() { m_items.clear(); render(); });
     connect(m_btnEnviar, &QPushButton::clicked, this, &RequisicionView::enviarTodo);
+    connect(m_btnImprimir, &QPushButton::clicked, this, &RequisicionView::imprimirUltima);
 }
 
 void RequisicionView::agregar() {
@@ -119,26 +129,47 @@ void RequisicionView::enviarTodo() {
         Toast::showToast(this, "Agrega al menos un artículo a la lista", Toast::Warning);
         return;
     }
-    // La API traslada una partida por petición: se envían todas y se reporta cuáles fallaron.
-    struct Estado { int pendientes; QList<Partida> fallidas; QStringList errores; };
-    auto st = QSharedPointer<Estado>::create();
-    st->pendientes = m_items.size();
+    // Un solo documento: la API registra todas las partidas o ninguna.
+    QJsonArray items;
+    for (const Partida &p : std::as_const(m_items))
+        items.append(QJsonObject{{"codigo_ean", p.ean}, {"cantidad", p.cantidad}});
+
     m_btnEnviar->setEnabled(false);
+    ApiClient::instance()->registrarRequisicion(m_salida, items, [this](bool ok, const QJsonValue &data, const QString &msg) {
+        m_btnEnviar->setEnabled(true);
+        if (!ok || !data.isObject()) {
+            // Nada se movió: la lista se conserva para corregir y reintentar.
+            Toast::showToast(this, "No se registró la requisición: " + msg, Toast::Error, 6000);
+            return;
+        }
+        const QJsonObject o = data.toObject();
+        m_ultima = {};
+        m_ultima.folio = o.value("folio").toString();
+        m_ultima.fechaHora = o.value("fecha_hora").toString();
+        m_ultima.salida = m_salida;
+        m_ultima.elaboro = ApiClient::instance()->currentUser().nombreCompleto();
+        for (const auto &v : o.value("items").toArray()) {
+            const QJsonObject it = v.toObject();
+            m_ultima.partidas.append({it.value("codigo_ean").toVariant().toLongLong(),
+                                      it.value("tipo_producto").toString(),
+                                      it.value("titulo").toString(),
+                                      it.value("cantidad").toInt()});
+        }
 
-    const QList<Partida> items = m_items;
-    for (const Partida &p : items) {
-        trasladar(p.ean, p.tipo, p.cantidad, [this, st, p](bool ok, const QJsonValue &, const QString &msg) {
-            if (!ok) { st->fallidas << p; st->errores << QString("%1: %2").arg(p.ean).arg(msg); }
-            if (--st->pendientes > 0) return;
+        m_items.clear();
+        render();
+        m_lblFolio->setText(QString("Folio <b style=\"color:%1;\">#%2</b>").arg(Theme::Accent, m_ultima.folio));
+        m_lblFolio->show();
+        m_btnImprimir->show();
+        Toast::showToast(this, QString("%1 · Folio %2").arg(m_okMessage, m_ultima.folio), Toast::Success);
 
-            m_btnEnviar->setEnabled(true);
-            m_items = st->fallidas; // lo que falló se queda en la lista para reintentar
-            render();
-            if (st->fallidas.isEmpty())
-                Toast::showToast(this, m_okMessage, Toast::Success);
-            else
-                Toast::showToast(this, QString("%1 partida(s) no se pudieron trasladar — %2")
-                                           .arg(st->fallidas.size()).arg(st->errores.first()), Toast::Error, 6000);
-        });
-    }
+        // Diagrama de procesos: la requisición se imprime al registrarla.
+        imprimirUltima();
+    });
+}
+
+void RequisicionView::imprimirUltima() {
+    if (m_ultima.folio.isEmpty()) return;
+    Documentos::guardarYAbrir(this, Documentos::pdfRequisicion(m_ultima),
+                              QString("requisicion_%1.pdf").arg(m_ultima.folio));
 }

@@ -93,6 +93,10 @@ public:
     void registrarVenta(const QString &cliente, const QJsonArray &items, ApiCallback cb);
     void registrarVenta(const QString &cliente, const QString &metodoPago, const QJsonArray &items, ApiCallback cb);
     void registrarVenta(const QJsonArray &items, ApiCallback cb);
+    // Requisición de varias partidas con folio (todo o nada).
+    // salida = true: Bodega → Piso (rol Bodega); false: Piso → Bodega (rol Vendedor).
+    // items: [{codigo_ean, cantidad}]
+    void registrarRequisicion(bool salida, const QJsonArray &items, ApiCallback cb);
     void trasladoTiendaLibros(qint64 ean, int cant, const QString &obs, ApiCallback cb);
     void trasladoTiendaRevistas(qint64 ean, int cant, const QString &obs, ApiCallback cb);
     void crearDevolucion(int idProveedor, const QString &tipo, const QJsonArray &items, ApiCallback cb);

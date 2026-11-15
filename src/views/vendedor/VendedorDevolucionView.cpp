@@ -3,13 +3,10 @@
 #include "Ui.h"
 #include "ApiClient.h"
 #include "Toast.h"
+#include "Documentos.h"
 #include "EanClassifier.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QFileDialog>
-#include <QFile>
-#include <QDir>
-#include <QFileInfo>
 #include <QSharedPointer>
 
 VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
@@ -228,7 +225,7 @@ void VendedorDevolucionView::onEnviarDevolucion() {
     QStringList tipos;
     for (const auto &it : std::as_const(m_items)) if (!tipos.contains(it.tipo)) tipos << it.tipo;
 
-    struct Estado { int pendientes; QList<QPair<qint64, QString>> ok; QString error; };
+    struct Estado { int pendientes; QList<QPair<qint64, QString>> ok; QStringList folios; QString error; };
     auto st = QSharedPointer<Estado>::create();
     st->pendientes = tipos.size();
     m_btnEnviar->setEnabled(false);
@@ -244,8 +241,13 @@ void VendedorDevolucionView::onEnviarDevolucion() {
             itemsArr.append(o);
         }
         ApiClient::instance()->crearDevolucion(provId, tipo, itemsArr, [this, st, tipo](bool ok, const QJsonValue &data, const QString &msg) {
-            if (ok && data.isObject()) st->ok << qMakePair(Devolucion::fromJson(data.toObject()).id_devolucion, tipo);
-            else st->error = msg;
+            if (ok && data.isObject()) {
+                const Devolucion d = Devolucion::fromJson(data.toObject());
+                st->ok << qMakePair(d.id_devolucion, tipo);
+                st->folios << "#" + (d.folio.isEmpty() ? QString("DEV-%1").arg(d.id_devolucion) : d.folio);
+            } else {
+                st->error = msg;
+            }
             if (--st->pendientes > 0) return;
 
             m_btnEnviar->setEnabled(true);
@@ -254,10 +256,8 @@ void VendedorDevolucionView::onEnviarDevolucion() {
                 return;
             }
             m_ultimas = st->ok;
-            QStringList folios;
-            for (const auto &r : std::as_const(m_ultimas)) folios << QString("#DEV-%1").arg(r.first);
             m_btnPdf->setToolTip("El acta se puede descargar cuando el Jefe apruebe la solicitud");
-            m_lblLote->setText(folios.join(" · "));
+            m_lblLote->setText(st->folios.join(" · "));
             m_btnPdf->setEnabled(true);
             m_items.clear();
             renderItems();
@@ -272,28 +272,16 @@ void VendedorDevolucionView::onEnviarDevolucion() {
 void VendedorDevolucionView::onDescargarPdf() {
     if (m_ultimas.isEmpty()) return;
 
-    QString dir;
-    if (m_ultimas.size() == 1) {
-        const QString path = QFileDialog::getSaveFileName(this, "Guardar Acta de Devolución en PDF",
-            QString("devolucion_%1_%2.pdf").arg(m_ultimas.first().first).arg(m_ultimas.first().second), "Archivos PDF (*.pdf)");
-        if (path.isEmpty()) return;
-        dir = path;
-    } else {
-        dir = QFileDialog::getExistingDirectory(this, "Carpeta donde guardar las actas (libros y revistas)");
-        if (dir.isEmpty()) return;
-    }
-
+    // Una acta por solicitud (libros y revistas van separadas). La API solo la
+    // entrega si el Jefe ya aprobó; si no, su mensaje lo explica.
     for (const auto &r : std::as_const(m_ultimas)) {
-        const QString path = m_ultimas.size() == 1 ? dir
-            : QDir(dir).filePath(QString("devolucion_%1_%2.pdf").arg(r.first).arg(r.second));
-        ApiClient::instance()->descargarPdfDevolucion(r.first, r.second, [this, path](bool ok, const QByteArray &bytes, const QString &msg) {
-            QFile f(path);
-            if (!ok || bytes.isEmpty() || !f.open(QIODevice::WriteOnly)) {
-                Toast::showToast(this, "No se pudo guardar el acta: " + msg, Toast::Error);
+        const qint64 id = r.first;
+        ApiClient::instance()->descargarPdfDevolucion(id, r.second, [this, id](bool ok, const QByteArray &bytes, const QString &msg) {
+            if (!ok) {
+                Toast::showToast(this, QString("Acta #DEV-%1: %2").arg(id).arg(msg), Toast::Warning, 6000);
                 return;
             }
-            f.write(bytes);
-            Toast::showToast(this, "Acta PDF guardada: " + QFileInfo(path).fileName(), Toast::Success);
+            Documentos::guardarYAbrir(this, bytes, QString("acta_DEV-%1.pdf").arg(id));
         });
     }
 }

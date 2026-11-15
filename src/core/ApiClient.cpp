@@ -432,6 +432,13 @@ void ApiClient::crearDevolucion(int idProveedor, const QString &tipo, const QJso
     sendRequest("POST", "/api/vendedor/devoluciones", QUrlQuery(), QJsonDocument(req).toJson(), cb);
 }
 
+void ApiClient::registrarRequisicion(bool salida, const QJsonArray &items, ApiCallback cb) {
+    QJsonObject req;
+    req["items"] = items;
+    sendRequest("POST", salida ? "/api/bodega/requisiciones" : "/api/vendedor/requisiciones",
+                QUrlQuery(), QJsonDocument(req).toJson(), cb);
+}
+
 void ApiClient::descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo, PdfCallback cb) {
     QString subpath = (tipo.toLower() == "revista") ? "revistas" : "libros";
     const QString rolPath = m_currentUser.id_roles == 1 ? "jefe" : "vendedor";
@@ -449,11 +456,15 @@ void ApiClient::descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo,
     connect(reply, &QNetworkReply::finished, this, [this, reply, cb, sentToken = m_token]() {
         reply->deleteLater();
         const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (httpStatus == 401 && handleUnauthorized(httpStatus, sentToken, reply->readAll())) {
+        const QByteArray body = reply->readAll();
+        if (httpStatus == 401 && handleUnauthorized(httpStatus, sentToken, body)) {
             return;
         }
         if (reply->error() != QNetworkReply::NoError) {
-            if (cb) cb(false, QByteArray(), reply->errorString());
+            // La API explica el motivo en JSON (p. ej. "solo existe si está aprobada").
+            const QString apiMsg = QJsonDocument::fromJson(body).object()
+                                       .value("error").toObject().value("message").toString();
+            if (cb) cb(false, QByteArray(), apiMsg.isEmpty() ? reply->errorString() : apiMsg);
             return;
         }
 
@@ -463,8 +474,7 @@ void ApiClient::descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo,
             filename = disposition.section("filename=", 1, 1).replace("\"", "").trimmed();
         }
 
-        QByteArray data = reply->readAll();
-        if (cb) cb(true, data, filename);
+        if (cb) cb(true, body, filename);
     });
 }
 
