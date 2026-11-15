@@ -102,6 +102,29 @@ UsuarioDto ApiClient::currentUser() const {
     return m_currentUser;
 }
 
+bool ApiClient::handleUnauthorized(int httpStatus, const QString &sentToken, const QByteArray &body) {
+    // Sin token (p. ej. login con credenciales incorrectas) el 401 es un error normal.
+    if (httpStatus != 401 || sentToken.isEmpty()) {
+        return false;
+    }
+    // Respuesta de una sesión anterior: ya se cerró o se inició otra; se descarta.
+    if (sentToken != m_token) {
+        return true;
+    }
+
+    QString reason = "Tu sesión expiró. Vuelve a iniciar sesión.";
+    const QJsonObject err = QJsonDocument::fromJson(body).object().value("error").toObject();
+    if (err.value("code").toString() != "INVALID_TOKEN") {
+        const QString serverMsg = err.value("message").toString();
+        if (!serverMsg.isEmpty()) reason = serverMsg;
+    }
+
+    m_token.clear();
+    m_currentUser = UsuarioDto();
+    emit sessionExpired(reason);
+    return true;
+}
+
 void ApiClient::sendRequest(const QString &verb, const QString &endpoint, const QUrlQuery &query,
                             const QByteArray &body, ApiCallback cb) {
     QUrl url(m_baseUrl + endpoint);
@@ -130,10 +153,14 @@ void ApiClient::sendRequest(const QString &verb, const QString &endpoint, const 
         return;
     }
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, cb]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, cb, sentToken = m_token]() {
         reply->deleteLater();
         int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         QByteArray respData = reply->readAll();
+
+        if (handleUnauthorized(httpStatus, sentToken, respData)) {
+            return;
+        }
 
         if (reply->error() != QNetworkReply::NoError && respData.isEmpty()) {
             if (cb) cb(false, QJsonValue(), QString("Error de red (%1): %2").arg(httpStatus).arg(reply->errorString()));
@@ -156,9 +183,6 @@ void ApiClient::sendRequest(const QString &verb, const QString &endpoint, const 
             if (root.contains("error") && root.value("error").isObject()) {
                 QJsonObject errObj = root.value("error").toObject();
                 message = errObj.value("message").toString(message);
-            }
-            if (httpStatus == 401) {
-                emit sessionExpired();
             }
             if (message.isEmpty()) {
                 message = QString("Error en la solicitud (Código HTTP %1)").arg(httpStatus);
@@ -417,8 +441,12 @@ void ApiClient::descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo,
     }
 
     QNetworkReply *reply = m_nam->get(request);
-    connect(reply, &QNetworkReply::finished, this, [reply, cb]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, cb, sentToken = m_token]() {
         reply->deleteLater();
+        const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (httpStatus == 401 && handleUnauthorized(httpStatus, sentToken, reply->readAll())) {
+            return;
+        }
         if (reply->error() != QNetworkReply::NoError) {
             if (cb) cb(false, QByteArray(), reply->errorString());
             return;

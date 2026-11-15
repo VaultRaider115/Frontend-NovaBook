@@ -4,6 +4,8 @@
 #include "ApiClient.h"
 #include "Ui.h"
 #include <QAction>
+#include <QApplication>
+#include <QDialog>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFrame>
@@ -116,6 +118,7 @@ LoginWindow::LoginWindow(QWidget *parent)
     connect(m_btnLogin, &QPushButton::clicked, this, &LoginWindow::onLoginClicked);
     connect(m_txtUsuario, &QLineEdit::returnPressed, this, [this]() { m_txtPassword->setFocus(); });
     connect(m_txtPassword, &QLineEdit::returnPressed, this, &LoginWindow::onLoginClicked);
+    connect(ApiClient::instance(), &ApiClient::sessionExpired, this, &LoginWindow::onSessionExpired);
 }
 
 LoginWindow::~LoginWindow() {
@@ -177,4 +180,26 @@ void LoginWindow::onLogoutRequested() {
     m_lblError->hide();
     show();
     m_txtUsuario->setFocus();
+}
+
+void LoginWindow::onSessionExpired(const QString &reason) {
+    // Cierra diálogos abiertos (formularios, confirmaciones) que ya no tienen sesión.
+    // El límite evita un ciclo si algún modal se resiste a cerrarse.
+    for (int i = 0; i < 10; ++i) {
+        auto *dlg = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+        if (!dlg) break;
+        dlg->reject();
+    }
+
+    // Mostrar el login antes de ocultar la principal para que la app no se cierre.
+    m_txtPassword->clear();
+    m_lblError->setText(reason);
+    m_lblError->show();
+    show();
+    raise();
+    activateWindow();
+    if (m_mainWindow) {
+        m_mainWindow->hide();
+    }
+    m_txtPassword->setFocus();
 }

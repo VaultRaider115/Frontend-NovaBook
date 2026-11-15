@@ -100,13 +100,18 @@ public:
     void aprobarDevolucion(qint64 idDevolucion, bool aprobar, const QString &notas, ApiCallback cb);
 
 signals:
-    void sessionExpired();
+    // Se emite una sola vez cuando el servidor rechaza (401) el token vigente.
+    void sessionExpired(const QString &reason);
     void userLoggedIn(const UsuarioDto &user);
     void userLoggedOut();
 
 private:
     explicit ApiClient(QObject *parent = nullptr);
     ~ApiClient() override = default;
+
+    // Devuelve true si el 401 invalidó la sesión actual (y ya se notificó);
+    // en ese caso la respuesta no debe llegar a la vista.
+    bool handleUnauthorized(int httpStatus, const QString &sentToken, const QByteArray &body);
 
     void sendRequest(const QString &verb, const QString &endpoint, const QUrlQuery &query,
                      const QByteArray &body, ApiCallback cb);
