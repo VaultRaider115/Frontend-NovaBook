@@ -1,4 +1,5 @@
 #include "JefeDevolucionesView.h"
+#include <QInputDialog>
 #include "Theme.h"
 #include "Ui.h"
 #include "ApiClient.h"
@@ -43,9 +44,9 @@ JefeDevolucionesView::JefeDevolucionesView(QWidget *parent)
     m_chkTodasFechas = new QCheckBox("Todas las fechas", filters);
     m_comboEstado = new QComboBox(filters);
     m_comboEstado->addItem("Todos", "Todos");
-    m_comboEstado->addItem("Pendiente", "Pendiente");
-    m_comboEstado->addItem("Aprobado", "Autorizado");
-    m_comboEstado->addItem("Rechazado", "Rechazado");
+    m_comboEstado->addItem("Pendiente", "PENDIENTE");
+    m_comboEstado->addItem("Aprobado", "APROBADO");
+    m_comboEstado->addItem("Rechazado", "RECHAZADO");
     m_comboEstado->setMinimumWidth(160);
     m_btnBuscar = Ui::button("Consultar", "primary", filters);
 
@@ -89,9 +90,10 @@ void JefeDevolucionesView::cargarDevoluciones() {
 
         for (int i = 0; i < m_devoluciones.size(); ++i) {
             const Devolucion &d = m_devoluciones.at(i);
-            Ui::cellText(m_table, i, 0, QString("#DEV-%1").arg(d.id_devolucion), true);
+            Ui::cellText(m_table, i, 0, "#" + (d.folio.isEmpty() ? QString("DEV-%1").arg(d.id_devolucion) : d.folio), true);
             Ui::cellText(m_table, i, 1, d.nombre_proveedor.isEmpty() ? QString("Proveedor #%1").arg(d.id_proveedor) : d.nombre_proveedor, false, true);
-            Ui::cellText(m_table, i, 2, d.vendedor_nombre.isEmpty() ? "—" : d.vendedor_nombre);
+            Ui::cellText(m_table, i, 2, d.vendedor_nombre.isEmpty() ? "—"
+                         : (d.solicitante_rol.isEmpty() ? d.vendedor_nombre : QString("%1 · %2").arg(d.vendedor_nombre, d.solicitante_rol)));
             Ui::cellText(m_table, i, 3, QString("%1 %2").arg(d.total_piezas).arg(d.total_piezas == 1 ? "pieza" : "piezas"), true, true, Theme::TextPrimary);
             Ui::cellText(m_table, i, 4, d.items.isEmpty() || d.items.first().motivo.isEmpty() ? "—" : d.items.first().motivo, false, false, Theme::TextMuted);
 

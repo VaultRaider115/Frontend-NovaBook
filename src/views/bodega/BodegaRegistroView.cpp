@@ -61,7 +61,7 @@ BodegaRegistroView::BodegaRegistroView(QWidget *parent)
     revistaLayout->setContentsMargins(0, 0, 0, 0);
     revistaLayout->setSpacing(14);
     m_comboAutorEditorial = new QComboBox(m_panelRevista);
-    m_comboAutorEditorial->setPlaceholderText("Selecciona un autor o editorial");
+    m_comboAutorEditorial->setPlaceholderText("Selecciona una editorial");
     revistaLayout->addWidget(Ui::rowField("Editorial:", m_comboAutorEditorial, m_panelRevista));
     m_spnEdicion = new QSpinBox(m_panelRevista);
     m_spnEdicion->setRange(1, 9999);
@@ -86,14 +86,10 @@ BodegaRegistroView::BodegaRegistroView(QWidget *parent)
     m_spnPrecio->setPrefix("$ ");
     cardLayout->addWidget(Ui::rowField("Precio de Venta:", m_spnPrecio, card));
 
-    m_spnCantidad = new QSpinBox(card);
-    m_spnCantidad->setRange(1, 9999);
-    m_spnCantidad->setValue(10);
-    cardLayout->addWidget(Ui::rowField("Cantidad Recibida:", m_spnCantidad, card));
+    // La cantidad ya no se captura aquí: el stock entra por Compras a Proveedor.
 
     m_comboMueble = new QComboBox(card);
-    for (int id : {11, 12, 13, 61, 62}) m_comboMueble->addItem(QString("Mueble %1").arg(id), id);
-    cardLayout->addWidget(Ui::rowField("Mueble de Asignación:", m_comboMueble, card));
+    cardLayout->addWidget(Ui::rowField("Mueble de Asignación (Bodega):", m_comboMueble, card));
 
     m_comboProveedor = new QComboBox(card);
     cardLayout->addWidget(Ui::rowField("Proveedor Oficial:", m_comboProveedor, card));
@@ -148,7 +144,6 @@ void BodegaRegistroView::cargarCatalogos() {
     ApiClient::instance()->listarAutores([this](bool ok, const QJsonValue &data, const QString &) {
         if (!ok || !data.isArray()) return;
         m_comboAutor->clear();
-        m_comboAutorEditorial->clear();
         m_autores.clear();
         QJsonArray arr = data.toArray();
         for (int i = 0; i < arr.size(); ++i) {
@@ -157,7 +152,32 @@ void BodegaRegistroView::cargarCatalogos() {
             QString label = QString("%1 %2").arg(a.nombre, a.apellidos);
             if (!a.nacionalidad.isEmpty()) label += QString(" (%1)").arg(a.nacionalidad);
             m_comboAutor->addItem(label, a.id_autor);
-            m_comboAutorEditorial->addItem(label, a.id_autor);
+        }
+    });
+
+    // 2b. Editoriales (para revistas)
+    ApiClient::instance()->listarEditoriales([this](bool ok, const QJsonValue &data, const QString &) {
+        if (!ok || !data.isArray()) return;
+        m_comboAutorEditorial->clear();
+        const QJsonArray arr = data.toArray();
+        for (const auto &v : arr) {
+            const QJsonObject o = v.toObject();
+            m_comboAutorEditorial->addItem(o.value("nombre_editorial").toString(), o.value("id_editorial").toInt());
+        }
+        m_comboAutorEditorial->setCurrentIndex(-1);
+    });
+
+    // 2c. Muebles de Bodega (ubicación 2)
+    ApiClient::instance()->listarMuebles([this](bool ok, const QJsonValue &data, const QString &) {
+        if (!ok || !data.isArray()) return;
+        m_comboMueble->clear();
+        const QJsonArray arr = data.toArray();
+        for (const auto &v : arr) {
+            const MuebleDto m = MuebleDto::fromJson(v.toObject());
+            if (m.id_ubicacion != 2) continue;
+            QString label = m.codigo.isEmpty() ? m.nombre : QString("%1 · %2").arg(m.codigo, m.nombre);
+            if (!m.genero_asignado.isEmpty()) label += QString(" (%1)").arg(m.genero_asignado);
+            m_comboMueble->addItem(label, m.id_mueble);
         }
     });
 
@@ -204,7 +224,6 @@ void BodegaRegistroView::limpiarCampos() {
     m_comboAutorEditorial->setCurrentIndex(-1);
     m_comboPeriodicidad->setCurrentIndex(0);
     m_spnPrecio->setValue(199.0);
-    m_spnCantidad->setValue(10);
     m_spnEdicion->setValue(1);
     m_lblEanStatus->setText("Ingresa el código EAN-13 para clasificar automáticamente como Libro o Revista");
     m_lblEanStatus->setStyleSheet(QString());
@@ -230,6 +249,10 @@ void BodegaRegistroView::onRegistrar() {
         return;
     }
 
+    if (m_comboMueble->currentIndex() < 0) {
+        Toast::showToast(this, "Selecciona el mueble de bodega donde se ubicará el producto", Toast::Warning);
+        return;
+    }
     if (m_comboProveedor->currentIndex() < 0) {
         Toast::showToast(this, "Selecciona un proveedor válido", Toast::Warning);
         return;
@@ -252,7 +275,6 @@ void BodegaRegistroView::onRegistrar() {
     obj["id_mueble"] = m_comboMueble->currentData().toInt();
     obj["id_proveedor"] = m_comboProveedor->currentData().toInt();
     obj["precio"] = m_spnPrecio->value();
-    obj["cantidad"] = m_spnCantidad->value();
     obj["id_ubicacion"] = 2; // Bodega
     obj["generos"] = generosArr;
 
@@ -275,9 +297,11 @@ void BodegaRegistroView::onRegistrar() {
         });
     } else {
         obj["nombre_revista"] = nombre;
-        if (m_comboAutorEditorial->currentIndex() >= 0) {
-            obj["autor_o_editorial"] = m_comboAutorEditorial->currentText();
+        if (m_comboAutorEditorial->currentIndex() < 0) {
+            Toast::showToast(this, "Selecciona la editorial de la revista", Toast::Warning);
+            return;
         }
+        obj["id_editorial"] = m_comboAutorEditorial->currentData().toInt();
         obj["numero_edicion"] = m_spnEdicion->value();
         QString periodicidad = m_comboPeriodicidad->currentData().toString();
         if (!periodicidad.isEmpty()) {

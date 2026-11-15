@@ -294,6 +294,10 @@ void ApiClient::eliminarAutor(int id, ApiCallback cb) {
 
 // --- CRUD Proveedores ---
 
+void ApiClient::listarEditoriales(ApiCallback cb) {
+    sendRequest("GET", "/api/editoriales", QUrlQuery(), QByteArray(), cb);
+}
+
 void ApiClient::listarProveedores(ApiCallback cb) {
     sendRequest("GET", "/api/proveedores", QUrlQuery(), QByteArray(), cb);
 }
@@ -360,8 +364,13 @@ void ApiClient::consultarExistencias(const QString &q, const QString &tipo, int 
 }
 
 void ApiClient::registrarVenta(const QString &cliente, const QJsonArray &items, ApiCallback cb) {
+    registrarVenta(cliente, "EFECTIVO", items, cb);
+}
+
+void ApiClient::registrarVenta(const QString &cliente, const QString &metodoPago, const QJsonArray &items, ApiCallback cb) {
     QJsonObject req;
     req["cliente"] = cliente;
+    req["metodo_pago"] = metodoPago;
     req["items"] = items;
     sendRequest("POST", "/api/vendedor/ventas", QUrlQuery(), QJsonDocument(req).toJson(), cb);
 }
@@ -442,6 +451,17 @@ void ApiClient::consultarMovimientoDiario(const QString &fecha, ApiCallback cb) 
     if (!fecha.isEmpty()) query.addQueryItem("fecha", fecha);
 
     sendRequest("GET", "/api/jefe/movimientos/diarios", query, QByteArray(), cb);
+}
+
+void ApiClient::consultarBitacora(const QString &desde, const QString &hasta, const QString &categoria,
+                                  int page, int perPage, ApiCallback cb) {
+    QUrlQuery query;
+    query.addQueryItem("desde", desde);
+    query.addQueryItem("hasta", hasta);
+    if (!categoria.isEmpty()) query.addQueryItem("categoria", categoria);
+    query.addQueryItem("page", QString::number(page));
+    query.addQueryItem("per_page", QString::number(perPage));
+    sendRequest("GET", "/api/jefe/bitacora", query, QByteArray(), cb);
 }
 
 void ApiClient::aprobarDevolucion(qint64 idDevolucion, bool aprobar, const QString &notas, ApiCallback cb) {

@@ -257,7 +257,7 @@ void VendedorVentasView::onProcesarVenta() {
         itemsArr.append(it);
     }
 
-    ApiClient::instance()->registrarVenta(cliente, itemsArr, [this, cliente](bool ok, const QJsonValue &data, const QString &msg) {
+    ApiClient::instance()->registrarVenta(cliente, m_metodoPago.toUpper(), itemsArr, [this, cliente](bool ok, const QJsonValue &data, const QString &msg) {
         if (!ok || !data.isObject()) {
             Toast::showToast(this, "Error al procesar venta: " + msg, Toast::Error);
             return;

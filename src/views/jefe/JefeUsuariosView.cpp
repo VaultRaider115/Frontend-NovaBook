@@ -84,6 +84,11 @@ void JefeUsuariosView::cargarUsuarios() {
             Ui::cellWidget(m_table, r, 4, Ui::chip(u.activo() ? "● Activo" : "Inactivo", u.activo() ? "ok" : "neutral"));
             if (u.activo()) ++activos;
 
+            if (u.id_roles == 4) {
+                // Las cuentas de Gerente solo las administra el Gerente
+                Ui::cellText(m_table, r, 5, "Solo Gerente", false, false, Theme::TextMuted);
+                continue;
+            }
             const bool activo = u.activo();
             Ui::cellWidgets(m_table, r, 5, rowActions(u.nombreCompleto(),
                 [this, u]() { abrirFormulario(&u); },
@@ -113,6 +118,9 @@ void JefeUsuariosView::abrirFormulario(const UsuarioDto *u) {
     comboRol->addItem("Jefe de Departamento", 1);
     comboRol->addItem("Gerente General", 4);
     if (edit) comboRol->setCurrentIndex(comboRol->findData(u->id_roles));
+    // Solo el Gerente asigna o cambia roles; la jefatura únicamente edita datos.
+    comboRol->setEnabled(false);
+    comboRol->setToolTip("Solo el Gerente puede asignar o cambiar roles");
     auto *txtPat = new QLineEdit(edit ? u->apellido_paterno : QString(), &dlg);
     txtPat->setPlaceholderText("Ej: Antonieta");
     txtPat->setMaxLength(30);

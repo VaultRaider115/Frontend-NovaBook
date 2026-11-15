@@ -134,6 +134,7 @@ QString globalStyleSheet() {
         QLabel[chip="gold"]    { border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 600; background-color: rgba(212,163,70,10%); color: #D4A346; }
         QLabel[chip="indigo"]  { border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 600; background-color: rgba(97,95,255,10%);  color: #A3B3FF; }
         QLabel[chip="amber"]   { border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 600; background-color: rgba(254,154,0,10%);  color: #FFD230; }
+        QLabel[chip="purple"]  { border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 600; background-color: rgba(173,70,255,12%); color: #C27AFF; }
         QLabel[chip="mint"]    { border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 600; background-color: rgba(0,188,125,10%);  color: #5EE9B5; }
         QLabel[chip="neutral"] { border-radius: 6px; padding: 3px 10px; font-size: 11px; background-color: rgba(255,255,255,5%); color: {{TextMuted}}; }
         QLabel[chip="pending"] { border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 600; background-color: rgba(254,154,0,10%);  color: #FFD230; }

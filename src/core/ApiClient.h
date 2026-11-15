@@ -69,6 +69,7 @@ public:
 
     // --- CRUD Proveedores (Bodega / Gerente) ---
     void listarProveedores(ApiCallback cb);
+    void listarEditoriales(ApiCallback cb);
     void obtenerProveedor(int id, ApiCallback cb);
     void crearProveedor(const QJsonObject &provObj, ApiCallback cb);
     void actualizarProveedor(int id, const QJsonObject &provObj, ApiCallback cb);
@@ -85,6 +86,7 @@ public:
     // --- Vendedor ---
     void consultarExistencias(const QString &q, const QString &tipo, int ubicacion, ApiCallback cb);
     void registrarVenta(const QString &cliente, const QJsonArray &items, ApiCallback cb);
+    void registrarVenta(const QString &cliente, const QString &metodoPago, const QJsonArray &items, ApiCallback cb);
     void registrarVenta(const QJsonArray &items, ApiCallback cb);
     void trasladoTiendaLibros(qint64 ean, int cant, const QString &obs, ApiCallback cb);
     void trasladoTiendaRevistas(qint64 ean, int cant, const QString &obs, ApiCallback cb);
@@ -94,6 +96,7 @@ public:
     // --- Jefe de Departamento ---
     void consultarHistorialDevoluciones(const QString &fecha, const QString &estado, int idProveedor, ApiCallback cb);
     void consultarMovimientoDiario(const QString &fecha, ApiCallback cb);
+    void consultarBitacora(const QString &desde, const QString &hasta, const QString &categoria, int page, int perPage, ApiCallback cb);
     void aprobarDevolucion(qint64 idDevolucion, bool aprobar, const QString &notas, ApiCallback cb);
 
 signals:

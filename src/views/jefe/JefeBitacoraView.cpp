@@ -10,14 +10,22 @@
 #include <QSharedPointer>
 #include <algorithm>
 
-static const char *chipPorEvento(const QString &accion) {
-    const QString a = accion.toLower();
-    if (a.contains("venta")) return "mint";
-    if (a.contains("traslado") || a.contains("requisici")) return "indigo";
-    if (a.contains("compra")) return "amber";
-    if (a.contains("acceso") || a.contains("sesi")) return "gold";
-    if (a.contains("devol")) return "danger";
-    return "neutral";
+struct CategoriaBitacora { const char *codigo; const char *etiqueta; const char *chip; };
+static const CategoriaBitacora kCategorias[] = {
+    {"ACCESO",     "ACCESO",     "neutral"},
+    {"VENTA",      "VENTA",      "mint"},
+    {"COMPRA",     "COMPRA",     "purple"},
+    {"TRASLADO",   "TRASLADO",   "indigo"},
+    {"DEVOLUCION", "DEVOLUCIÓN", "danger"},
+    {"INVENTARIO", "INVENTARIO", "amber"},
+    {"USUARIOS",   "USUARIOS",   "gold"},
+    {"CATALOGO",   "CATÁLOGO",   "neutral"},
+    {"SISTEMA",    "SISTEMA",    "neutral"},
+};
+
+static const CategoriaBitacora &categoriaDe(const QString &codigo) {
+    for (const auto &c : kCategorias) if (codigo == c.codigo) return c;
+    return kCategorias[8];
 }
 
 JefeBitacoraView::JefeBitacoraView(QWidget *parent)
@@ -56,6 +64,7 @@ JefeBitacoraView::JefeBitacoraView(QWidget *parent)
     }
     m_comboTipo = new QComboBox(filters);
     m_comboTipo->addItem("Todos los eventos", "");
+    for (const auto &c : kCategorias) m_comboTipo->addItem(c.etiqueta, c.codigo);
     m_comboTipo->setMinimumWidth(190);
     m_btnBuscar = Ui::button("Consultar", "primary", filters);
 
@@ -69,79 +78,49 @@ JefeBitacoraView::JefeBitacoraView(QWidget *parent)
     m_table = Ui::table({"Hora", "Día", "Empleado", "Rol en tienda", "Evento", "Descripción"}, 5, this);
     layout->addWidget(m_table, 1);
 
-    m_pager = new PagerBar(10, this);
+    m_pager = new PagerBar(5, this);
     layout->addWidget(m_pager);
 
-    connect(m_btnBuscar, &QPushButton::clicked, this, &JefeBitacoraView::cargarMovimientos);
-    connect(m_pager, &PagerBar::pageChanged, this, &JefeBitacoraView::renderPagina);
-    connect(m_comboTipo, QOverload<int>::of(&QComboBox::activated), this, [this]() {
-        const QString t = m_comboTipo->currentData().toString();
-        m_filtrados.clear();
-        for (const auto &m : std::as_const(m_todos))
-            if (t.isEmpty() || m.accion == t) m_filtrados.append(m);
-        m_pager->reset();
-        renderPagina();
-    });
+    connect(m_btnBuscar, &QPushButton::clicked, this, [this]() { m_pager->reset(); cargarMovimientos(); });
+    connect(m_comboTipo, QOverload<int>::of(&QComboBox::activated), this, [this]() { m_pager->reset(); cargarMovimientos(); });
+    connect(m_pager, &PagerBar::pageChanged, this, &JefeBitacoraView::cargarMovimientos);
 }
 
 void JefeBitacoraView::cargarMovimientos() {
+    if (m_cargando) return;
     if (m_hasta->date() < m_desde->date()) {
         Toast::showToast(this, "La fecha final no puede ser anterior a la inicial", Toast::Warning);
         return;
     }
-    const int dias = m_desde->date().daysTo(m_hasta->date()) + 1;
-    if (dias > 31) {
-        Toast::showToast(this, "El rango máximo es de 31 días", Toast::Warning);
-        return;
-    }
-
-    // La API consulta un día por petición: se consulta cada día del rango y se unen los resultados.
-    struct Acum { QList<MovimientoDiarioItem> items; int pendientes; bool fallo = false; };
-    auto acum = QSharedPointer<Acum>::create();
-    acum->pendientes = dias;
+    m_cargando = true;
     m_btnBuscar->setEnabled(false);
-
-    for (int i = 0; i < dias; ++i) {
-        const QString fecha = m_desde->date().addDays(i).toString("yyyy-MM-dd");
-        ApiClient::instance()->consultarMovimientoDiario(fecha, [this, acum](bool ok, const QJsonValue &data, const QString &msg) {
-            if (ok && data.isObject()) acum->items += ResumenMovimientoDiario::fromJson(data.toObject()).movimientos;
-            else if (!acum->fallo) { acum->fallo = true; Toast::showToast(this, "Error al cargar movimientos: " + msg, Toast::Error); }
-            if (--acum->pendientes > 0) return;
-
+    ApiClient::instance()->consultarBitacora(
+        m_desde->date().toString("yyyy-MM-dd"), m_hasta->date().toString("yyyy-MM-dd"),
+        m_comboTipo->currentData().toString(), m_pager->page(), m_pager->pageSize(),
+        [this](bool ok, const QJsonValue &data, const QString &msg) {
+            m_cargando = false;
             m_btnBuscar->setEnabled(true);
-            m_todos = acum->items;
-            std::sort(m_todos.begin(), m_todos.end(), [](const auto &a, const auto &b) { return a.fecha_hora > b.fecha_hora; });
-
-            const QString actual = m_comboTipo->currentData().toString();
-            m_comboTipo->clear();
-            m_comboTipo->addItem("Todos los eventos", "");
-            QStringList tipos;
-            for (const auto &m : std::as_const(m_todos)) if (!tipos.contains(m.accion)) tipos << m.accion;
-            tipos.sort();
-            for (const QString &t : std::as_const(tipos)) m_comboTipo->addItem(t, t);
-            const int idx = m_comboTipo->findData(actual);
-            m_comboTipo->setCurrentIndex(idx >= 0 ? idx : 0);
-
-            m_filtrados.clear();
-            const QString t = m_comboTipo->currentData().toString();
-            for (const auto &m : std::as_const(m_todos)) if (t.isEmpty() || m.accion == t) m_filtrados.append(m);
-            m_pager->reset();
+            if (!ok || !data.isObject()) {
+                Toast::showToast(this, "Error al cargar la bitácora: " + msg, Toast::Error);
+                return;
+            }
+            const QJsonObject o = data.toObject();
+            m_total = o.value("total").toInt();
+            m_pagina.clear();
+            const QJsonArray arr = o.value("items").toArray();
+            for (const auto &v : arr) m_pagina.append(MovimientoDiarioItem::fromJson(v.toObject()));
             renderPagina();
         });
-    }
 }
 
 void JefeBitacoraView::renderPagina() {
-    m_lblTotal->setText(QString::number(m_filtrados.size()));
-    const int from = m_pager->page() * m_pager->pageSize();
-    const int to = qMin(m_filtrados.size(), from + m_pager->pageSize());
-    m_pager->update(m_filtrados.size(), "eventos registrados", to - from);
+    m_lblTotal->setText(QString::number(m_total));
+    m_pager->update(m_total, "eventos registrados", m_pagina.size());
 
     m_table->clearContents();
-    m_table->setRowCount(to - from);
-    for (int i = from; i < to; ++i) {
-        const auto &m = m_filtrados.at(i);
-        const int r = i - from;
+    m_table->setRowCount(m_pagina.size());
+    for (int r = 0; r < m_pagina.size(); ++r) {
+        const auto &m = m_pagina.at(r);
         const QString fh = QString(m.fecha_hora).replace('T', ' ');
         const QStringList partes = fh.split(' ', Qt::SkipEmptyParts);
         Ui::cellText(m_table, r, 0, partes.size() > 1 ? partes.at(1).left(8) : "—", true);
@@ -157,7 +136,10 @@ void JefeBitacoraView::renderPagina() {
         m_table->setCellWidget(r, 2, emp);
 
         Ui::cellText(m_table, r, 3, m.rol, false, false, Theme::TextMuted);
-        Ui::cellWidget(m_table, r, 4, Ui::chip(m.accion.toUpper(), chipPorEvento(m.accion)));
-        Ui::cellText(m_table, r, 5, m.detalle, false, false, Theme::TextMuted);
+        const auto &cat = categoriaDe(m.categoria);
+        auto *chip = Ui::chip(cat.etiqueta, cat.chip);
+        chip->setToolTip(m.accion);
+        Ui::cellWidget(m_table, r, 4, chip);
+        Ui::cellText(m_table, r, 5, m.detalle.isEmpty() ? m.accion : m.detalle, false, false, Theme::TextMuted);
     }
 }

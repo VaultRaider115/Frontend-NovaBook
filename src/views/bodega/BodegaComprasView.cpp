@@ -26,6 +26,7 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     m_comboProveedor = new QComboBox(headerCard);
     m_txtObs = new QLineEdit(headerCard);
     m_txtObs->setPlaceholderText("Ej. F-1024");
+    m_txtObs->setMaxLength(30);
     hl->addWidget(Ui::field("Proveedor Oficial", m_comboProveedor, headerCard), 1);
     hl->addWidget(Ui::field("Número de Factura", m_txtObs, headerCard), 1);
     layout->addWidget(headerCard);
@@ -226,7 +227,7 @@ void BodegaComprasView::onRegistrarCompra() {
     QJsonObject req;
     req["id_proveedor"] = idProveedor;
     if (!m_txtObs->text().trimmed().isEmpty()) {
-        req["observaciones"] = m_txtObs->text().trimmed();
+        req["factura"] = m_txtObs->text().trimmed();
     }
 
     QJsonArray itemsArr;

@@ -31,7 +31,6 @@ private:
     QLineEdit *m_txtSku;
     QLineEdit *m_txtNombre;
     QDoubleSpinBox *m_spnPrecio;
-    QSpinBox *m_spnCantidad;
 
     // Selector Múltiple de Géneros (Relación N:M)
     QListWidget *m_listGeneros;

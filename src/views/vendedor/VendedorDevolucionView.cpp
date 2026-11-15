@@ -55,9 +55,8 @@ VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
     row->addWidget(Ui::field("Cantidad", Ui::stepper(m_spnCantidad, addCard), addCard));
 
     m_comboMotivo = new QComboBox(addCard);
-    m_comboMotivo->setEditable(true); // si el catálogo no carga, se puede escribir el motivo
+    m_comboMotivo->setPlaceholderText("Selecciona un motivo");
     m_comboMotivo->setCurrentIndex(-1);
-    m_comboMotivo->lineEdit()->setPlaceholderText("Selecciona un motivo");
     row->addWidget(Ui::field("Motivo de devolución", m_comboMotivo, addCard), 2);
 
     m_btnAgregar = Ui::button("Añadir a Devolución", "tint", addCard, "plus-gold");
@@ -135,7 +134,10 @@ void VendedorDevolucionView::cargarCatalogos() {
         if (!ok || !data.isArray()) return;
         m_comboMotivo->clear();
         const QJsonArray arr = data.toArray();
-        for (const auto &v : arr) m_comboMotivo->addItem(MotivoDto::fromJson(v.toObject()).nombre);
+        for (const auto &v : arr) {
+            const MotivoDto m = MotivoDto::fromJson(v.toObject());
+            m_comboMotivo->addItem(m.nombre, m.id_motivo);
+        }
         m_comboMotivo->setCurrentIndex(-1);
     });
 }
@@ -157,7 +159,8 @@ void VendedorDevolucionView::onAgregarArticulo() {
         return;
     }
     const QString motivo = m_comboMotivo->currentText().trimmed();
-    if (motivo.isEmpty()) {
+    const int idMotivo = m_comboMotivo->currentIndex() >= 0 ? m_comboMotivo->currentData().toInt() : 0;
+    if (motivo.isEmpty() || idMotivo <= 0) {
         Toast::showToast(this, "Selecciona el motivo de la devolución", Toast::Warning);
         return;
     }
@@ -166,11 +169,19 @@ void VendedorDevolucionView::onAgregarArticulo() {
     const int cant = m_spnCantidad->value();
     const QString tipo = eanRes.tipo == EanClassifier::Tipo::Libro ? "libro" : "revista";
 
-    ApiClient::instance()->consultarExistencias(eanStr, tipo, 0, [this, ean, cant, tipo, motivo](bool ok, const QJsonValue &data, const QString &) {
+    // Límite de 60 piezas por solicitud (se valida también en la API)
+    int yaAgregadas = 0;
+    for (const auto &it : std::as_const(m_items)) if (it.tipo == tipo) yaAgregadas += it.cantidad;
+    if (yaAgregadas + cant > 60) {
+        Toast::showToast(this, QString("Una devolución no puede exceder 60 piezas (llevas %1)").arg(yaAgregadas), Toast::Warning);
+        return;
+    }
+
+    ApiClient::instance()->consultarExistencias(eanStr, tipo, 0, [this, ean, cant, tipo, motivo, idMotivo](bool ok, const QJsonValue &data, const QString &) {
         QString titulo = QString("Artículo %1").arg(ean);
         if (ok && data.isArray() && !data.toArray().isEmpty())
             titulo = data.toArray().first().toObject().value("titulo").toString(titulo);
-        m_items.append({ean, tipo, titulo, cant, motivo});
+        m_items.append({ean, tipo, titulo, cant, motivo, idMotivo});
         renderItems();
 
         m_txtEan->clear();
@@ -225,7 +236,7 @@ void VendedorDevolucionView::onEnviarDevolucion() {
             QJsonObject o;
             o["codigo_ean"] = it.ean;
             o["cantidad"] = it.cantidad;
-            o["motivo"] = it.motivo;
+            o["id_motivo"] = it.id_motivo;
             itemsArr.append(o);
         }
         ApiClient::instance()->crearDevolucion(provId, tipo, itemsArr, [this, st, tipo](bool ok, const QJsonValue &data, const QString &msg) {
@@ -241,6 +252,7 @@ void VendedorDevolucionView::onEnviarDevolucion() {
             m_ultimas = st->ok;
             QStringList folios;
             for (const auto &r : std::as_const(m_ultimas)) folios << QString("#DEV-%1").arg(r.first);
+            m_btnPdf->setToolTip("El acta se puede descargar cuando el Jefe apruebe la solicitud");
             m_lblLote->setText(folios.join(" · "));
             m_btnPdf->setEnabled(true);
             m_items.clear();
