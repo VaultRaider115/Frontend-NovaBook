@@ -121,8 +121,10 @@ QByteArray pdfRequisicion(const Requisicion &req) {
           req.elaboro.isEmpty() ? "—" : req.elaboro, 9.5, false);
     texto(p, kDerecha, y, "Folio: #" + req.folio, 9.5, true, 25, Qt::AlignRight);
     y += 13;
-    texto(p, kMargen, y, req.salida ? "Origen: Bodega · Destino: Piso de venta"
-                                    : "Origen: Piso de venta · Destino: Bodega", 8, false, 115);
+    QString ruta = req.salida ? "Origen: Bodega · Destino: Piso de venta"
+                              : "Origen: Piso de venta · Destino: Bodega";
+    if (!req.editorial.isEmpty()) ruta = "Editorial: " + req.editorial + " · " + ruta;
+    texto(p, kMargen, y, ruta, 8, false, 115);
     texto(p, kDerecha, y, fechaLarga(req.fechaHora), 8, false, 115, Qt::AlignRight);
     y += 12;
     linea(p, kMargen, y, kDerecha, 0.5, 215);

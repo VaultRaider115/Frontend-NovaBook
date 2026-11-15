@@ -26,6 +26,7 @@ struct Requisicion {
     QString fechaHora;    // "2026-11-15 10:42:00"
     bool salida = true;   // true: Bodega → Piso (salida); false: Piso → Bodega (entrada)
     QString elaboro;      // nombre de quien la registró
+    QString editorial;    // una sola editorial por documento (diagrama, pasos 2 y 6)
     QList<PartidaReq> partidas;
 };
 

@@ -389,7 +389,9 @@ void ApiClient::consultarExistencias(const QString &q, const QString &tipo, int 
     if (!tipo.isEmpty()) query.addQueryItem("tipo", tipo);
     if (ubicacion > 0) query.addQueryItem("ubicacion", QString::number(ubicacion));
 
-    sendRequest("GET", "/api/vendedor/existencias", query, QByteArray(), cb);
+    // Bodega la usa para armar la requisición de salida (título y editorial).
+    const bool bodega = currentUser().id_roles == 2;
+    sendRequest("GET", bodega ? "/api/bodega/existencias" : "/api/vendedor/existencias", query, QByteArray(), cb);
 }
 
 void ApiClient::registrarVenta(const QString &cliente, const QJsonArray &items, ApiCallback cb) {

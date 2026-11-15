@@ -19,7 +19,7 @@ public:
                     const QString &addedMessage, bool salida, QWidget *parent = nullptr);
 
 private:
-    struct Partida { qint64 ean; QString tipo; QString nombre; int cantidad; };
+    struct Partida { qint64 ean; QString tipo; QString nombre; int cantidad; QString editorial; };
     void agregar();
     void render();
     void enviarTodo();

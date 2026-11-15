@@ -89,15 +89,31 @@ void RequisicionView::agregar() {
     const QString tipo = res.tipo == EanClassifier::Tipo::Libro ? "libro" : "revista";
 
     ApiClient::instance()->consultarExistencias(eanStr, tipo, 0, [this, ean, cant, tipo](bool ok, const QJsonValue &data, const QString &) {
-        QString titulo = QString("Artículo %1").arg(ean);
-        if (ok && data.isArray() && !data.toArray().isEmpty())
-            titulo = data.toArray().first().toObject().value("titulo").toString(titulo);
+        // La búsqueda puede traer otros títulos: se usa el renglón de este EAN.
+        QJsonObject fila;
+        if (ok && data.isArray()) {
+            for (const auto &v : data.toArray()) {
+                if (v.toObject().value("codigo_ean").toVariant().toLongLong() == ean) { fila = v.toObject(); break; }
+            }
+        }
+        const QString titulo = fila.value("titulo").toString(QString("Artículo %1").arg(ean));
+        const QString editorial = fila.value("proveedor").toString();
+
+        // Diagrama, pasos 2 y 6: una sola editorial por documento.
+        if (!m_items.isEmpty() && !editorial.isEmpty() && !m_items.first().editorial.isEmpty()
+            && editorial != m_items.first().editorial) {
+            Toast::showToast(this, QString("\"%1\" es de %2 y esta requisición es de %3. "
+                                           "Registra esta primero y haz otra para %2.")
+                                       .arg(titulo, editorial, m_items.first().editorial),
+                             Toast::Warning, 6000);
+            return;
+        }
 
         bool found = false;
         for (auto &p : m_items) {
             if (p.ean == ean) { p.cantidad += cant; found = true; break; }
         }
-        if (!found) m_items.append({ean, tipo, titulo, cant});
+        if (!found) m_items.append({ean, tipo, titulo, cant, editorial});
 
         m_txtEan->clear();
         m_spnCantidad->setValue(1);
@@ -121,7 +137,9 @@ void RequisicionView::render() {
         connect(quitar, &QPushButton::clicked, this, [this, i]() { m_items.removeAt(i); render(); });
         Ui::cellWidget(m_table, i, 4, quitar);
     }
-    m_lblTotal->setText(QString("Piezas Totales: <b style=\"color:#FFFFFF;\">%1</b>").arg(total));
+    const QString editorial = m_items.isEmpty() ? QString() : m_items.first().editorial;
+    m_lblTotal->setText((editorial.isEmpty() ? QString() : "Editorial: " + editorial.toHtmlEscaped() + " · ")
+                        + QString("Piezas Totales: <b style=\"color:#FFFFFF;\">%1</b>").arg(total));
 }
 
 void RequisicionView::enviarTodo() {
@@ -148,6 +166,7 @@ void RequisicionView::enviarTodo() {
         m_ultima.fechaHora = o.value("fecha_hora").toString();
         m_ultima.salida = m_salida;
         m_ultima.elaboro = ApiClient::instance()->currentUser().nombreCompleto();
+        m_ultima.editorial = o.value("editorial").toString();
         for (const auto &v : o.value("items").toArray()) {
             const QJsonObject it = v.toObject();
             m_ultima.partidas.append({it.value("codigo_ean").toVariant().toLongLong(),
