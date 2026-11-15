@@ -107,6 +107,18 @@ public:
     void consultarTicket(qint64 idVenta, ApiCallback cb);
     void registrarDevolucionCliente(const QJsonObject &req, ApiCallback cb);
 
+    // Inventario mensual (Vendedor cuenta; Jefe revisa) y solicitudes de editorial.
+    void inventarioActual(ApiCallback cb);
+    void abrirInventario(ApiCallback cb);
+    void registrarConteo(qint64 idInventario, qint64 ean, int cantidad, ApiCallback cb);
+    void cerrarInventario(qint64 idInventario, ApiCallback cb);
+    void listarInventarios(ApiCallback cb);
+    void obtenerInventario(qint64 idInventario, ApiCallback cb);
+    void revisarInventario(qint64 idInventario, bool aprobar, const QString &observaciones, ApiCallback cb);
+    void listarSolicitudesEditorial(ApiCallback cb);
+    void crearSolicitudEditorial(int idProveedor, const QString &referencia, const QList<qint64> &eans, ApiCallback cb);
+    void atenderSolicitudEditorial(qint64 idSolicitud, ApiCallback cb);
+
     // --- Jefe de Departamento ---
     void consultarHistorialDevoluciones(const QString &fecha, const QString &estado, int idProveedor, ApiCallback cb);
     void consultarMovimientoDiario(const QString &fecha, ApiCallback cb);

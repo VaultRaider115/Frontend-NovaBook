@@ -208,6 +208,7 @@ void VendedorDevolucionClienteView::pintarTicket() {
         l.spnDevolver = new QSpinBox();
         l.spnDevolver->setRange(0, disponible);
         l.spnDevolver->setFixedSize(84, 34);   // cabe en la fila (56 px menos el padding)
+        l.spnDevolver->setStyleSheet("QSpinBox { padding: 0px 10px; min-height: 0px; }");
         l.spnDevolver->setEnabled(m_vigente && disponible > 0);
         l.spnDevolver->setAccessibleName(QString("Piezas a devolver de %1").arg(l.titulo));
         connect(l.spnDevolver, QOverload<int>::of(&QSpinBox::valueChanged), this, &VendedorDevolucionClienteView::recalcular);

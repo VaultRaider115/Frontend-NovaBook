@@ -39,6 +39,8 @@
 #include "VendedorDevolucionView.h"
 #include "VendedorMisDevolucionesView.h"
 #include "VendedorDevolucionClienteView.h"
+#include "VendedorInventarioView.h"
+#include "JefeInventarioView.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -185,6 +187,7 @@ void MainWindow::buildRoleViews() {
         auto *motivos  = new JefeMotivosView(m_stack);
         auto *muebles  = new JefeMueblesView(m_stack);
         auto *prov     = new BodegaProveedoresView("Jefatura · Proveedores", true, m_stack);
+        auto *invMes   = new JefeInventarioView(m_stack);
 
         addPage("Panel Principal",            dash,     [dash]()     { dash->refreshData(); });
         addPage("Historial de Movimientos",   bitacora, [bitacora]() { bitacora->cargarMovimientos(); });
@@ -195,6 +198,7 @@ void MainWindow::buildRoleViews() {
         addPage("Catálogo de Motivos",        motivos,  [motivos]()  { motivos->cargarMotivos(); });
         addPage("Muebles y Estantería",       muebles,  [muebles]()  { muebles->cargarMuebles(); });
         addPage("Proveedores",                prov,     [prov]()     { prov->cargarProveedores(); });
+        addPage("Inventario Mensual",         invMes,   [invMes]()   { invMes->cargar(); });
 
     } else if (m_user.id_roles == 2) {
         // --- BODEGA ---
@@ -223,6 +227,7 @@ void MainWindow::buildRoleViews() {
         auto *devolucion = new VendedorDevolucionView(m_stack);
         auto *misDevs = new VendedorMisDevolucionesView(m_stack);
         auto *devCliente = new VendedorDevolucionClienteView(m_stack);
+        auto *inventario = new VendedorInventarioView(m_stack);
 
         addPage("Panel Principal", dash, [dash]() { dash->refreshData(); });
         addPage("Consulta de Existencias", consulta, [consulta]() { consulta->buscarExistencias(); });
@@ -231,6 +236,7 @@ void MainWindow::buildRoleViews() {
         addPage("Requisición de Entrada", traslado);
         addPage("Devoluciones a Proveedor", devolucion, [devolucion]() { devolucion->cargarCatalogos(); });
         addPage("Mis Devoluciones", misDevs, [misDevs]() { misDevs->cargar(); });
+        addPage("Inventario Mensual", inventario, [inventario]() { inventario->cargar(); });
     }
 
     onNavButtonClicked(0);

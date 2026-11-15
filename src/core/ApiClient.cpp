@@ -453,6 +453,58 @@ void ApiClient::registrarDevolucionCliente(const QJsonObject &req, ApiCallback c
     sendRequest("POST", "/api/vendedor/devoluciones-cliente", QUrlQuery(), QJsonDocument(req).toJson(), cb);
 }
 
+// --- Inventario mensual ---
+
+void ApiClient::inventarioActual(ApiCallback cb) {
+    sendRequest("GET", "/api/vendedor/inventarios/actual", QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::abrirInventario(ApiCallback cb) {
+    sendRequest("POST", "/api/vendedor/inventarios", QUrlQuery(), QByteArray("{}"), cb);
+}
+
+void ApiClient::registrarConteo(qint64 idInventario, qint64 ean, int cantidad, ApiCallback cb) {
+    QJsonObject req{{"codigo_ean", ean}, {"cantidad", cantidad}};
+    sendRequest("PUT", QString("/api/vendedor/inventarios/%1/conteos").arg(idInventario), QUrlQuery(),
+                QJsonDocument(req).toJson(), cb);
+}
+
+void ApiClient::cerrarInventario(qint64 idInventario, ApiCallback cb) {
+    sendRequest("POST", QString("/api/vendedor/inventarios/%1/cerrar").arg(idInventario), QUrlQuery(),
+                QByteArray("{}"), cb);
+}
+
+void ApiClient::listarInventarios(ApiCallback cb) {
+    sendRequest("GET", "/api/jefe/inventarios", QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::obtenerInventario(qint64 idInventario, ApiCallback cb) {
+    sendRequest("GET", QString("/api/jefe/inventarios/%1").arg(idInventario), QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::revisarInventario(qint64 idInventario, bool aprobar, const QString &observaciones, ApiCallback cb) {
+    QJsonObject req{{"aprobar", aprobar}};
+    if (!observaciones.trimmed().isEmpty()) req["observaciones"] = observaciones.trimmed();
+    sendRequest("PUT", QString("/api/jefe/inventarios/%1/revisar").arg(idInventario), QUrlQuery(),
+                QJsonDocument(req).toJson(), cb);
+}
+
+void ApiClient::listarSolicitudesEditorial(ApiCallback cb) {
+    sendRequest("GET", "/api/jefe/solicitudes-editorial", QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::crearSolicitudEditorial(int idProveedor, const QString &referencia, const QList<qint64> &eans, ApiCallback cb) {
+    QJsonArray arr;
+    for (qint64 e : eans) arr.append(e);
+    QJsonObject req{{"id_proveedor", idProveedor}, {"referencia", referencia}, {"eans", arr}};
+    sendRequest("POST", "/api/jefe/solicitudes-editorial", QUrlQuery(), QJsonDocument(req).toJson(), cb);
+}
+
+void ApiClient::atenderSolicitudEditorial(qint64 idSolicitud, ApiCallback cb) {
+    sendRequest("PUT", QString("/api/jefe/solicitudes-editorial/%1/atender").arg(idSolicitud), QUrlQuery(),
+                QByteArray("{}"), cb);
+}
+
 void ApiClient::descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo, PdfCallback cb) {
     QString subpath = (tipo.toLower() == "revista") ? "revistas" : "libros";
     // El acta la descargan su solicitante (ruta de vendedor), el Jefe o el Gerente.
