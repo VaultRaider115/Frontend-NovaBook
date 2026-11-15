@@ -166,7 +166,8 @@ void JefeUsuariosView::abrirFormulario(const UsuarioDto *u) {
     auto *txtTel = new QLineEdit(u->telefono > 0 ? QString::number(u->telefono) : QString(), &dlg);
     txtTel->setPlaceholderText("10 dígitos, ej. 8443509259");
     txtTel->setMaxLength(10);
-    txtTel->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,10}"), txtTel));
+    // Solo dígitos y sin 0 inicial (mismas reglas que la API).
+    txtTel->setValidator(new QRegularExpressionValidator(QRegularExpression("[1-9][0-9]{0,9}"), txtTel));
 
     auto *txtPass = new QLineEdit(&dlg);
     txtPass->setEchoMode(QLineEdit::Password);
@@ -192,7 +193,7 @@ void JefeUsuariosView::abrirFormulario(const UsuarioDto *u) {
     QPointer<QDialog> guard(&dlg);
     QPointer<JefeUsuariosView> self(this);
     connect(dlg.okButton(), &QPushButton::clicked, &dlg, [&, u, guard, self, esMismoUsuario, rxNombre]() {
-        const QString nombre = txtNombre->text().trimmed();
+        const QString nombre = txtNombre->text().simplified();   // sin espacios sobrantes, como la API
         if (nombre.isEmpty()) {
             Toast::showToast(&dlg, "El nombre es obligatorio", Toast::Warning);
             txtNombre->setFocus();
@@ -204,14 +205,14 @@ void JefeUsuariosView::abrirFormulario(const UsuarioDto *u) {
             return;
         }
 
-        const QString pat = txtPat->text().trimmed();
+        const QString pat = txtPat->text().simplified();
         if (!pat.isEmpty() && !rxNombre.match(pat).hasMatch()) {
             Toast::showToast(&dlg, "El apellido paterno solo debe contener letras y espacios", Toast::Warning);
             txtPat->setFocus();
             return;
         }
 
-        const QString mat = txtMat->text().trimmed();
+        const QString mat = txtMat->text().simplified();
         if (!mat.isEmpty() && !rxNombre.match(mat).hasMatch()) {
             Toast::showToast(&dlg, "El apellido materno solo debe contener letras y espacios", Toast::Warning);
             txtMat->setFocus();
@@ -219,8 +220,15 @@ void JefeUsuariosView::abrirFormulario(const UsuarioDto *u) {
         }
 
         const QString telStr = txtTel->text().trimmed();
-        if (!telStr.isEmpty() && (telStr.size() != 10 || telStr.startsWith('0'))) {
-            Toast::showToast(&dlg, "El teléfono debe tener 10 dígitos válidos (sin iniciar en 0)", Toast::Warning);
+        // Mismos mensajes que la API.
+        if (telStr.startsWith('0')) {
+            Toast::showToast(&dlg, "El teléfono no puede empezar con 0", Toast::Warning);
+            txtTel->setFocus();
+            return;
+        }
+        if (!telStr.isEmpty() && telStr.size() != 10) {
+            Toast::showToast(&dlg, QString("El teléfono debe tener exactamente 10 dígitos (tiene %1)").arg(telStr.size()),
+                             Toast::Warning);
             txtTel->setFocus();
             return;
         }
