@@ -150,6 +150,8 @@ QString globalStyleSheet() {
         QLabel[chip="amber"]   { border-radius: 10px; padding: 3px 10px; font-size: 11px; font-weight: 600; background-color: rgba(254,154,0,10%);  color: #FFD230; }
         QLabel[chip="purple"]  { border-radius: 10px; padding: 3px 10px; font-size: 11px; font-weight: 600; background-color: rgba(173,70,255,12%); color: #C27AFF; }
         QLabel[chip="mint"]    { border-radius: 10px; padding: 3px 10px; font-size: 11px; font-weight: 600; background-color: rgba(0,188,125,10%);  color: #5EE9B5; }
+        QLabel[chip="blue"]    { border-radius: 10px; padding: 3px 10px; font-size: 11px; font-weight: 600; background-color: rgba(0,166,244,15%);  color: #00BCFF; }
+        QLabel[chip="rose"]    { border-radius: 10px; padding: 3px 10px; font-size: 11px; font-weight: 600; background-color: rgba(246,51,154,12%); color: #FDA5D5; }
         QLabel[chip="neutral"] { border-radius: 10px; padding: 3px 10px; font-size: 11px; background-color: rgba(255,255,255,5%); color: {{TextMuted}}; }
         QLabel[chip="pending"] { border-radius: 10px; padding: 3px 10px; font-size: 11px; font-weight: 600; background-color: rgba(254,154,0,10%);  color: #FFD230; }
         QLabel[avatar="gold"], QLabel[avatar="gray"] { border-radius: 18px; font-size: 12px; font-weight: 600; min-width: 36px; max-width: 36px; min-height: 36px; max-height: 36px; qproperty-alignment: AlignCenter; }

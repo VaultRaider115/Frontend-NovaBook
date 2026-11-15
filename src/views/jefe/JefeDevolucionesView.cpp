@@ -216,6 +216,11 @@ void JefeDevolucionesView::evaluar(const Devolucion &dev, bool aprobar) {
             Toast::showToast(this, "Escribe las observaciones para poder rechazar", Toast::Warning);
             return;
         }
+        if (notas.size() > 200) {   // mismo límite que la API (se guardan en la bitácora)
+            Toast::showToast(this, QString("Las observaciones no pueden exceder 200 caracteres (tienen %1)").arg(notas.size()),
+                             Toast::Warning);
+            return;
+        }
     }
 
     m_table->setEnabled(false);

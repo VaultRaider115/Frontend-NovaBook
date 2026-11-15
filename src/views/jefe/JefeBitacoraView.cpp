@@ -11,16 +11,19 @@
 #include <QSharedPointer>
 #include <algorithm>
 
+// Colores de categoría. VENTA, TRASLADO, COMPRA y ACCESO salen del diseño 7;
+// el resto se eligió para no repetir esos tonos ni usar el rojo, que en la app
+// indica errores y rechazos (salvo un acceso fallido, ver renderPagina).
 struct CategoriaBitacora { const char *codigo; const char *etiqueta; const char *chip; };
 static const CategoriaBitacora kCategorias[] = {
-    {"ACCESO",     "ACCESO",     "neutral"},
-    {"VENTA",      "VENTA",      "mint"},
-    {"COMPRA",     "COMPRA",     "purple"},
-    {"TRASLADO",   "TRASLADO",   "indigo"},
-    {"DEVOLUCION", "DEVOLUCIÓN", "danger"},
-    {"INVENTARIO", "INVENTARIO", "amber"},
+    {"ACCESO",     "ACCESO",     "neutral"},  // diseño: gris
+    {"VENTA",      "VENTA",      "mint"},     // diseño: verde
+    {"COMPRA",     "COMPRA",     "purple"},   // diseño: morado
+    {"TRASLADO",   "TRASLADO",   "blue"},     // diseño: azul
+    {"DEVOLUCION", "DEVOLUCIÓN", "amber"},
+    {"INVENTARIO", "INVENTARIO", "rose"},
     {"USUARIOS",   "USUARIOS",   "gold"},
-    {"CATALOGO",   "CATÁLOGO",   "neutral"},
+    {"CATALOGO",   "CATÁLOGO",   "indigo"},
     {"SISTEMA",    "SISTEMA",    "neutral"},
 };
 
@@ -178,7 +181,9 @@ void JefeBitacoraView::renderPagina() {
 
         Ui::cellText(m_table, r, 3, m.rol, false, false, Theme::TextMuted);
         const auto &cat = categoriaDe(m.categoria);
-        auto *chip = Ui::chip(cat.etiqueta, cat.chip);
+        // Un acceso fallido se resalta en rojo: es relevante para la seguridad.
+        const bool fallido = m.accion.contains("FALLIDO", Qt::CaseInsensitive);
+        auto *chip = Ui::chip(cat.etiqueta, fallido ? "danger" : cat.chip);
         chip->setToolTip(m.accion);
         Ui::cellWidget(m_table, r, 4, chip);
         Ui::cellText(m_table, r, 5, m.detalle.isEmpty() ? m.accion : m.detalle, false, false, Theme::TextMuted);
