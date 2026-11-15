@@ -96,11 +96,13 @@ void VendedorMisDevolucionesView::cargar() {
                     auto *pdf = Ui::button("Ver Acta PDF", "outline", nullptr, "pdf");
                     pdf->setProperty("variant", "small");
                     pdf->setAccessibleName(QString("Ver acta de %1").arg(d.folio));
+                    if (!d.observaciones.trimmed().isEmpty())
+                        pdf->setToolTip("Nota del Jefe: " + d.observaciones.trimmed());
                     connect(pdf, &QPushButton::clicked, this, [this, d]() { verActa(d); });
                     Ui::cellWidget(m_table, i, 6, pdf);
                 } else if (rechazado) {
                     // Diagrama, paso 9: el vendedor rehace la devolución con base en el motivo.
-                    const QString motivo = d.observaciones_rechazo.trimmed();
+                    const QString motivo = d.observaciones.trimmed();
                     auto *lbl = new QLabel(motivo.isEmpty() ? "Rechazada (sin observaciones)"
                                                             : QString("Motivo: %1").arg(motivo));
                     lbl->setObjectName("Muted");

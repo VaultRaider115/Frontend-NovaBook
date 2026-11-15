@@ -170,7 +170,7 @@ void JefeDevolucionesView::cargarDevoluciones() {
                 connect(pdf, &QPushButton::clicked, this, [this, d]() { verActaPdf(d); });
                 Ui::cellWidget(m_table, i, 7, pdf);
             } else if (rechazado) {
-                const QString motivo = d.observaciones_rechazo.trimmed();
+                const QString motivo = d.observaciones.trimmed();
                 if (m_puedeAprobar) {
                     // Diseño 20: "Sin acciones"; el motivo queda como tooltip.
                     auto *lbl = Ui::label("Sin acciones", "Muted");
@@ -205,7 +205,7 @@ void JefeDevolucionesView::evaluar(const Devolucion &dev, bool aprobar) {
                 .arg(dev.nombre_proveedor).arg(dev.total_piezas),
             QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) return;
 
-    // Regla de negocio: el rechazo exige observaciones (se guardan en la bitácora).
+    // Regla de negocio: el rechazo exige observaciones (devolucion.observaciones).
     QString notas;
     if (!aprobar) {
         bool aceptado = false;

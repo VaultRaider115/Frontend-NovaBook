@@ -321,7 +321,7 @@ struct Devolucion {
     QString proveedor_direccion;
     QString proveedor_contacto;
     QString tipo_producto;
-    QString observaciones_rechazo;   // motivo del Jefe al rechazar
+    QString observaciones;   // nota del Jefe al aprobar o rechazar
     QList<ItemDevolucion> items;
 
     static Devolucion fromJson(const QJsonObject &obj) {
@@ -343,7 +343,7 @@ struct Devolucion {
         d.proveedor_direccion = obj.value("proveedor_direccion").toString();
         d.proveedor_contacto = obj.value("proveedor_contacto").toString();
         d.tipo_producto = obj.value("tipo_producto").toString();
-        d.observaciones_rechazo = obj.value("observaciones_rechazo").toString();
+        d.observaciones = obj.value("observaciones").toString();
 
         QJsonArray arr = obj.value("items").toArray();
         for (const auto &val : arr) {
