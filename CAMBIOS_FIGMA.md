@@ -92,7 +92,10 @@ muestra.
     requisición).
   - Al registrar se imprime el PDF con folio `REQ-AAAA-n`.
 - **Ventas (3):** método de pago.
-- **Compras (6):** número de factura.
+- **Compras (6)**
+  - Número de factura.
+  - Campos "Facturadas" y "Llegaron" (diagrama, paso 1); la columna
+    "Llegaron / Fact." marca en ámbar lo que faltó.
 - **Alta (9)**
   - Sin campo Cantidad: la cantidad entra con la compra.
   - Mueble de bodega y editorial reales.
@@ -126,6 +129,9 @@ que se vean como las demás:
 - Consultar Inventario de Bodega (`bodega/BodegaInventarioView`).
 - Devolución de Cliente (`vendedor/VendedorDevolucionClienteView`).
 - Mis Devoluciones (`vendedor/VendedorMisDevolucionesView`).
+- Recepción de Salida del Vendedor y Seguimiento de Salidas de Bodega
+  (`vendedor/VendedorRecepcionView`).
+- Incidencias de Compra (`bodega/BodegaIncidenciasView`).
 - Inventario Mensual:
   - conteo del Vendedor (`vendedor/VendedorInventarioView`);
   - revisión del Jefe y solicitudes de editorial (`jefe/JefeInventarioView`).

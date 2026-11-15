@@ -74,7 +74,14 @@ Cuando la API agrega o cambia una ruta:
     `Documentos/NovaBook`, escribe el archivo y lo abre en el visor del
     sistema.
   - `pdfRequisicion(Requisicion)` genera la requisición con `QPdfWriter`:
-    folio, editorial, origen y destino, partidas y firmas.
+    folio, editorial, origen y destino, partidas y firmas. Si las partidas
+    traen `recibida >= 0`, agrega la columna MUEBLE, tacha la cantidad
+    original donde difiere y, con `estado == "CORREGIDA"`, dibuja el sello.
+  - `Requisicion::desdeJson(obj)` arma el documento desde
+    `GET /requisiciones/{folio}`.
+  - `abrirCorreo(parent, {para, asunto, cuerpo})` abre un `mailto:` en el
+    programa de correo predeterminado; sin destinatario o sin programa,
+    copia el texto al portapapeles.
 - **`InactivityWatcher`:** filtro de eventos global. Cuenta como actividad
   las teclas, clics, movimiento del ratón, rueda y toques. Tras
   `INACTIVIDAD_MINUTOS` (15 por defecto) sin actividad, llama a
@@ -133,6 +140,10 @@ ApiClient::instance()->listarAlgo([this](bool ok, const QJsonValue &data, const 
 Al guardar, deshabilita el botón mientras responde la API y vuelve a
 habilitarlo en el callback.
 
+`VendedorRecepcionView(puedeRecibir)` sirve a dos roles: el Vendedor recibe
+(`true`) y Bodega solo da seguimiento y reimprime (`false`). Las rutas de
+`listarRequisiciones` / `obtenerRequisicion` se eligen por el rol en sesión.
+
 ## 6. Reglas que la interfaz repite
 
 La API valida todo; la interfaz repite lo que ayuda a capturar mejor:
@@ -145,6 +156,10 @@ La API valida todo; la interfaz repite lo que ayuda a capturar mejor:
   - El Jefe no registra usuarios ni modifica cuentas de Gerente (aparecen
     como "Solo Gerente").
 - Requisición: una sola editorial por documento.
+- Compras: "Llegaron" no puede pasar de "Facturadas"; sigue su valor hasta
+  que se captura algo distinto.
+- Recepción de la salida: pide confirmación antes de corregir y reimprime
+  sola si quedó CORREGIDA.
 - Catálogos: el botón de borrar se deshabilita si el registro está en uso.
 - El rechazo de una devolución pide observaciones obligatorias.
 

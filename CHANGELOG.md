@@ -8,6 +8,24 @@ Rama `integracion-validaciones`: pantallas iguales a los diseños de
 `docs/disenos/` y conectadas a la API del esquema unificado.
 
 ### Added
+- **Compra incompleta** (diagrama, paso 1):
+  - Compras a Proveedor captura "Facturadas" y "Llegaron"; la tabla marca en
+    ámbar lo que faltó.
+  - Si la API abre una incidencia, la app ofrece abrir el programa de correo
+    del equipo con el aviso al proveedor (`Documentos::abrirCorreo`, mailto:).
+    Si el proveedor no tiene correo o no hay programa de correo, copia el
+    texto al portapapeles.
+  - Pantalla nueva **Incidencias de Compra** (Bodega): faltantes por
+    factura, reenviar el aviso y registrar lo que llega después.
+- **Recepción de la salida** (pasos 2 y 3):
+  - Pantalla nueva **Recepción de Salida** (Vendedor): por cada salida
+    pendiente se captura lo recibido y el mueble de piso de cada libro. Si
+    algo no coincide, la requisición se corrige y se reimprime.
+  - Pantalla nueva **Seguimiento de Salidas** (Bodega, solo lectura): estado
+    de cada salida y reimpresión.
+  - El PDF de la requisición recibida lleva columna MUEBLE, la cantidad
+    original tachada donde hubo diferencia, el sello CORREGIDA y quién
+    recibió.
 - **Cierre de sesión**:
   - Automático cuando la API responde 401 (token vencido o usuario dado de
     baja).

@@ -48,8 +48,8 @@ validar cada permiso.
 |---|---|
 | Gerente (4) | Panel Principal · Gestión de Usuarios (crea usuarios y asigna roles) · Devoluciones a Proveedor (solo lectura y actas) |
 | Jefe de Departamento (1) | Panel Principal · Historial de Movimientos (bitácora) · Aprobación de Devoluciones · Gestión de Usuarios (sin tocar roles ni Gerentes) · Catálogos de Autores, Géneros, Motivos y Muebles · Proveedores · Inventario Mensual (revisión y solicitudes de editorial) |
-| Personal de Bodega (2) | Panel Principal · Alta de Mercancía (EAN) · Compras a Proveedor · Proveedores (solo alta) · Requisición de Salida · Consultar Inventario |
-| Vendedor (3) | Panel Principal · Consulta de Existencias · Punto de Venta · Devolución de Cliente · Requisición de Entrada · Devoluciones a Proveedor · Mis Devoluciones · Inventario Mensual (conteo) |
+| Personal de Bodega (2) | Panel Principal · Alta de Mercancía (EAN) · Compras a Proveedor · Incidencias de Compra · Proveedores (solo alta) · Requisición de Salida · Seguimiento de Salidas · Consultar Inventario |
+| Vendedor (3) | Panel Principal · Consulta de Existencias · Punto de Venta · Devolución de Cliente · Recepción de Salida · Requisición de Entrada · Devoluciones a Proveedor · Mis Devoluciones · Inventario Mensual (conteo) |
 
 ## 4. Configuración
 
@@ -93,7 +93,11 @@ La app pregunta dónde guardarlos (propone `Documentos/NovaBook`) y los abre
 en el visor del sistema para imprimir.
 
 - **Requisición:** la genera Qt (`Documentos::pdfRequisicion`). Lleva folio
-  `REQ-AAAA-n`, editorial, origen y destino, partidas y firmas.
+  `REQ-AAAA-n`, editorial, origen y destino, partidas y firmas. Ya recibida,
+  agrega el mueble de piso y quién recibió; si se corrigió, el sello
+  CORREGIDA y la cantidad original tachada.
+- **Aviso de compra incompleta:** no es PDF. La app abre el programa de
+  correo del equipo con el texto que arma la API.
 - **Acta de devolución a proveedor:** la genera la API (diseño 21) y solo
   existe si la devolución está aprobada.
 
