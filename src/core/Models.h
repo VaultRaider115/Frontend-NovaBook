@@ -384,12 +384,14 @@ struct MotivoDto {
     int id_motivo = 0;
     QString nombre;
     QString descripcion;
+    int total_devoluciones = 0;
 
     static MotivoDto fromJson(const QJsonObject &obj) {
         MotivoDto m;
         m.id_motivo = obj.value("id_motivo").toInt();
         m.nombre = obj.value("nombre_motivo").toString(obj.value("motivo").toString(obj.value("nombre").toString()));
         m.descripcion = obj.value("descripcion").toString();
+        m.total_devoluciones = obj.value("total_devoluciones").toInt(0);
         return m;
     }
 };

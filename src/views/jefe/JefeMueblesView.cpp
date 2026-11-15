@@ -7,6 +7,8 @@
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPointer>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 #include <QSpinBox>
 
 JefeMueblesView::JefeMueblesView(QWidget *parent)
@@ -50,8 +52,17 @@ void JefeMueblesView::cargarMuebles() {
                 const bool llena = m.capacidad_maxima > 0 && m.capacidad_actual >= m.capacidad_maxima;
                 Ui::cellWidget(m_table, r, 5, m.capacidad_maxima > 0
                                ? Ui::chip(llena ? "Capacidad Llena" : "Disponible", llena ? "danger" : "ok") : Ui::chip("—", "neutral"));
-                Ui::cellWidgets(m_table, r, 6, rowActions(m.nombre,
-                    [this, m]() { abrirFormulario(&m); }, [this, m]() { eliminar(m); }));
+
+                const bool tieneStock = (m.capacidad_actual > 0);
+                auto actions = rowActions(m.nombre,
+                    [this, m]() { abrirFormulario(&m); },
+                    [this, m]() { eliminar(m); });
+
+                if (tieneStock && actions.size() > 1) {
+                    actions.last()->setEnabled(false);
+                    actions.last()->setVisible(false);
+                }
+                Ui::cellWidgets(m_table, r, 6, actions);
             }
             finishRows(QString("Total de Muebles: %1").arg(m_muebles.size()), "ubicaciones registradas");
         });
@@ -60,17 +71,27 @@ void JefeMueblesView::cargarMuebles() {
 
 void JefeMueblesView::abrirFormulario(const MuebleDto *m) {
     const bool edit = m != nullptr;
+    const bool tieneStock = edit && m->capacidad_actual > 0;
+
     Ui::FormDialog dlg(edit ? "Editar Mueble" : "Registrar Nuevo Mueble", edit ? "Actualizar Mueble" : "Registrar Mueble", this);
 
     auto *txtCodigo = new QLineEdit(edit ? m->codigo : QString(), &dlg);
     txtCodigo->setPlaceholderText("Ej. M-12 o BO-9");
+    txtCodigo->setMaxLength(20);
+    txtCodigo->setValidator(new QRegularExpressionValidator(QRegularExpression("[A-Za-z0-9\\-]{0,20}"), txtCodigo));
+
     auto *txtNombre = new QLineEdit(edit ? m->nombre : QString(), &dlg);
     txtNombre->setPlaceholderText("Ej: Mueble 11 Autoayuda");
+    txtNombre->setMaxLength(60);
 
     auto *comboArea = new QComboBox(&dlg);
     comboArea->addItem("Piso de Venta", 1);
     comboArea->addItem("Bodega", 2);
     if (edit) comboArea->setCurrentIndex(comboArea->findData(m->id_ubicacion));
+    if (tieneStock) {
+        comboArea->setEnabled(false);
+        comboArea->setToolTip("No puedes cambiar el área de un mueble que tiene piezas almacenadas");
+    }
 
     auto *comboGenero = new QComboBox(&dlg);
     for (const GeneroDto &g : std::as_const(m_generos)) comboGenero->addItem(g.genero_literario, g.id_genero);
@@ -79,40 +100,85 @@ void JefeMueblesView::abrirFormulario(const MuebleDto *m) {
         Toast::showToast(this, "No hay géneros disponibles para asignar al mueble", Toast::Warning);
         return;
     }
+    if (tieneStock) {
+        comboGenero->setEnabled(false);
+        comboGenero->setToolTip("No puedes cambiar el género de un mueble que tiene piezas almacenadas");
+    }
 
     auto *spnCap = new QSpinBox(&dlg);
-    spnCap->setRange(1, 99999);
-    spnCap->setValue(edit && m->capacidad_maxima > 0 ? m->capacidad_maxima : 50);
+    const int minCap = tieneStock ? m->capacidad_actual : 1;
+    spnCap->setRange(minCap, 99999);
+    spnCap->setValue(edit && m->capacidad_maxima > 0 ? qMax(minCap, m->capacidad_maxima) : 50);
 
     auto *txtDesc = new QPlainTextEdit(edit ? m->descripcion : QString(), &dlg);
-    txtDesc->setPlaceholderText("Ej. Junto al pasillo central frente al área de cajas...");
+    txtDesc->setPlaceholderText("Ej. Junto al pasillo central frente al área de cajas (máx. 255 caracteres)...");
     txtDesc->setFixedHeight(80);
 
     dlg.addField("Código de mueble", txtCodigo, 0, 0);
     dlg.addField("Nombre de mueble", txtNombre, 0, 1);
     dlg.addField("Área", comboArea, 1, 0);
     dlg.addField("Género asignado", comboGenero, 1, 1);
-    dlg.addField("Capacidad Máxima", spnCap, 2, 0, 2);
+    dlg.addField(tieneStock ? QString("Capacidad Máxima (mín. %1)").arg(minCap) : "Capacidad Máxima", spnCap, 2, 0, 2);
     dlg.addField("Descripción o Referencia de Ubicación", txtDesc, 3, 0, 2);
 
     QPointer<QDialog> guard(&dlg);
-    connect(dlg.okButton(), &QPushButton::clicked, &dlg, [&, edit, m]() {
-        if (txtCodigo->text().trimmed().isEmpty() || txtNombre->text().trimmed().isEmpty()) {
-            Toast::showToast(&dlg, "Código y nombre del mueble son obligatorios", Toast::Warning);
+    QPointer<JefeMueblesView> self(this);
+    connect(dlg.okButton(), &QPushButton::clicked, &dlg, [&, edit, m, guard, self, tieneStock]() {
+        const QString codigo = txtCodigo->text().trimmed().toUpper();
+        if (codigo.isEmpty()) {
+            Toast::showToast(&dlg, "El código del mueble es obligatorio", Toast::Warning);
+            txtCodigo->setFocus();
             return;
         }
-        QJsonObject req{{"codigo_mueble", txtCodigo->text().trimmed()}, {"nombre_mueble", txtNombre->text().trimmed()},
-                        {"id_ubicacion", comboArea->currentData().toInt()}, {"id_genero", comboGenero->currentData().toInt()},
-                        {"capacidad", spnCap->value()},
-                        {"descripcion", txtDesc->toPlainText().trimmed()}};
-        auto done = [this, guard, edit](bool ok, const QJsonValue &, const QString &msg) {
-            if (!ok) {
-                Toast::showToast(guard ? guard.data() : static_cast<QWidget *>(this), "No se pudo guardar el mueble: " + msg, Toast::Error);
+        const QString nombre = txtNombre->text().trimmed();
+        if (nombre.isEmpty()) {
+            Toast::showToast(&dlg, "El nombre del mueble es obligatorio", Toast::Warning);
+            txtNombre->setFocus();
+            return;
+        }
+        if (tieneStock && spnCap->value() < m->capacidad_actual) {
+            Toast::showToast(&dlg, QString("La capacidad no puede ser menor a las %1 piezas actuales").arg(m->capacidad_actual), Toast::Warning);
+            spnCap->setFocus();
+            return;
+        }
+        const QString desc = txtDesc->toPlainText().trimmed();
+        if (desc.size() > 255) {
+            Toast::showToast(&dlg, "La descripción no puede exceder 255 caracteres", Toast::Warning);
+            txtDesc->setFocus();
+            return;
+        }
+
+        for (const MuebleDto &item : std::as_const(m_muebles)) {
+            if (edit && item.id_mueble == m->id_mueble) continue;
+            if (item.codigo.trimmed().compare(codigo, Qt::CaseInsensitive) == 0) {
+                Toast::showToast(&dlg, "Ya existe un mueble registrado con ese código", Toast::Warning);
+                txtCodigo->setFocus();
                 return;
             }
-            Toast::showToast(this, edit ? "Mueble actualizado" : "Mueble registrado", Toast::Success);
+            if (item.nombre.trimmed().compare(nombre, Qt::CaseInsensitive) == 0) {
+                Toast::showToast(&dlg, "Ya existe un mueble registrado con ese nombre", Toast::Warning);
+                txtNombre->setFocus();
+                return;
+            }
+        }
+
+        dlg.okButton()->setEnabled(false);
+        QJsonObject req{{"codigo_mueble", codigo}, {"nombre_mueble", nombre},
+                        {"id_ubicacion", comboArea->currentData().toInt()}, {"id_genero", comboGenero->currentData().toInt()},
+                        {"capacidad", spnCap->value()},
+                        {"descripcion", desc}};
+
+        auto done = [self, guard, edit](bool ok, const QJsonValue &, const QString &msg) {
+            if (!ok) {
+                if (guard) static_cast<Ui::FormDialog *>(guard.data())->okButton()->setEnabled(true);
+                Toast::showToast(guard ? guard.data() : static_cast<QWidget *>(self.data()), "No se pudo guardar el mueble: " + msg, Toast::Error);
+                return;
+            }
+            if (self) {
+                Toast::showToast(self, edit ? "Mueble actualizado" : "Mueble registrado", Toast::Success);
+                self->cargarMuebles();
+            }
             if (guard) guard->accept();
-            cargarMuebles();
         };
         if (edit) ApiClient::instance()->actualizarMueble(m->id_mueble, req, done);
         else ApiClient::instance()->crearMueble(req, done);
@@ -121,6 +187,10 @@ void JefeMueblesView::abrirFormulario(const MuebleDto *m) {
 }
 
 void JefeMueblesView::eliminar(const MuebleDto &m) {
+    if (m.capacidad_actual > 0) {
+        Toast::showToast(this, "No puedes eliminar un mueble que tiene piezas almacenadas", Toast::Warning);
+        return;
+    }
     if (!confirmDelete(QString("el mueble '%1'").arg(m.nombre))) return;
     ApiClient::instance()->eliminarMueble(m.id_mueble, [this, m](bool ok, const QJsonValue &, const QString &msg) {
         if (ok) {
