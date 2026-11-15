@@ -69,6 +69,20 @@ Rama `integracion-validaciones`: pantallas iguales a los diseños de
   - La nota del Jefe se lee de `devolucion.observaciones`.
 - **Existencias de Bodega**: la consulta usa `/api/bodega/existencias`, de
   modo que la requisición de salida ya muestra los títulos.
+- **`StatCard`**: el acento por defecto se toma de `Theme::Accent`; antes
+  era el dorado viejo `#C8973A`.
+- **Documentación**:
+  - `README.md` reescrito: estructura real, menús por rol, configuración
+    (`API_URL`, `INACTIVIDAD_MINUTOS`), sesión, PDFs, compilación en Windows
+    y Linux.
+  - `CAMBIOS_FIGMA.md` reescrito:
+    - mapa de los diseños 1–21 a su vista Qt;
+    - paleta real de `Theme.h` (acento `#D4A346`) y colores por rol;
+    - diferencias con el diseño hechas a propósito;
+    - pantallas sin diseño.
+  - `AI_CONTEXT.md` nuevo: contexto técnico del cliente (`ApiClient`, kit
+    `Ui`, patrón de vistas, errores conocidos de Qt).
+  - `CHANGELOG.md` con los cambios de esta rama.
 
 ### Fixed
 - **Avisos (`Toast`)**: no pintaban su fondo y quedaban transparentes
