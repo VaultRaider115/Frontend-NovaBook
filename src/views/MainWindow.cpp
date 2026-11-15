@@ -37,6 +37,7 @@
 #include "VendedorVentasView.h"
 #include "VendedorTrasladoView.h"
 #include "VendedorDevolucionView.h"
+#include "VendedorMisDevolucionesView.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -216,12 +217,14 @@ void MainWindow::buildRoleViews() {
         auto *ventas = new VendedorVentasView(m_stack);
         auto *traslado = new VendedorTrasladoView(m_stack);
         auto *devolucion = new VendedorDevolucionView(m_stack);
+        auto *misDevs = new VendedorMisDevolucionesView(m_stack);
 
         addPage("Panel Principal", dash, [dash]() { dash->refreshData(); });
         addPage("Consulta de Existencias", consulta, [consulta]() { consulta->buscarExistencias(); });
         addPage("Punto de Venta", ventas);
         addPage("Requisición de Entrada", traslado);
         addPage("Devoluciones a Proveedor", devolucion, [devolucion]() { devolucion->cargarCatalogos(); });
+        addPage("Mis Devoluciones", misDevs, [misDevs]() { misDevs->cargar(); });
     }
 
     onNavButtonClicked(0);

@@ -262,7 +262,7 @@ void VendedorDevolucionView::onEnviarDevolucion() {
             m_items.clear();
             renderItems();
             Toast::showToast(this, st->error.isEmpty()
-                ? "Solicitud registrada. Requiere autorización del Jefe."
+                ? "Solicitud registrada. Requiere autorización del Jefe; revisa su estado en «Mis Devoluciones»."
                 : "Solo se registró una parte de la solicitud: " + st->error,
                 st->error.isEmpty() ? Toast::Success : Toast::Warning);
         });

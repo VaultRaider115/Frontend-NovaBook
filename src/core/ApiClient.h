@@ -101,6 +101,8 @@ public:
     void trasladoTiendaRevistas(qint64 ean, int cant, const QString &obs, ApiCallback cb);
     void crearDevolucion(int idProveedor, const QString &tipo, const QJsonArray &items, ApiCallback cb);
     void descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo, PdfCallback cb);
+    // Vendedor: sus propias solicitudes de devolución (estado: "Todos", "PENDIENTE", ...)
+    void consultarMisDevoluciones(const QString &estado, ApiCallback cb);
 
     // --- Jefe de Departamento ---
     void consultarHistorialDevoluciones(const QString &fecha, const QString &estado, int idProveedor, ApiCallback cb);

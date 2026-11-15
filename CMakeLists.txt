@@ -52,6 +52,7 @@ set(SOURCES
     src/views/vendedor/VendedorConsultaView.cpp
     src/views/vendedor/VendedorVentasView.cpp
     src/views/vendedor/VendedorDevolucionView.cpp
+    src/views/vendedor/VendedorMisDevolucionesView.cpp
     src/views/gerente/GerenteDashboardView.cpp
     src/views/gerente/GerenteUsuariosView.cpp
 )
@@ -89,6 +90,7 @@ set(HEADERS
     src/views/vendedor/VendedorVentasView.h
     src/views/vendedor/VendedorTrasladoView.h
     src/views/vendedor/VendedorDevolucionView.h
+    src/views/vendedor/VendedorMisDevolucionesView.h
     src/views/gerente/GerenteDashboardView.h
     src/views/gerente/GerenteUsuariosView.h
 )

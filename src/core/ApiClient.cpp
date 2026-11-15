@@ -439,6 +439,12 @@ void ApiClient::registrarRequisicion(bool salida, const QJsonArray &items, ApiCa
                 QUrlQuery(), QJsonDocument(req).toJson(), cb);
 }
 
+void ApiClient::consultarMisDevoluciones(const QString &estado, ApiCallback cb) {
+    QUrlQuery query;
+    if (!estado.isEmpty()) query.addQueryItem("estado", estado);
+    sendRequest("GET", "/api/vendedor/devoluciones", query, QByteArray(), cb);
+}
+
 void ApiClient::descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo, PdfCallback cb) {
     QString subpath = (tipo.toLower() == "revista") ? "revistas" : "libros";
     const QString rolPath = m_currentUser.id_roles == 1 ? "jefe" : "vendedor";
