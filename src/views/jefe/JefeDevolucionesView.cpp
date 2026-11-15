@@ -12,17 +12,23 @@
 #include <QLineEdit>
 #include <QMessageBox>
 
-JefeDevolucionesView::JefeDevolucionesView(QWidget *parent)
-    : QWidget(parent)
+JefeDevolucionesView::JefeDevolucionesView(bool puedeAprobar, QWidget *parent)
+    : QWidget(parent), m_puedeAprobar(puedeAprobar)
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(40, 32, 40, 32);
     layout->setSpacing(24);
 
     auto *top = new QHBoxLayout();
-    top->addWidget(Ui::pageHeader("Jefatura · Control de merma y devoluciones",
-                                  "Historial y Aprobación de Devoluciones a Proveedor",
-                                  "Revisa, autoriza o rechaza los lotes de devolución generados.", this), 1);
+    if (puedeAprobar)
+        top->addWidget(Ui::pageHeader("Jefatura · Control de merma y devoluciones",
+                                      "Historial y Aprobación de Devoluciones a Proveedor",
+                                      "Revisa, autoriza o rechaza los lotes de devolución generados.", this), 1);
+    else
+        top->addWidget(Ui::pageHeader("Gerencia · Control de devoluciones",
+                                      "Historial de Devoluciones a Proveedor",
+                                      "Consulta los lotes de devolución y descarga las actas aprobadas. "
+                                      "La autorización corresponde al Jefe de Departamento.", this), 1);
     auto *stat = Ui::card(this);
     auto *sl = new QVBoxLayout(stat);
     sl->setContentsMargins(20, 12, 20, 12);
@@ -164,7 +170,21 @@ void JefeDevolucionesView::cargarDevoluciones() {
                 connect(pdf, &QPushButton::clicked, this, [this, d]() { verActaPdf(d); });
                 Ui::cellWidget(m_table, i, 7, pdf);
             } else if (rechazado) {
-                Ui::cellWidget(m_table, i, 7, Ui::label("Sin acciones", "Muted"));
+                const QString motivo = d.observaciones_rechazo.trimmed();
+                if (m_puedeAprobar) {
+                    // Diseño 20: "Sin acciones"; el motivo queda como tooltip.
+                    auto *lbl = Ui::label("Sin acciones", "Muted");
+                    lbl->setToolTip(motivo.isEmpty() ? QString() : "Motivo del rechazo: " + motivo);
+                    Ui::cellWidget(m_table, i, 7, lbl);
+                } else {
+                    auto *lbl = new QLabel(motivo.isEmpty() ? "Rechazada" : "Motivo: " + motivo);
+                    lbl->setObjectName("Muted");
+                    lbl->setWordWrap(true);
+                    lbl->setToolTip(motivo);
+                    m_table->setCellWidget(i, 7, lbl);
+                }
+            } else if (!m_puedeAprobar) {
+                Ui::cellWidget(m_table, i, 7, Ui::label("En revisión del Jefe", "Muted"));
             } else {
                 auto *ok = Ui::button("Aprobar", "approve", nullptr, "check");
                 auto *no = Ui::button("Rechazar", "reject", nullptr, "x");

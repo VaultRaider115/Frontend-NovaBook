@@ -447,7 +447,9 @@ void ApiClient::consultarMisDevoluciones(const QString &estado, ApiCallback cb) 
 
 void ApiClient::descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo, PdfCallback cb) {
     QString subpath = (tipo.toLower() == "revista") ? "revistas" : "libros";
-    const QString rolPath = m_currentUser.id_roles == 1 ? "jefe" : "vendedor";
+    // El acta la descargan su solicitante (ruta de vendedor), el Jefe o el Gerente.
+    const QString rolPath = m_currentUser.id_roles == 1 ? "jefe"
+                          : m_currentUser.id_roles == 4 ? "gerente" : "vendedor";
     QUrl url(QString("%1/api/%2/devoluciones/%3/pdf/%4")
                  .arg(m_baseUrl, rolPath)
                  .arg(idDevolucion)
@@ -492,7 +494,9 @@ void ApiClient::consultarHistorialDevoluciones(const QString &fecha, const QStri
     if (!estado.isEmpty() && estado != "Todos") query.addQueryItem("estado", estado);
     if (idProveedor > 0) query.addQueryItem("id_proveedor", QString::number(idProveedor));
 
-    sendRequest("GET", "/api/jefe/devoluciones/historial", query, QByteArray(), cb);
+    // El Gerente consulta el mismo historial por su propia ruta (solo lectura).
+    const QString base = m_currentUser.id_roles == 4 ? "/api/gerente" : "/api/jefe";
+    sendRequest("GET", base + "/devoluciones/historial", query, QByteArray(), cb);
 }
 
 void ApiClient::consultarMovimientoDiario(const QString &fecha, ApiCallback cb) {

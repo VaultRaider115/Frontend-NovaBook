@@ -158,9 +158,12 @@ void MainWindow::buildRoleViews() {
         // --- GERENTE / SUBGERENTE  (RF01: CRUD Usuarios) ---
         auto *dash     = new GerenteDashboardView(m_stack);
         auto *usuarios = new GerenteUsuariosView(m_stack);
+        // Consulta de devoluciones y actas (sin aprobar: eso es del Jefe).
+        auto *devs     = new JefeDevolucionesView(/*puedeAprobar=*/false, m_stack);
 
         addPage("Panel Principal",     dash,     [dash]()     { dash->refreshData(); });
         addPage("Gestión de Usuarios", usuarios, [usuarios]() { usuarios->cargarUsuarios(); });
+        addPage("Devoluciones a Proveedor", devs, [devs]()   { devs->cargarDevoluciones(); });
 
     } else if (m_user.id_roles == 1) {
         // --- JEFE DE DEPARTAMENTO ---
@@ -174,7 +177,7 @@ void MainWindow::buildRoleViews() {
         // RF21: Gestionar Muebles y Estantería
         auto *dash     = new JefeDashboardView(m_stack);
         auto *bitacora = new JefeBitacoraView(m_stack);
-        auto *devs     = new JefeDevolucionesView(m_stack);
+        auto *devs     = new JefeDevolucionesView(/*puedeAprobar=*/true, m_stack);
         auto *usuarios = new JefeUsuariosView(m_stack);
         auto *autores  = new BodegaAutoresView("Jefatura · Gestión de autores", m_stack);
         auto *generos  = new JefeGenerosView(m_stack);
