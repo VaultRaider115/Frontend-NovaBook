@@ -1,66 +1,142 @@
-# Cambios visuales y evolución del frontend
+# Diseños de Figma y su implementación en Qt
 
-Este documento describe la evolución actual del frontend de escritorio de NovaBook y deja claro que la implementación real del proyecto no corresponde a una web SPA, sino a una aplicación Qt 6 con vistas nativas.
+Las pantallas de este cliente Qt siguen los diseños exportados de Figma que
+están en `../docs/disenos/` (`1.png` … `21.png`). Este documento indica:
 
-## 1. Estado real del proyecto
+- qué vista implementa cada diseño;
+- la paleta real del tema;
+- lo que se agregó o cambió respecto al diseño, y por qué;
+- las pantallas que no tienen diseño.
 
-La interfaz actual se construye sobre widgets y vistas nativas del framework Qt. La estructura principal es:
+## 1. Mapa de diseños
 
-- `src/core/Theme.*`: identidad visual y estilos
-- `src/widgets/Ui.*`: kit reutilizable de componentes UI
-- `src/widgets/CatalogView.*`: layouts estándares para listados
-- `src/widgets/RequisicionView.*`: pantallas de traspasos y requisiciones
-- `src/views/...`: vistas por rol y flujo operativo
+| # | Diseño | Vista Qt | Rol(es) |
+|---:|---|---|---|
+| 1 | Catálogo y Gestión de Autores | `bodega/BodegaAutoresView` | Jefe |
+| 2 | Consulta de Existencias y Disponibilidad | `vendedor/VendedorConsultaView` | Vendedor |
+| 3 | Punto de Venta — Registro de Venta al Mostrador | `vendedor/VendedorVentasView` | Vendedor |
+| 4 | Gestión de Devoluciones a Proveedor | `vendedor/VendedorDevolucionView` | Vendedor |
+| 5 | Requisición de Entrada Venta > Bodega | `vendedor/VendedorTrasladoView` (`widgets/RequisicionView`) | Vendedor |
+| 6 | Recepción de Mercancía — Compras a Proveedor | `bodega/BodegaComprasView` | Bodega |
+| 7 | Historial de Movimientos (bitácora) | `jefe/JefeBitacoraView` | Jefe |
+| 8 | Requisición de Salida Bodega > Venta | `bodega/BodegaTrasladoView` (`widgets/RequisicionView`) | Bodega |
+| 9 | Alta de Mercancía en Almacén (libro y revista) | `bodega/BodegaRegistroView` | Bodega |
+| 10 | Login | `LoginWindow` | todos |
+| 11 | Diálogo Registrar Nuevo Autor | `bodega/BodegaAutoresView` | Jefe |
+| 12 | Administración y Gestión de Usuarios | `gerente/GerenteUsuariosView`, `jefe/JefeUsuariosView` | Gerente, Jefe |
+| 13 | Diálogo Registrar Nuevo Empleado | `gerente/GerenteUsuariosView` | Gerente |
+| 14 | Catálogo y Gestión de Géneros | `jefe/JefeGenerosView` | Jefe |
+| 15 | Diálogo Registrar Nuevo Género | `jefe/JefeGenerosView` | Jefe |
+| 16 | Catálogo y Gestión de Motivos | `jefe/JefeMotivosView` | Jefe |
+| 17 | Diálogo Registrar Nuevo Motivo | `jefe/JefeMotivosView` | Jefe |
+| 18 | Catálogo y Gestión de Muebles y Estantería | `jefe/JefeMueblesView` | Jefe |
+| 19 | Diálogo Registrar Nuevo Mueble | `jefe/JefeMueblesView` | Jefe |
+| 20 | Historial y Aprobación de Devoluciones a Proveedor | `jefe/JefeDevolucionesView` | Jefe (el Gerente la ve en solo lectura) |
+| 21 | Acta de Devolución a Proveedor (PDF) | la genera la API (`API-Novabook/src/services/pdf.rs`) | Vendedor, Jefe, Gerente |
 
-La referencia visual se ha mantenido en un estilo corporativo oscuro, con acentos dorados y diferenciación por rol.
+Todas se revisaron con capturas contra su imagen. En particular:
 
-## 2. Paleta visual actual
+- **Diseños 1–20:** etiqueta superior (eyebrow) y título de cada página,
+  chips completos en las celdas, etiquetas de campo en mayúsculas espaciadas,
+  iniciales en los avatares, y flechas de fecha y cantidad.
+- **Diseño 21:** autor o edición bajo el título, EAN en Courier y alineación
+  a la derecha exacta.
 
-- Fondo base: `#0D0D0D`
-- Tarjetas: `#161616`
-- Inputs: `#1F1F1F`
-- Acento principal: `#C8973A`
-- Acento hover: `#E0AE52`
-- Error: `#E05C5C`
-- Éxito: `#5CBF8A`
-- Advertencia: `#E0B84A`
+## 2. Paleta (`src/core/Theme.h`)
 
-Los roles se diferencian con colores:
+| Token | Color | Uso |
+|---|---|---|
+| `BgDark` / `BgInput` | `#0D0D0D` | fondo de pantalla e inputs |
+| `BgSidebar` | `#111113` | menú lateral |
+| `BgHeader` | `#141416` | cabecera de tabla |
+| `BgCard` | `#18181B` | tarjetas y tablas |
+| `BgRowAlt` / `BgLabel` | `#1F1F23` | fila alterna y etiqueta lateral |
+| `Border` | `#27272A` | bordes |
+| `Accent` / `BorderFocus` | `#D4A346` | acento dorado, foco |
+| `AccentHover` | `#E0B865` | hover del acento |
+| `AccentDim` | `#8A6A24` | acento apagado |
+| `TextPrimary` | `#FAFAFA` | texto |
+| `TextMuted` / `TextSidebar` | `#A1A1AA` | texto secundario |
+| `TextFaint` | `#71717A` | placeholders |
+| `Success` / `SuccessBg` | `#00D492` / `#0B2A20` | éxito |
+| `Error` / `ErrorBg` | `#FF6467` / `#2A1214` | error |
+| `Warning` | `#FFD230` | aviso (fondo del Toast `#2A2510`) |
+| `Libro` / `Revista` | `#00D492` / `#00BCFF` | chips de tipo |
 
-- Jefe / Gerente: dorado
-- Bodega: azul
-- Vendedor: verde
+**Colores por rol** (insignia del menú):
 
-## 3. Componentes clave agregados o reutilizados
+| Rol | Nombre del color | Hex |
+|---|---|---|
+| Jefe | índigo | `#A3B3FF` |
+| Bodega | ámbar | `#FFD230` |
+| Vendedor | menta | `#5EE9B5` |
+| Gerente | dorado | `#D4A346` |
 
-### `src/widgets/Ui.*`
+Regla: las vistas toman los colores de `Theme` o de los componentes de
+`widgets/Ui`; no escriben colores sueltos.
 
-Kit de componentes visuales reutilizables, útil para mantener consistencia entre formularios, tablas y paneles.
+## 3. Diferencias con el diseño (a propósito)
 
-### `src/widgets/CatalogView.*`
+Se agregaron cosas que piden las reglas de negocio o el diagrama de procesos
+(`../docs/NovaBook-Diagrama-de-procesos-del-sistema.png`) y que el diseño no
+muestra.
 
-Componente para listar catálogos con acciones frecuentes como búsqueda, filtros, estructura de tabla y acciones de edición.
+- **Bitácora (7)**
+  - Categorías extra con su color: DEVOLUCIÓN ámbar, INVENTARIO rosa,
+    USUARIOS dorado, CATÁLOGO índigo, SISTEMA gris. El diseño solo tiene
+    VENTA verde, TRASLADO azul, COMPRA morado y ACCESO gris.
+  - Los accesos fallidos van en rojo.
+  - La acción técnica aparece como tooltip del chip.
+- **Requisiciones (5 y 8)**
+  - El pie muestra la editorial del documento (una sola editorial por
+    requisición).
+  - Al registrar se imprime el PDF con folio `REQ-AAAA-n`.
+- **Ventas (3):** método de pago.
+- **Compras (6):** número de factura.
+- **Alta (9)**
+  - Sin campo Cantidad: la cantidad entra con la compra.
+  - Mueble de bodega y editorial reales.
+  - EAN-13 y SKU de 6 a 7 dígitos validados al capturar.
+- **Usuarios (12 y 13)**
+  - El rol se bloquea al editarse a uno mismo.
+  - El Jefe no registra usuarios ni modifica cuentas de Gerente (aparecen
+    como "Solo Gerente").
+  - Teléfono solo con dígitos.
+- **Catálogos (1, 14, 16, 18):** el ícono de borrar se deshabilita cuando el
+  registro no se puede eliminar.
+- **Devoluciones del Jefe (20)**
+  - Calendario con rango legible.
+  - Nota obligatoria al rechazar.
+  - Botón para el acta aprobada.
+- **Acta PDF (21)**
+  - Columnas COSTO y P. VENTA con sus importes (diagrama, paso 8).
+  - Pie con quién solicitó y quién autorizó.
+  - Un acta por tipo de producto (libros o revistas).
+- **Avisos (`Toast`):** fondo y borde del color del aviso, arriba al centro,
+  hasta 560 px de ancho.
 
-### `src/widgets/RequisicionView.*`
+## 4. Pantallas sin diseño
 
-Pantallas para movimientos internos, traslado entre ubicaciones y flujos de requisición.
+Se construyeron con el mismo kit (`widgets/Ui`, `CatalogView`, `StatCard`) para
+que se vean como las demás:
 
-### Vistas por módulo
+- Panel Principal de cada rol (`*DashboardView`).
+- Proveedores (`bodega/BodegaProveedoresView`): Jefe (CRUD) y Bodega (solo
+  alta).
+- Consultar Inventario de Bodega (`bodega/BodegaInventarioView`).
+- Devolución de Cliente (`vendedor/VendedorDevolucionClienteView`).
+- Mis Devoluciones (`vendedor/VendedorMisDevolucionesView`).
+- Inventario Mensual:
+  - conteo del Vendedor (`vendedor/VendedorInventarioView`);
+  - revisión del Jefe y solicitudes de editorial (`jefe/JefeInventarioView`).
+- Devoluciones a Proveedor del Gerente: reutiliza `JefeDevolucionesView`
+  con `puedeAprobar = false`.
 
-- `views/jefe/`: catálogo, bitácora, devoluciones y dashboard
-- `views/bodega/`: registro, compras, proveedores, inventario y traslado
-- `views/vendedor/`: ventas, consulta, devoluciones y traslados
-- `views/gerente/`: dashboard y administración de usuarios
+## 5. Al agregar o cambiar una pantalla
 
-## 4. Diferencia con una SPA web
-
-No existe una carpeta `web/` ni una aplicación web embebida dentro del proyecto. La referencia de implementación persistente es la aplicación de escritorio Qt. Por tanto, cualquier documentación que sugiera una SPA, un front web o una app en HTML/JS debe considerarse histórica o incompleta.
-
-## 5. Recomendación para mantenimiento
-
-Cuando se agreguen nuevas pantallas o mejoras visuales:
-
-- mantener la paleta en `Theme`;
-- preferir componentes reutilizables en `src/widgets/`;
-- no duplicar estilos inline;
-- registrar cambios en `frontend_migrado/CHANGELOG.md`.
+1. Si tiene diseño, compárala con su imagen en `../docs/disenos/` (tabla de
+   arriba).
+2. Usa `Theme` y los componentes de `widgets/Ui` (`pageHeader`, `table`,
+   `chip`, `field`, `FormDialog`…).
+3. Si te apartas del diseño, anótalo en la sección 3 con el motivo.
+4. Registra el cambio en `CHANGELOG.md`.

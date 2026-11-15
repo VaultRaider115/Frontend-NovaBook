@@ -3,7 +3,7 @@
 Cliente de escritorio del ERP de la librería Sanborns Saltillo. Consume la API
 REST de `../API-Novabook` y muestra un menú distinto para cada rol: Gerente,
 Jefe de Departamento, Personal de Bodega y Vendedor. Las pantallas siguen los
-diseños de `../docs/disenos/` (1–21): tema oscuro con acento dorado `#C8973A`.
+diseños de `../docs/disenos/` (1–21): tema oscuro con acento dorado `#D4A346`.
 
 ## 1. Stack
 
