@@ -179,6 +179,7 @@ void MainWindow::buildRoleViews() {
         auto *generos  = new JefeGenerosView(m_stack);
         auto *motivos  = new JefeMotivosView(m_stack);
         auto *muebles  = new JefeMueblesView(m_stack);
+        auto *prov     = new BodegaProveedoresView("Jefatura · Proveedores", true, m_stack);
 
         addPage("Panel Principal",            dash,     [dash]()     { dash->refreshData(); });
         addPage("Historial de Movimientos",   bitacora, [bitacora]() { bitacora->cargarMovimientos(); });
@@ -188,21 +189,22 @@ void MainWindow::buildRoleViews() {
         addPage("Catálogo de Géneros",        generos,  [generos]()  { generos->cargarGeneros(); });
         addPage("Catálogo de Motivos",        motivos,  [motivos]()  { motivos->cargarMotivos(); });
         addPage("Muebles y Estantería",       muebles,  [muebles]()  { muebles->cargarMuebles(); });
+        addPage("Proveedores",                prov,     [prov]()     { prov->cargarProveedores(); });
 
     } else if (m_user.id_roles == 2) {
         // --- BODEGA ---
         auto *dash = new BodegaDashboardView(m_stack);
         auto *registro = new BodegaRegistroView(m_stack);
         auto *compras = new BodegaComprasView(m_stack);
-        auto *autores = new BodegaAutoresView("Bodega · Gestión de autores", m_stack);
-        auto *prov = new BodegaProveedoresView(m_stack);
+        // Catálogos: Bodega solo da de alta proveedores nuevos (diagrama de procesos, paso 1);
+        // autores, géneros y muebles los administra el Jefe.
+        auto *prov = new BodegaProveedoresView("Bodega · Proveedores", false, m_stack);
         auto *traslado = new BodegaTrasladoView(m_stack);
         auto *inv = new BodegaInventarioView(m_stack);
 
         addPage("Panel Principal", dash, [dash]() { dash->refreshData(); });
         addPage("Alta de Mercancía (EAN)", registro, [registro]() { registro->cargarCatalogos(); });
         addPage("Compras a Proveedor", compras, [compras]() { compras->cargarProveedores(); });
-        addPage("Autores", autores, [autores]() { autores->cargarAutores(); });
         addPage("Proveedores", prov, [prov]() { prov->cargarProveedores(); });
         addPage("Requisición de Salida", traslado);
         addPage("Consultar Inventario", inv, [inv]() { inv->cargarInventario(); });

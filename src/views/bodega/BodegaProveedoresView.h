@@ -11,7 +11,9 @@ class BodegaProveedoresView : public QWidget {
     Q_OBJECT
 
 public:
-    explicit BodegaProveedoresView(QWidget *parent = nullptr);
+    // puedeEditar = false deja solo el alta (Bodega registra un proveedor nuevo
+    // al recibir la compra); editar y dar de baja es del Jefe.
+    explicit BodegaProveedoresView(const QString &kicker, bool puedeEditar, QWidget *parent = nullptr);
     void cargarProveedores();
 
 private slots:

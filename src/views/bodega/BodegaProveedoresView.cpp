@@ -12,7 +12,7 @@
 #include <QComboBox>
 #include <QMessageBox>
 
-BodegaProveedoresView::BodegaProveedoresView(QWidget *parent)
+BodegaProveedoresView::BodegaProveedoresView(const QString &kicker, bool puedeEditar, QWidget *parent)
     : QWidget(parent)
 {
     auto *layout = new QVBoxLayout(this);
@@ -20,7 +20,10 @@ BodegaProveedoresView::BodegaProveedoresView(QWidget *parent)
     layout->setSpacing(20);
 
     // Header
-    layout->addWidget(Ui::pageHeader("Bodega · Proveedores", "Catálogo y Gestión de Proveedores", "", this));
+    layout->addWidget(Ui::pageHeader(kicker, "Catálogo y Gestión de Proveedores",
+        puedeEditar ? "" : "Registra aquí a un proveedor nuevo al recibir su compra. "
+                           "Para corregir o dar de baja uno existente, avisa al Jefe de Departamento.",
+        this));
 
     // Toolbar
     auto *toolbar = new QHBoxLayout();
@@ -71,6 +74,9 @@ BodegaProveedoresView::BodegaProveedoresView(QWidget *parent)
     connect(m_btnNuevo, &QPushButton::clicked, this, &BodegaProveedoresView::onCrearProveedor);
     connect(m_btnEditar, &QPushButton::clicked, this, &BodegaProveedoresView::onEditarProveedor);
     connect(m_btnEliminar, &QPushButton::clicked, this, &BodegaProveedoresView::onEliminarProveedor);
+
+    m_btnEditar->setVisible(puedeEditar);
+    m_btnEliminar->setVisible(puedeEditar);
 
     cargarProveedores();
 }
