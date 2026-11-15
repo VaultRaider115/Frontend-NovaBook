@@ -3,6 +3,7 @@
 #include <QStyleFactory>
 #include "Theme.h"
 #include "LoginWindow.h"
+#include "InactivityWatcher.h"
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
@@ -29,6 +30,9 @@ int main(int argc, char *argv[]) {
 
     // Hoja de estilos global del diseño NovaBook
     app.setStyleSheet(Theme::globalStyleSheet());
+
+    // Cierre de sesión automático por inactividad (INACTIVIDAD_MINUTOS, 15 por defecto)
+    InactivityWatcher inactivityWatcher;
 
     // Launch Login Window
     LoginWindow loginWindow;

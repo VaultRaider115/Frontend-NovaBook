@@ -27,6 +27,11 @@ public:
     QString token() const;
     bool isAuthenticated() const;
     void logout();
+    // Cierra la sesión sin intervención del usuario (401, inactividad) y emite sessionExpired.
+    void expireSession(const QString &reason);
+
+    // Valor de configuración: variable de entorno o, si no existe, línea KEY=valor del .env.
+    static QString setting(const QString &key, const QString &fallback = QString());
 
     void setCurrentUser(const UsuarioDto &user);
     UsuarioDto currentUser() const;

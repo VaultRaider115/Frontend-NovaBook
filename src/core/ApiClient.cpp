@@ -8,10 +8,11 @@
 
 using namespace std;
 
-static string loadApiUrl() {
-    const char* envUrl = getenv("API_URL");
-    if (envUrl && *envUrl != '\0') {
-        return string(envUrl);
+// Busca `key` en las variables de entorno y luego en el archivo .env.
+QString ApiClient::setting(const QString &key, const QString &fallback) {
+    const QByteArray envValue = qgetenv(key.toUtf8().constData());
+    if (!envValue.isEmpty()) {
+        return QString::fromUtf8(envValue);
     }
 
     const QStringList envFileCandidates = {
@@ -37,19 +38,18 @@ static string loadApiUrl() {
                 continue;
             }
 
-            const QString key = line.left(separator).trimmed();
             QString value = line.mid(separator + 1).trimmed();
             if (value.startsWith('"') && value.endsWith('"')) {
                 value = value.mid(1, value.length() - 2);
             }
 
-            if (key == "API_URL" && !value.isEmpty()) {
-                return value.toStdString();
+            if (line.left(separator).trimmed() == key && !value.isEmpty()) {
+                return value;
             }
         }
     }
 
-    return string("http://localhost:8080");
+    return fallback;
 }
 
 ApiClient* ApiClient::instance() {
@@ -60,7 +60,7 @@ ApiClient* ApiClient::instance() {
 ApiClient::ApiClient(QObject *parent)
     : QObject(parent)
     , m_nam(new QNetworkAccessManager(this))
-    , m_baseUrl(QString::fromStdString(loadApiUrl()))
+    , m_baseUrl(setting("API_URL", "http://localhost:8080"))
 {
 }
 
@@ -119,10 +119,15 @@ bool ApiClient::handleUnauthorized(int httpStatus, const QString &sentToken, con
         if (!serverMsg.isEmpty()) reason = serverMsg;
     }
 
+    expireSession(reason);
+    return true;
+}
+
+void ApiClient::expireSession(const QString &reason) {
+    if (m_token.isEmpty()) return;   // ya no hay sesión: no notificar dos veces
     m_token.clear();
     m_currentUser = UsuarioDto();
     emit sessionExpired(reason);
-    return true;
 }
 
 void ApiClient::sendRequest(const QString &verb, const QString &endpoint, const QUrlQuery &query,
