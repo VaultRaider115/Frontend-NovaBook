@@ -48,7 +48,7 @@ validar cada permiso.
 |---|---|
 | Gerente (4) | Panel Principal · Gestión de Usuarios (crea usuarios y asigna roles) · Devoluciones a Proveedor (solo lectura y actas) |
 | Jefe de Departamento (1) | Panel Principal · Historial de Movimientos (bitácora) · Aprobación de Devoluciones · Gestión de Usuarios (sin tocar roles ni Gerentes) · Catálogos de Autores, Géneros, Motivos y Muebles · Proveedores · Inventario Mensual (revisión y solicitudes de editorial) |
-| Personal de Bodega (2) | Panel Principal · Alta de Mercancía (EAN) · Compras a Proveedor · Incidencias de Compra · Proveedores (solo alta) · Requisición de Salida · Seguimiento de Salidas · Consultar Inventario |
+| Personal de Bodega (2) | Panel Principal · Alta de Mercancía (EAN) · Compras a Proveedor (registrar factura y facturas registradas) · Incidencias de Compra · Proveedores (solo alta) · Requisición de Salida · Seguimiento de Salidas · Consultar Inventario |
 | Vendedor (3) | Panel Principal · Consulta de Existencias · Punto de Venta · Devolución de Cliente · Recepción de Salida · Requisición de Entrada · Devoluciones a Proveedor · Mis Devoluciones · Inventario Mensual (conteo) |
 
 ## 4. Configuración
