@@ -100,6 +100,7 @@ estilos a mano.
 | `chip(text, kind)`, `tipoChip(tipo)`, `avatar(nombre, tono)` | etiquetas de estado e iniciales |
 | `field(label, input)`, `rowField(...)` | campo con etiqueta en mayúsculas espaciadas |
 | `searchBox()`, `decorateDate()`, `stepper(spin)` | inputs |
+| `eanInput(lineEdit)` | campo de EAN: solo dígitos, máximo 13 (también al pegar o escanear) |
 | `table(headers, stretchColumn, parent, rowHeight)` | tabla con el estilo del diseño |
 | `cellText(t, r, c, text, mono, bold, color)`, `cellWidget(...)`, `cellWidgets(...)` | celdas |
 | `fitColumn(t, col, widget)` | ensancha la columna para que un chip o botón no se recorte |
@@ -140,6 +141,13 @@ ApiClient::instance()->listarAlgo([this](bool ok, const QJsonValue &data, const 
 Al guardar, deshabilita el botón mientras responde la API y vuelve a
 habilitarlo en el callback.
 
+`BodegaComprasView` tiene dos secciones con botones tipo pestaña ("Registrar
+factura" y "Facturas registradas", un `QStackedWidget` como en
+`JefeInventarioView`). La segunda usa `listarCompras` (`GET
+/api/bodega/compras`), filtra en el cliente por factura, proveedor, título o
+EAN y el ojo abre el detalle de lo que se compró. Se recarga al abrir la
+página (`cargar()`) y después de registrar una compra.
+
 `VendedorRecepcionView(puedeRecibir)` sirve a dos roles: el Vendedor recibe
 (`true`) y Bodega solo da seguimiento y reimprime (`false`). Las rutas de
 `listarRequisiciones` / `obtenerRequisicion` se eligen por el rol en sesión.
@@ -157,7 +165,9 @@ La API valida todo; la interfaz repite lo que ayuda a capturar mejor:
     como "Solo Gerente").
 - Requisición: una sola editorial por documento.
 - Compras: "Llegaron" no puede pasar de "Facturadas"; sigue su valor hasta
-  que se captura algo distinto.
+  que se captura algo distinto. El número de factura lleva el prefijo fijo
+  `F-` (se escribe solo el número; si escriben "F-12" no se repite).
+- Todo campo de EAN usa `Ui::eanInput` (solo dígitos, máximo 13).
 - Recepción de la salida: pide confirmación antes de corregir y reimprime
   sola si quedó CORREGIDA.
 - Catálogos: el botón de borrar se deshabilita si el registro está en uso.
