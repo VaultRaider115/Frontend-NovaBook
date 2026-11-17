@@ -9,6 +9,7 @@
 #include <QLineEdit>
 #include <QPointer>
 #include <QRegularExpression>
+#include <QRegularExpressionValidator>
 
 // Gentilicio → código de país para la etiqueta de nacionalidad del diseño.
 static QString codigoPais(const QString &nac) {
@@ -108,15 +109,17 @@ void BodegaAutoresView::abrirFormulario(const AutorDto *a) {
     const bool edit = a != nullptr;
     Ui::FormDialog dlg(edit ? "Editar Autor" : "Registrar Nuevo Autor", edit ? "Actualizar Autor" : "Guardar Autor", this);
 
-    const QRegularExpression rxNombre("^[\\p{L} '\\-\\.]+$");
+    const QRegularExpression rxNombre("^[\\p{L} '\\-\\.]*$");
 
     auto *txtNombre = new QLineEdit(edit ? a->nombre : QString(), &dlg);
     txtNombre->setPlaceholderText("Ej: Carlos");
     txtNombre->setMaxLength(50);
+    txtNombre->setValidator(new QRegularExpressionValidator(rxNombre, txtNombre));
 
     auto *txtApellidos = new QLineEdit(edit ? a->apellidos : QString(), &dlg);
     txtApellidos->setPlaceholderText("Ej: Trejo");
     txtApellidos->setMaxLength(50);
+    txtApellidos->setValidator(new QRegularExpressionValidator(rxNombre, txtApellidos));
 
     auto *comboNac = new QComboBox(&dlg);
     comboNac->setStyleSheet("QComboBox { combobox-popup: 0; }");
@@ -124,13 +127,15 @@ void BodegaAutoresView::abrirFormulario(const AutorDto *a) {
     comboNac->view()->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     comboNac->addItem("Selecciona una nacionalidad...", "");
     for (const QString &nac : listaNacionalidades()) {
+        if (nac == "Otra") continue;
         comboNac->addItem(nac, nac);
     }
+    comboNac->addItem("Otra", "Otra");
     if (edit && !a->nacionalidad.trimmed().isEmpty()) {
         int idx = comboNac->findData(a->nacionalidad.trimmed(), Qt::MatchFixedString);
         if (idx < 0) {
-            comboNac->addItem(a->nacionalidad.trimmed(), a->nacionalidad.trimmed());
             idx = comboNac->count() - 1;
+            comboNac->insertItem(idx, a->nacionalidad.trimmed(), a->nacionalidad.trimmed());
         }
         comboNac->setCurrentIndex(idx);
     }

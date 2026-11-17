@@ -11,6 +11,42 @@
 #include <QLineEdit>
 #include <QComboBox>
 #include <QMessageBox>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
+#include <QStringList>
+
+static QString direccionProveedor(const QStringList &campos) {
+    const QStringList etiquetas = {"Calle", "Número", "Colonia", "Ciudad"};
+    QStringList partes;
+    for (int i = 0; i < etiquetas.size(); ++i) {
+        const QString valor = campos.value(i).trimmed();
+        if (!valor.isEmpty()) partes << etiquetas.at(i) + ": " + valor;
+    }
+    return partes.join("; ");
+}
+
+static QStringList camposDireccionProveedor(const QString &direccion) {
+    QStringList campos = {QString(), QString(), QString(), QString()};
+    const QStringList etiquetas = {"Calle", "Número", "Colonia", "Ciudad"};
+    const QRegularExpression nuevoFormato("(?:^|; )(?:Calle|Número|Colonia|Ciudad): ");
+    if (nuevoFormato.match(direccion).hasMatch()) {
+        for (int i = 0; i < etiquetas.size(); ++i) {
+            const QString patron = QString("(?:^|; )%1: (.*?)(?=; (?:Calle|Número|Colonia|Ciudad): |$)")
+                                       .arg(QRegularExpression::escape(etiquetas.at(i)));
+            const QRegularExpressionMatch match = QRegularExpression(patron).match(direccion);
+            if (match.hasMatch()) campos[i] = match.captured(1);
+        }
+        return campos;
+    }
+
+    const QStringList legacy = direccion.split(',');
+    if (legacy.size() == campos.size()) {
+        for (int i = 0; i < campos.size(); ++i) campos[i] = legacy.at(i).trimmed();
+    } else {
+        campos[0] = direccion;
+    }
+    return campos;
+}
 
 BodegaProveedoresView::BodegaProveedoresView(const QString &kicker, bool puedeEditar, QWidget *parent)
     : QWidget(parent)
@@ -21,8 +57,8 @@ BodegaProveedoresView::BodegaProveedoresView(const QString &kicker, bool puedeEd
 
     // Header
     layout->addWidget(Ui::pageHeader(kicker, "Catálogo y Gestión de Proveedores",
-        puedeEditar ? "" : "Registra aquí a un proveedor nuevo al recibir su compra. "
-                           "Para corregir o dar de baja uno existente, avisa al Jefe de Departamento.",
+        puedeEditar ? "" : "Consulta aquí la información de los proveedores. "
+                           "Para registrar, corregir o dar de baja uno, avisa al Jefe de Departamento.",
         this));
 
     // Toolbar
@@ -31,6 +67,7 @@ BodegaProveedoresView::BodegaProveedoresView(const QString &kicker, bool puedeEd
 
     m_btnNuevo = new QPushButton("＋ Registrar Proveedor", this);
     m_btnNuevo->setProperty("variant", "primary");
+    m_btnNuevo->setVisible(puedeEditar);
     toolbar->addWidget(m_btnNuevo);
 
     m_btnEditar = new QPushButton("✎ Modificar", this);
@@ -133,15 +170,29 @@ void BodegaProveedoresView::onCrearProveedor() {
 
     auto *txtTelefono = new QLineEdit(&dlg);
     txtTelefono->setPlaceholderText("Teléfono de contacto");
+    txtTelefono->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]*"), txtTelefono));
+    txtTelefono->setInputMethodHints(Qt::ImhDigitsOnly);
     form->addRow("Teléfono:", txtTelefono);
 
     auto *txtCorreo = new QLineEdit(&dlg);
     txtCorreo->setPlaceholderText("contacto@editorial.com");
     form->addRow("Correo:", txtCorreo);
 
-    auto *txtDireccion = new QLineEdit(&dlg);
-    txtDireccion->setPlaceholderText("Calle, número, colonia, ciudad");
-    form->addRow("Dirección:", txtDireccion);
+    auto *txtCalle = new QLineEdit(&dlg);
+    txtCalle->setPlaceholderText("Nombre de la calle");
+    form->addRow("Calle:", txtCalle);
+
+    auto *txtNumero = new QLineEdit(&dlg);
+    txtNumero->setPlaceholderText("Número exterior/interior");
+    form->addRow("Número:", txtNumero);
+
+    auto *txtColonia = new QLineEdit(&dlg);
+    txtColonia->setPlaceholderText("Colonia");
+    form->addRow("Colonia:", txtColonia);
+
+    auto *txtCiudad = new QLineEdit(&dlg);
+    txtCiudad->setPlaceholderText("Ciudad");
+    form->addRow("Ciudad:", txtCiudad);
 
     auto *txtContacto = new QLineEdit(&dlg);
     txtContacto->setPlaceholderText("Nombre del representante o contacto");
@@ -181,7 +232,10 @@ void BodegaProveedoresView::onCrearProveedor() {
         req["rfc"] = rfc;
         if (!txtTelefono->text().trimmed().isEmpty()) req["telefono"] = txtTelefono->text().trimmed();
         if (!txtCorreo->text().trimmed().isEmpty()) req["correo"] = txtCorreo->text().trimmed();
-        if (!txtDireccion->text().trimmed().isEmpty()) req["direccion"] = txtDireccion->text().trimmed();
+        const QString direccion = direccionProveedor({
+            txtCalle->text(), txtNumero->text(), txtColonia->text(), txtCiudad->text()
+        });
+        if (!direccion.isEmpty()) req["direccion"] = direccion;
         if (!txtContacto->text().trimmed().isEmpty()) req["persona_contacto"] = txtContacto->text().trimmed();
         req["estatus"] = comboEstatus->currentData().toString();
 
@@ -222,13 +276,25 @@ void BodegaProveedoresView::onEditarProveedor() {
     form->addRow("RFC / Id Fiscal:", txtRfc);
 
     auto *txtTelefono = new QLineEdit(p.telefono, &dlg);
+    txtTelefono->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]*"), txtTelefono));
+    txtTelefono->setInputMethodHints(Qt::ImhDigitsOnly);
     form->addRow("Teléfono:", txtTelefono);
 
     auto *txtCorreo = new QLineEdit(p.correo, &dlg);
     form->addRow("Correo:", txtCorreo);
 
-    auto *txtDireccion = new QLineEdit(p.direccion, &dlg);
-    form->addRow("Dirección:", txtDireccion);
+    const QStringList direccion = camposDireccionProveedor(p.direccion);
+    auto *txtCalle = new QLineEdit(direccion.value(0), &dlg);
+    form->addRow("Calle:", txtCalle);
+
+    auto *txtNumero = new QLineEdit(direccion.value(1), &dlg);
+    form->addRow("Número:", txtNumero);
+
+    auto *txtColonia = new QLineEdit(direccion.value(2), &dlg);
+    form->addRow("Colonia:", txtColonia);
+
+    auto *txtCiudad = new QLineEdit(direccion.value(3), &dlg);
+    form->addRow("Ciudad:", txtCiudad);
 
     auto *txtContacto = new QLineEdit(p.persona_contacto, &dlg);
     form->addRow("Persona de Contacto:", txtContacto);
@@ -268,7 +334,9 @@ void BodegaProveedoresView::onEditarProveedor() {
         req["rfc"] = rfc;
         req["telefono"] = txtTelefono->text().trimmed();
         req["correo"] = txtCorreo->text().trimmed();
-        req["direccion"] = txtDireccion->text().trimmed();
+        req["direccion"] = direccionProveedor({
+            txtCalle->text(), txtNumero->text(), txtColonia->text(), txtCiudad->text()
+        });
         req["persona_contacto"] = txtContacto->text().trimmed();
         req["estatus"] = comboEstatus->currentData().toString();
 

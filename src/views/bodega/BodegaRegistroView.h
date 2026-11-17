@@ -8,6 +8,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QListWidget>
+#include <QTimer>
 #include "Models.h"
 
 class BodegaRegistroView : public QWidget {
@@ -19,6 +20,7 @@ public:
 
 private slots:
     void onEanChanged(const QString &text);
+    void verificarLibroExistente();
     void onRegistrar();
     void limpiarCampos();
 
@@ -49,6 +51,7 @@ private:
     QComboBox *m_comboProveedor;
     QPushButton *m_btnGuardar;
     QPushButton *m_btnLimpiar;
+    QTimer *m_timerVerificarEan;
 
     QList<GeneroDto> m_generos;
     QList<AutorDto> m_autores;

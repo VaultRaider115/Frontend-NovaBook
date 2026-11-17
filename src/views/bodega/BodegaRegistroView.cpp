@@ -122,6 +122,13 @@ BodegaRegistroView::BodegaRegistroView(QWidget *parent)
     layout->addWidget(scroll, 1);
 
     connect(m_txtEan, &QLineEdit::textChanged, this, &BodegaRegistroView::onEanChanged);
+    m_timerVerificarEan = new QTimer(this);
+    m_timerVerificarEan->setSingleShot(true);
+    m_timerVerificarEan->setInterval(350);
+    connect(m_timerVerificarEan, &QTimer::timeout, this, &BodegaRegistroView::verificarLibroExistente);
+    connect(m_comboProveedor, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
+        if (m_tipoDetectado == DetectedType::Libro) m_timerVerificarEan->start();
+    });
     connect(m_btnGuardar, &QPushButton::clicked, this, &BodegaRegistroView::onRegistrar);
     connect(m_btnLimpiar, &QPushButton::clicked, this, &BodegaRegistroView::limpiarCampos);
 
@@ -221,6 +228,44 @@ void BodegaRegistroView::onEanChanged(const QString &text) {
         m_panelLibro->hide();
         m_panelRevista->hide();
     }
+
+    if (m_tipoDetectado == DetectedType::Libro && res.esValido)
+        m_timerVerificarEan->start();
+    else
+        m_timerVerificarEan->stop();
+}
+
+void BodegaRegistroView::verificarLibroExistente() {
+    const QString ean = m_txtEan->text().trimmed();
+    if (m_tipoDetectado != DetectedType::Libro || !EanClassifier::clasificar(ean).esValido
+        || m_comboProveedor->currentIndex() < 0) {
+        return;
+    }
+
+    const int idProveedor = m_comboProveedor->currentData().toInt();
+    ApiClient::instance()->consultarExistencias(ean, "libro", 0,
+        [this, ean, idProveedor](bool ok, const QJsonValue &data, const QString &msg) {
+            if (m_txtEan->text().trimmed() != ean
+                || m_comboProveedor->currentData().toInt() != idProveedor) {
+                return;
+            }
+            if (!ok || !data.isArray()) {
+                Toast::showToast(this, "No se pudo verificar el libro existente: " + msg, Toast::Error);
+                return;
+            }
+
+            for (const QJsonValue &value : data.toArray()) {
+                const QJsonObject libro = value.toObject();
+                if (libro.value("codigo_ean").toVariant().toLongLong() == ean.toLongLong()
+                    && libro.value("id_proveedor").toInt() == idProveedor) {
+                    Toast::showToast(this,
+                        QString("El libro \"%1\" ya está registrado con este proveedor/editorial.")
+                            .arg(libro.value("titulo").toString()),
+                        Toast::Warning, 6000);
+                    return;
+                }
+            }
+        });
 }
 
 void BodegaRegistroView::limpiarCampos() {

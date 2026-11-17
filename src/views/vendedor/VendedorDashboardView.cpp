@@ -40,10 +40,10 @@ VendedorDashboardView::VendedorDashboardView(QWidget *parent)
     infoTitle->setStyleSheet(QString("font-size: 16px; font-weight: bold; color: %1;").arg(Theme::Role3));
 
     auto *infoDesc = new QLabel(
-        "• <b>Consultar Existencias:</b> Localiza ejemplares al instante en bodega o piso con precio y proveedor.<br>"
         "• <b>Baja por Venta (POS):</b> Escanea o añade productos al carrito para procesar ventas de contado.<br>"
         "• <b>Requisición a Bodega:</b> Devuelve sobrantes o producto de piso al almacén.<br>"
-        "• <b>Generar Devolución:</b> Levanta actas de devolución a proveedores con descarga de PDF.",
+        "• <b>Generar Devolución:</b> Levanta actas de devolución a proveedores con descarga de PDF.<br>"
+        "• <b>Consultar Inventario:</b> Localiza ejemplares al instante en bodega o piso con precio y proveedor.",
         infoCard
     );
     infoDesc->setStyleSheet(QString("color: %1; font-size: 13px; line-height: 1.6;").arg(Theme::TextPrimary));

@@ -9,10 +9,13 @@
 #include <QDialog>
 #include <QMessageBox>
 #include <QFrame>
+#include <QScrollArea>
 #include <QTimer>
 #include <QDateTime>
 #include <QLocale>
 #include <QIcon>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 #include "Ui.h"
 
 VendedorVentasView::VendedorVentasView(QWidget *parent)
@@ -21,10 +24,20 @@ VendedorVentasView::VendedorVentasView(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(40, 32, 40, 32);
     layout->setSpacing(18);
-    layout->addWidget(Ui::pageHeader("Vendedor · Caja registradora", "Punto de Venta — Registro de Venta al Mostrador", "", this));
+    layout->addWidget(Ui::pageHeader("Vendedor · Caja registradora", "Punto de Venta - Registro de Venta en Mostrador", "", this));
+
+    auto *scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    auto *content = new QWidget(scroll);
+    auto *contentLayout = new QVBoxLayout(content);
+    contentLayout->setContentsMargins(0, 0, 8, 0);
+    contentLayout->setSpacing(18);
+    scroll->setWidget(content);
+    layout->addWidget(scroll, 1);
 
     // Cliente (diseño 3: etiqueta dorada y campo con ícono de persona)
-    auto *clienteCard = Ui::card(this);
+    auto *clienteCard = Ui::card(content);
     auto *cl = new QVBoxLayout(clienteCard);
     cl->setContentsMargins(20, 20, 20, 20);
     cl->setSpacing(8);
@@ -33,12 +46,13 @@ VendedorVentasView::VendedorVentasView(QWidget *parent)
     cl->addWidget(lblCliente);
     m_txtCliente = new QLineEdit(clienteCard);
     m_txtCliente->setPlaceholderText("Ej. Ignacio Zaragoza Seguín");
+    m_txtCliente->setValidator(new QRegularExpressionValidator(QRegularExpression("^[\\p{L} '\\-\\.]*$"), m_txtCliente));
     m_txtCliente->addAction(QIcon(":/icons/user.svg"), QLineEdit::LeadingPosition);
     cl->addWidget(m_txtCliente);
-    layout->addWidget(clienteCard);
+    contentLayout->addWidget(clienteCard);
 
     // Escaneo / alta al carrito
-    auto *addCard = Ui::card(this);
+    auto *addCard = Ui::card(content);
     auto *cardLayout = new QVBoxLayout(addCard);
     cardLayout->setContentsMargins(20, 20, 20, 20);
     cardLayout->setSpacing(10);
@@ -64,14 +78,15 @@ VendedorVentasView::VendedorVentasView(QWidget *parent)
     m_lblEanStatus = new QLabel("Ingresa el código EAN-13 para clasificar automáticamente como Libro o Revista", addCard);
     m_lblEanStatus->setObjectName("Muted");
     cardLayout->addWidget(m_lblEanStatus);
-    layout->addWidget(addCard);
+    contentLayout->addWidget(addCard);
 
     // Carrito
-    m_tableCart = Ui::table({"EAN", "Tipo", "Título / Descripción", "Cantidad", "Precio unit.", "Subtotal", "Acción"}, 2, this, 60);
-    layout->addWidget(m_tableCart, 1);
+    m_tableCart = Ui::table({"EAN", "Tipo", "Título / Descripción", "Cantidad", "Precio unit.", "Subtotal", "Acción"}, 2, content, 60);
+    m_tableCart->setMinimumHeight(220);
+    contentLayout->addWidget(m_tableCart);
 
     // Resumen: método de pago, vaciar, artículos totales
-    auto *summary = Ui::card(this);
+    auto *summary = Ui::card(content);
     auto *sl = new QVBoxLayout(summary);
     sl->setContentsMargins(20, 20, 20, 20);
     sl->setSpacing(16);
@@ -82,7 +97,7 @@ VendedorVentasView::VendedorVentasView(QWidget *parent)
     sl->addWidget(payLabel);
     auto *payRow = new QHBoxLayout();
     payRow->setSpacing(8);
-    const QList<QPair<QString, QString>> metodos = {{"Efectivo", "cash"}, {"Tarjeta", "card"}, {"Transferencia", "phone"}};
+    const QList<QPair<QString, QString>> metodos = {{"Efectivo", "cash"}, {"Tarjeta", "card"}};
     for (const auto &[metodo, icono] : metodos) {
         auto *b = Ui::button(metodo, "pay", summary, icono);
         Ui::setCurrent(b, metodo == m_metodoPago);
@@ -138,7 +153,7 @@ VendedorVentasView::VendedorVentasView(QWidget *parent)
     m_btnProcesar->setStyleSheet("QPushButton { padding: 26px 32px; font-size: 18px; font-weight: 700; }");
     totalRow->addWidget(m_btnProcesar, 1);
     sl->addLayout(totalRow);
-    layout->addWidget(summary);
+    contentLayout->addWidget(summary);
 
     connect(m_txtEan, &QLineEdit::textChanged, this, &VendedorVentasView::onEanChanged);
     connect(m_btnAgregar, &QPushButton::clicked, this, &VendedorVentasView::onAgregarAlCarrito);

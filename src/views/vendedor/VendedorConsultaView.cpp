@@ -9,13 +9,14 @@
 #include <QLabel>
 #include "Ui.h"
 
-VendedorConsultaView::VendedorConsultaView(QWidget *parent)
+VendedorConsultaView::VendedorConsultaView(QWidget *parent, bool paraBodega)
     : QWidget(parent)
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(40, 32, 40, 32);
     layout->setSpacing(20);
-    layout->addWidget(Ui::pageHeader("Sanborns · Librería · Inventario", "Consulta de Existencias y Disponibilidad",
+    layout->addWidget(Ui::pageHeader(paraBodega ? "Bodega · Inventario" : "Vendedor · Inventario",
+                                     paraBodega ? "Inventario General" : "Consulta de Inventario General",
                                      "Consulta el stock en piso de venta y bodega de libros y revistas por título, autor, EAN o SKU.", this));
 
     auto *filters = Ui::card(this);
