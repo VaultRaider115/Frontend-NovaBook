@@ -5,6 +5,7 @@
 #include "Toast.h"
 #include "Ui.h"
 #include <QHBoxLayout>
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QMessageBox>
@@ -44,7 +45,7 @@ VendedorInventarioView::VendedorInventarioView(QWidget *parent)
     sl->addWidget(Ui::field("Código EAN-13", m_txtEan, scanCard));
     pl->addWidget(scanCard);
 
-    m_tabla = Ui::table({"EAN", "Título", "Contadas", ""}, 1, m_panelConteo, 52);
+    m_tabla = Ui::table({"EAN", "Título", "Contadas", "Devolución", ""}, 1, m_panelConteo, 52);
     pl->addWidget(m_tabla, 1);
 
     auto *foot = Ui::card(m_panelConteo);
@@ -88,7 +89,7 @@ void VendedorInventarioView::cargar() {
             for (const auto &v : d.value("items").toArray()) {
                 const QJsonObject o = v.toObject();
                 m_conteos.append({o.value("codigo_ean").toVariant().toLongLong(), o.value("titulo").toString(),
-                                  o.value("cantidad_contada").toInt()});
+                                  o.value("cantidad_contada").toInt(), o.value("motivo_devolucion").toString()});
             }
         } else {
             m_lblEstado->setText("No hay un inventario en curso. Inícialo al terminar el día, a fin de mes.");
@@ -121,7 +122,7 @@ void VendedorInventarioView::escanear() {
         QString titulo = QString("EAN %1").arg(ean);
         if (ok && data.isArray() && !data.toArray().isEmpty())
             titulo = data.toArray().first().toObject().value("titulo").toString(titulo);
-        m_conteos.prepend({ean, titulo, 0});
+        m_conteos.prepend({ean, titulo, 0, QString()});
         fijarCantidad(ean, 1);
     });
 }
@@ -134,20 +135,51 @@ void VendedorInventarioView::fijarCantidad(qint64 ean, int cantidad) {
                 cargar();   // vuelve a lo que tiene el servidor
                 return;
             }
-            for (auto &c : m_conteos) if (c.ean == ean) c.cantidad = cantidad;
+            int antes = 0;
+            for (auto &c : m_conteos) if (c.ean == ean) { antes = c.cantidad; c.cantidad = cantidad; }
             pintar();
+            // El motivo depende de lo contado (un título en 0 no se separa): se vuelve a preguntar.
+            if ((antes == 0) != (cantidad == 0)) actualizarMotivos();
         });
+}
+
+// Pide al servidor qué títulos contados van a devolución (solicitud de la
+// editorial o añejado), sin cambiar el orden de la lista.
+void VendedorInventarioView::actualizarMotivos() {
+    ApiClient::instance()->inventarioActual([this](bool ok, const QJsonValue &data, const QString &) {
+        if (!ok || !data.isObject()) return;
+        QHash<qint64, QString> motivos;
+        for (const auto &v : data.toObject().value("items").toArray()) {
+            const QJsonObject o = v.toObject();
+            motivos.insert(o.value("codigo_ean").toVariant().toLongLong(), o.value("motivo_devolucion").toString());
+        }
+        bool nuevo = false;
+        for (auto &c : m_conteos) {
+            const QString m = motivos.value(c.ean);
+            if (m != c.motivo && !m.isEmpty()) nuevo = true;
+            c.motivo = m;
+        }
+        pintar();
+        if (nuevo) Toast::showToast(this, "Este título va a devolución: sepáralo del piso de venta", Toast::Warning);
+    });
 }
 
 void VendedorInventarioView::pintar() {
     m_tabla->clearContents();
     m_tabla->setRowCount(m_conteos.size());
-    int piezas = 0;
+    int piezas = 0, separar = 0;
     for (int i = 0; i < m_conteos.size(); ++i) {
         const Conteo &c = m_conteos.at(i);
         piezas += c.cantidad;
-        Ui::cellText(m_tabla, i, 0, QString::number(c.ean), true);
-        Ui::cellText(m_tabla, i, 1, c.titulo, false, true);
+        // Paso 7: lo que va a devolución se separa; el título sale en rojo.
+        const bool devolver = !c.motivo.isEmpty();
+        if (devolver) ++separar;
+        Ui::cellText(m_tabla, i, 0, QString::number(c.ean), true, false, devolver ? Theme::Error : QString());
+        auto *tit = Ui::cellText(m_tabla, i, 1, c.titulo, false, true, devolver ? Theme::Error : QString());
+        if (devolver) tit->setToolTip("Va a devolución: sepáralo del piso de venta");
+        if (c.motivo == "SOLICITUD_EDITORIAL") Ui::cellWidget(m_tabla, i, 3, Ui::chip("Separar · pidió la editorial", "danger"));
+        else if (c.motivo == "ANEJAMIENTO") Ui::cellWidget(m_tabla, i, 3, Ui::chip("Separar · añejado", "danger"));
+        else Ui::cellText(m_tabla, i, 3, "—", false, false, Theme::TextMuted);
         // Corregir a mano (p. ej. si se escaneó de más).
         auto *spn = new QSpinBox();
         spn->setRange(0, 99999);
@@ -163,10 +195,13 @@ void VendedorInventarioView::pintar() {
         Ui::cellWidget(m_tabla, i, 2, spn);
         auto *quitar = Ui::iconButton("trash", "Poner en 0");
         connect(quitar, &QPushButton::clicked, this, [this, ean]() { fijarCantidad(ean, 0); });
-        Ui::cellWidget(m_tabla, i, 3, quitar);
+        Ui::cellWidget(m_tabla, i, 4, quitar);
     }
-    m_lblTotal->setText(QString("%1 título(s) · <b style=\"color:#FFFFFF;\">%2</b> pieza(s) contadas")
-                            .arg(m_conteos.size()).arg(piezas));
+    QString txt = QString("%1 título(s) · <b style=\"color:#FFFFFF;\">%2</b> pieza(s) contadas")
+                      .arg(m_conteos.size()).arg(piezas);
+    if (separar > 0)
+        txt += QString(" · <b style=\"color:%1;\">%2 título(s) para separar (devolución)</b>").arg(Theme::Error).arg(separar);
+    m_lblTotal->setText(txt);
 }
 
 void VendedorInventarioView::cerrar() {

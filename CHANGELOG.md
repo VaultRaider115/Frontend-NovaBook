@@ -8,6 +8,22 @@ Rama `integracion-validaciones`: pantallas iguales a los diseños de
 `docs/disenos/` y conectadas a la API del esquema unificado.
 
 ### Added
+- Revisión del equipo (16-nov):
+  - **Aprobación de Devoluciones**: icono del ojo con la lista de lo que se
+    devuelve (EAN, título, piezas, motivo); aprobar o rechazar se confirma
+    viendo esa lista.
+  - **Muebles**: el código lleva el prefijo fijo del área (`P-` piso, `B-`
+    bodega) y solo se escribe el número; la capacidad deja escribir menos de
+    lo ocupado y, al guardar, explica el error con las piezas que tiene.
+  - **Inventario Mensual (Jefe)**: la solicitud de editorial muestra, al
+    escribir los EAN, cada título con su stock, "N títulos · M piezas por
+    regresar" y avisa de EAN inválidos, inexistentes o de otra editorial (no
+    deja registrar así). La tabla muestra títulos y piezas, y el ojo los lista.
+  - **Inventario Mensual (Vendedor)**: lo que va a devolución sale en rojo
+    con "Separar · pidió la editorial" o "Separar · añejado" y el pie cuenta
+    los títulos por separar.
+  - **Alta de Mercancía**: el precio empieza en $0.00 y no deja registrar
+    sin capturarlo.
 - **Compra incompleta** (diagrama, paso 1):
   - Compras a Proveedor captura "Facturadas" y "Llegaron"; la tabla marca en
     ámbar lo que faltó.

@@ -87,7 +87,7 @@ BodegaRegistroView::BodegaRegistroView(QWidget *parent)
 
     m_spnPrecio = new QDoubleSpinBox(card);
     m_spnPrecio->setRange(0.0, 99999.0);
-    m_spnPrecio->setValue(199.0);
+    m_spnPrecio->setValue(0.0);
     m_spnPrecio->setPrefix("$ ");
     cardLayout->addWidget(Ui::rowField("Precio de Venta:", m_spnPrecio, card));
 
@@ -228,7 +228,7 @@ void BodegaRegistroView::limpiarCampos() {
     m_txtNombre->clear();
     m_comboAutorEditorial->setCurrentIndex(-1);
     m_comboPeriodicidad->setCurrentIndex(0);
-    m_spnPrecio->setValue(199.0);
+    m_spnPrecio->setValue(0.0);
     m_spnEdicion->setValue(1);
     m_lblEanStatus->setText("Ingresa el código EAN-13 para clasificar automáticamente como Libro o Revista");
     m_lblEanStatus->setStyleSheet(QString());
@@ -259,6 +259,14 @@ void BodegaRegistroView::onRegistrar() {
     if (!sku.isEmpty() && (sku.size() < 6 || sku.size() > 7)) {
         Toast::showToast(this, "El SKU debe tener de 6 a 7 dígitos", Toast::Warning);
         m_txtSku->setFocus();
+        return;
+    }
+
+    // El precio empieza en 0: hay que capturarlo (la API tampoco acepta $0).
+    if (m_spnPrecio->value() <= 0.0) {
+        Toast::showToast(this, "El precio de venta debe ser mayor a $0", Toast::Warning);
+        m_spnPrecio->setFocus();
+        m_spnPrecio->selectAll();
         return;
     }
 

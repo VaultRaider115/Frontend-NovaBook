@@ -5,6 +5,7 @@
 #include <QStackedWidget>
 #include <QTableWidget>
 #include <QWidget>
+#include <QJsonObject>
 
 // Revisión del inventario mensual y solicitudes de editorial (diagrama, paso 7).
 // El Jefe aprueba (ajusta el piso con las diferencias) o rechaza el conteo, y
@@ -23,6 +24,7 @@ private:
     void revisar(bool aprobar);
     void cargarSolicitudes();
     void nuevaSolicitud();
+    void verTitulosSolicitud(const QJsonObject &s);
 
     QList<QPushButton *> m_segmentos;
     QStackedWidget *m_stack;

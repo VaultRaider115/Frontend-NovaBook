@@ -9,6 +9,8 @@
 #include <QPointer>
 #include <QProgressBar>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include <QSpinBox>
@@ -94,10 +96,24 @@ void JefeMueblesView::abrirFormulario(const MuebleDto *m) {
 
     Ui::FormDialog dlg(edit ? "Editar Mueble" : "Registrar Nuevo Mueble", edit ? "Actualizar Mueble" : "Registrar Mueble", this);
 
-    auto *txtCodigo = new QLineEdit(edit ? m->codigo : QString(), &dlg);
-    txtCodigo->setPlaceholderText("Ej. M-12 o BO-9");
-    txtCodigo->setMaxLength(10);
-    txtCodigo->setValidator(new QRegularExpressionValidator(QRegularExpression("[A-Za-z0-9\\-]{0,20}"), txtCodigo));
+    // Código = prefijo fijo según el área (P- piso, B- bodega) + número que se escribe.
+    QString numero = edit ? m->codigo.trimmed().toUpper() : QString();
+    if (numero.startsWith("P-") || numero.startsWith("B-")) numero = numero.mid(2);
+    auto *codigoBox = new QWidget(&dlg);
+    auto *cl = new QHBoxLayout(codigoBox);
+    cl->setContentsMargins(0, 0, 0, 0);
+    cl->setSpacing(8);
+    auto *lblPrefijo = new QLabel(codigoBox);
+    lblPrefijo->setStyleSheet(QString("QLabel { color: %1; font-family: 'Consolas'; font-size: 15px; font-weight: 700;"
+                                      " background: %2; border: 1px solid %3; border-radius: 8px; padding: 9px 12px; }")
+                                  .arg(Theme::Accent, Theme::BgLabel, Theme::Border));
+    lblPrefijo->setToolTip("Lo pone el área: P- para Piso de Venta, B- para Bodega");
+    auto *txtCodigo = new QLineEdit(numero, codigoBox);
+    txtCodigo->setPlaceholderText("Ej. 011");
+    txtCodigo->setMaxLength(8);   // + el prefijo = 10 (tamaño de la columna)
+    txtCodigo->setValidator(new QRegularExpressionValidator(QRegularExpression("[A-Za-z0-9][A-Za-z0-9\\-]{0,7}"), txtCodigo));
+    cl->addWidget(lblPrefijo);
+    cl->addWidget(txtCodigo, 1);
 
     auto *txtNombre = new QLineEdit(edit ? m->nombre : QString(), &dlg);
     txtNombre->setPlaceholderText("Ej: Mueble 11 Autoayuda");
@@ -107,6 +123,9 @@ void JefeMueblesView::abrirFormulario(const MuebleDto *m) {
     comboArea->addItem("Piso de Venta", 1);
     comboArea->addItem("Bodega", 2);
     if (edit) comboArea->setCurrentIndex(comboArea->findData(m->id_ubicacion));
+    auto prefijo = [comboArea]() { return comboArea->currentData().toInt() == 2 ? QString("B-") : QString("P-"); };
+    lblPrefijo->setText(prefijo());
+    connect(comboArea, &QComboBox::currentIndexChanged, lblPrefijo, [lblPrefijo, prefijo]() { lblPrefijo->setText(prefijo()); });
     if (tieneStock) {
         comboArea->setEnabled(false);
         comboArea->setToolTip("No puedes cambiar el área de un mueble que tiene piezas almacenadas");
@@ -126,14 +145,15 @@ void JefeMueblesView::abrirFormulario(const MuebleDto *m) {
 
     auto *spnCap = new QSpinBox(&dlg);
     const int minCap = tieneStock ? m->capacidad_actual : 1;
-    spnCap->setRange(minCap, 99999);
-    spnCap->setValue(edit && m->capacidad_maxima > 0 ? qMax(minCap, m->capacidad_maxima) : 50);
+    // Deja escribir menos que lo ocupado para que, al guardar, se explique el error.
+    spnCap->setRange(1, 99999);
+    spnCap->setValue(edit && m->capacidad_maxima > 0 ? m->capacidad_maxima : 50);
 
     auto *txtDesc = new QPlainTextEdit(edit ? m->descripcion : QString(), &dlg);
     txtDesc->setPlaceholderText("Ej. Junto al pasillo central frente al área de cajas (máx. 200 caracteres)...");
     txtDesc->setFixedHeight(80);
 
-    dlg.addField("Código de mueble", txtCodigo, 0, 0);
+    dlg.addField("Código de mueble", codigoBox, 0, 0);
     dlg.addField("Nombre de mueble", txtNombre, 0, 1);
     dlg.addField("Área", comboArea, 1, 0);
     dlg.addField("Género asignado", comboGenero, 1, 1);
@@ -143,9 +163,10 @@ void JefeMueblesView::abrirFormulario(const MuebleDto *m) {
     QPointer<QDialog> guard(&dlg);
     QPointer<JefeMueblesView> self(this);
     connect(dlg.okButton(), &QPushButton::clicked, &dlg, [&, edit, m, guard, self, tieneStock]() {
-        const QString codigo = txtCodigo->text().trimmed().toUpper();
-        if (codigo.isEmpty()) {
-            Toast::showToast(&dlg, "El código del mueble es obligatorio", Toast::Warning);
+        const QString resto = txtCodigo->text().trimmed().toUpper();
+        const QString codigo = prefijo() + resto;
+        if (resto.isEmpty()) {
+            Toast::showToast(&dlg, QString("Escribe el número del mueble después de \"%1\"").arg(prefijo()), Toast::Warning);
             txtCodigo->setFocus();
             return;
         }
@@ -156,7 +177,8 @@ void JefeMueblesView::abrirFormulario(const MuebleDto *m) {
             return;
         }
         if (tieneStock && spnCap->value() < m->capacidad_actual) {
-            Toast::showToast(&dlg, QString("La capacidad no puede ser menor a las %1 piezas actuales").arg(m->capacidad_actual), Toast::Warning);
+            Toast::showToast(&dlg, QString("La capacidad (%1) no puede ser menor a las %2 piezas que ya tiene el mueble")
+                                       .arg(spnCap->value()).arg(m->capacidad_actual), Toast::Error);
             spnCap->setFocus();
             return;
         }

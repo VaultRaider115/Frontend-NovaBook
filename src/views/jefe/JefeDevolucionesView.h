@@ -22,6 +22,7 @@ private:
     bool m_puedeAprobar;
     void evaluar(const Devolucion &dev, bool aprobar);
     void verActaPdf(const Devolucion &dev);
+    bool mostrarDetalle(const Devolucion &dev, const QString &okText);
 
     QDateEdit *m_fecha;
     QCheckBox *m_chkTodasFechas;

@@ -17,11 +17,13 @@ public:
     void cargar();
 
 private:
-    struct Conteo { qint64 ean; QString titulo; int cantidad; };
+    // motivo: SOLICITUD_EDITORIAL / ANEJAMIENTO si va a devolución (se separa del piso).
+    struct Conteo { qint64 ean; QString titulo; int cantidad; QString motivo; };
 
     void escanear();
     void fijarCantidad(qint64 ean, int cantidad);
     void pintar();
+    void actualizarMotivos();
     void cerrar();
 
     QLabel *m_lblEstado;

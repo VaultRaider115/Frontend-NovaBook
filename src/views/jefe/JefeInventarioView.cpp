@@ -14,6 +14,10 @@
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPointer>
+#include <QSet>
+#include <QTimer>
+#include <functional>
+#include <memory>
 #include <QVBoxLayout>
 
 namespace {
@@ -248,8 +252,13 @@ void JefeInventarioView::cargarSolicitudes() {
             Ui::cellText(m_tablaSol, i, 1, s.value("fecha").toString(), true, false, Theme::TextMuted);
             Ui::cellText(m_tablaSol, i, 2, s.value("proveedor").toString(), false, true);
             Ui::cellText(m_tablaSol, i, 3, s.value("referencia").toString());
-            auto *t = Ui::cellText(m_tablaSol, i, 4, QString("%1 título(s)").arg(titulos.size()), false, false, Theme::TextMuted);
+            int piezas = 0;
+            for (const auto &v : s.value("items").toArray()) piezas += v.toObject().value("piezas").toInt();
+            auto *t = Ui::cellText(m_tablaSol, i, 4, QString("%1 título(s) · %2 pza(s)").arg(titulos.size()).arg(piezas),
+                                   false, false, Theme::TextMuted);
             t->setToolTip(titulos.join("\n"));
+            auto *ver = Ui::iconButton("eye", "Ver los títulos que pide la editorial");
+            connect(ver, &QPushButton::clicked, this, [this, s]() { verTitulosSolicitud(s); });
             Ui::cellWidget(m_tablaSol, i, 5, Ui::chip(abierta ? "Abierta" : "Atendida", abierta ? "pending" : "ok"));
             if (abierta) {
                 auto *b = Ui::button("Marcar atendida", "outline");
@@ -260,50 +269,195 @@ void JefeInventarioView::cargarSolicitudes() {
                         cargarSolicitudes();
                     });
                 });
-                Ui::cellWidget(m_tablaSol, i, 6, b);
+                Ui::cellWidgets(m_tablaSol, i, 6, {ver, b});
             } else {
-                Ui::cellText(m_tablaSol, i, 6, "—", false, false, Theme::TextMuted);
+                Ui::cellWidget(m_tablaSol, i, 6, ver);
             }
         }
     });
 }
 
+// Títulos de una solicitud ya registrada, con las piezas que hay que regresar.
+void JefeInventarioView::verTitulosSolicitud(const QJsonObject &s) {
+    const QJsonArray items = s.value("items").toArray();
+    int piezas = 0;
+    for (const auto &v : items) piezas += v.toObject().value("piezas").toInt();
+    Ui::FormDialog dlg(QString("Solicitud #SOL-%1").arg(s.value("id_solicitud").toVariant().toLongLong()), "Cerrar", this, 720);
+    for (QPushButton *b : dlg.findChildren<QPushButton *>())
+        if (b != dlg.okButton() && b->text() == "Cancelar") b->hide();
+    auto *res = new QLabel(QString("<b>%1</b> · %2<br><span style=\"color:%3;\">%4 título(s) · %5 pieza(s) por regresar</span>")
+        .arg(s.value("proveedor").toString().toHtmlEscaped(), s.value("referencia").toString().toHtmlEscaped(), Theme::TextMuted)
+        .arg(items.size()).arg(piezas), &dlg);
+    res->setTextFormat(Qt::RichText);
+    res->setWordWrap(true);
+    auto *tabla = Ui::table({"EAN", "Título", "Por regresar"}, 1, &dlg, 44);
+    tabla->setRowCount(items.size());
+    for (int i = 0; i < items.size(); ++i) {
+        const QJsonObject o = items.at(i).toObject();
+        Ui::cellText(tabla, i, 0, QString::number(o.value("codigo_ean").toVariant().toLongLong()), true);
+        Ui::cellText(tabla, i, 1, o.value("titulo").toString(), false, true);
+        Ui::cellText(tabla, i, 2, QString::number(o.value("piezas").toInt()));
+    }
+    tabla->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    tabla->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    tabla->setMinimumHeight(qMin(340, 56 + 44 * qMax(1, static_cast<int>(items.size()))));
+    dlg.addField("Editorial y referencia", res, 0, 0, 2);
+    dlg.addField("Títulos que pide de vuelta", tabla, 1, 0, 2);
+    connect(dlg.okButton(), &QPushButton::clicked, &dlg, &QDialog::accept);
+    dlg.exec();
+}
+
 void JefeInventarioView::nuevaSolicitud() {
-    Ui::FormDialog dlg("Registrar solicitud de editorial", "Registrar solicitud", this);
+    Ui::FormDialog dlg("Registrar solicitud de editorial", "Registrar solicitud", this, 820);
     auto *combo = new QComboBox(&dlg);
     auto *txtRef = new QLineEdit(&dlg);
     txtRef->setMaxLength(150);
     txtRef->setPlaceholderText("Ej. Correo del 14/11: retiro de NatGeo marzo");
     auto *txtEans = new QPlainTextEdit(&dlg);
-    txtEans->setPlaceholderText("Un EAN-13 por renglón");
-    txtEans->setFixedHeight(120);
+    txtEans->setPlaceholderText("Un EAN-13 por renglón (o escanéalos uno tras otro)");
+    txtEans->setFixedHeight(96);
+    txtEans->setStyleSheet("QPlainTextEdit { min-height: 66px; }");   // el estilo global la dejaba en un renglón
+
+    // Vista previa: qué título es cada EAN, cuántas piezas hay y si es de esa editorial.
+    auto *tabla = Ui::table({"EAN", "Título", "Piso", "Bodega", "Por regresar", "Estado"}, 1, &dlg, 42);
+    auto *hh = tabla->horizontalHeader();
+    for (int c : {0, 2, 3, 4, 5}) hh->setSectionResizeMode(c, QHeaderView::ResizeToContents);
+    tabla->setMinimumHeight(170);
+    auto *lblResumen = new QLabel("Escribe los EAN para ver los títulos.", &dlg);
+    lblResumen->setObjectName("Muted");
+    lblResumen->setTextFormat(Qt::RichText);
+    lblResumen->setWordWrap(true);
+
     dlg.addField("Editorial / proveedor", combo, 0, 0, 2);
     dlg.addField("Referencia del correo", txtRef, 1, 0, 2);
     dlg.addField("Títulos que pide de vuelta (EAN)", txtEans, 2, 0, 2);
+    dlg.addField("Vista previa", tabla, 3, 0, 2);
+    dlg.addField("Resumen", lblResumen, 4, 0, 2);
 
-    ApiClient::instance()->listarProveedores([combo](bool ok, const QJsonValue &data, const QString &) {
-        if (!ok || !data.isArray()) return;
+    // EAN → existencia (o {"_no": true} si no existe). Las búsquedas son asíncronas.
+    auto cache = std::make_shared<QHash<qint64, QJsonObject>>();
+    auto buscando = std::make_shared<QSet<qint64>>();
+    QPointer<QDialog> guard(&dlg);
+
+    // Lee los renglones: EAN válidos (sin repetir) y renglones mal escritos.
+    auto leer = [txtEans](QStringList *malos) {
+        QList<qint64> eans;
+        for (const QString &l : txtEans->toPlainText().split('\n', Qt::SkipEmptyParts)) {
+            const QString t = l.trimmed();
+            if (t.isEmpty()) continue;
+            bool okNum = false;
+            const qint64 e = t.toLongLong(&okNum);
+            if (!okNum || t.size() != 13) { if (malos) *malos << t; continue; }
+            if (!eans.contains(e)) eans << e;
+        }
+        return eans;
+    };
+
+    // Cuenta de lo que impide registrar: EAN mal escrito, inexistente, de otra editorial o aún buscando.
+    auto problemas = std::make_shared<int>(0);
+    auto pintar = std::make_shared<std::function<void()>>();
+    std::weak_ptr<std::function<void()>> pintarW = pintar;
+    *pintar = [=]() {
+        if (!guard) return;
+        QStringList malos;
+        const QList<qint64> eans = leer(&malos);
+        const int idProv = combo->currentData().toInt();
+        tabla->clearContents();
+        tabla->setRowCount(eans.size() + malos.size());
+        int titulos = 0, piezas = 0, otros = 0, noExisten = 0, pendientes = 0;
+        int fila = 0;
+        for (qint64 e : eans) {
+            Ui::cellText(tabla, fila, 0, QString::number(e), true);
+            if (!cache->contains(e)) {
+                ++pendientes;
+                Ui::cellText(tabla, fila, 1, "Buscando…", false, false, Theme::TextMuted);
+                if (!buscando->contains(e)) {
+                    buscando->insert(e);
+                    ApiClient::instance()->consultarExistencias(QString::number(e), QString(), 0,
+                        [=](bool ok, const QJsonValue &data, const QString &) {
+                            buscando->remove(e);
+                            QJsonObject hallado{{"_no", true}};
+                            if (ok && data.isArray())
+                                for (const auto &v : data.toArray())
+                                    if (v.toObject().value("codigo_ean").toVariant().toLongLong() == e) hallado = v.toObject();
+                            if (!ok) return;   // se reintenta al volver a pintar
+                            cache->insert(e, hallado);
+                            if (auto f = pintarW.lock()) (*f)();
+                        });
+                }
+            } else {
+                const QJsonObject o = cache->value(e);
+                if (o.value("_no").toBool()) {
+                    ++noExisten;
+                    Ui::cellText(tabla, fila, 1, "—", false, false, Theme::TextMuted);
+                    Ui::cellWidget(tabla, fila, 5, Ui::chip("No existe", "danger"));
+                } else {
+                    const int piso = o.value("stock_tienda").toInt();
+                    const int bod = o.value("stock_bodega").toInt();
+                    const bool deOtra = o.value("id_proveedor").toInt() != idProv;
+                    Ui::cellText(tabla, fila, 1, o.value("titulo").toString(), false, true);
+                    Ui::cellText(tabla, fila, 2, QString::number(piso));
+                    Ui::cellText(tabla, fila, 3, QString::number(bod));
+                    Ui::cellText(tabla, fila, 4, QString::number(piso + bod), false, true);
+                    if (deOtra) {
+                        ++otros;
+                        auto *c = Ui::chip("Es de " + o.value("proveedor").toString(), "amber");
+                        c->setToolTip("Registra una solicitud por editorial");
+                        Ui::cellWidget(tabla, fila, 5, c);
+                    } else {
+                        ++titulos;
+                        piezas += piso + bod;
+                        Ui::cellWidget(tabla, fila, 5, Ui::chip("Listo", "ok"));
+                    }
+                }
+            }
+            ++fila;
+        }
+        for (const QString &m : std::as_const(malos)) {
+            Ui::cellText(tabla, fila, 0, m, true, false, Theme::Error);
+            Ui::cellText(tabla, fila, 1, "Debe tener 13 dígitos", false, false, Theme::Error);
+            Ui::cellWidget(tabla, fila, 5, Ui::chip("EAN inválido", "danger"));
+            ++fila;
+        }
+        *problemas = static_cast<int>(malos.size()) + noExisten + otros + pendientes;
+        QString txt = eans.isEmpty() && malos.isEmpty() ? QString("Escribe los EAN para ver los títulos.")
+            : QString("<b style=\"color:%1;\">%2 título(s)</b> · <b style=\"color:%1;\">%3 pieza(s)</b> por regresar (piso + bodega)")
+                  .arg(Theme::TextPrimary).arg(titulos).arg(piezas);
+        QStringList avisos;
+        if (!malos.isEmpty()) avisos << QString("%1 EAN mal escrito(s)").arg(malos.size());
+        if (noExisten) avisos << QString("%1 no existe(n)").arg(noExisten);
+        if (otros) avisos << QString("%1 de otra editorial").arg(otros);
+        if (!avisos.isEmpty()) txt += QString("<br><span style=\"color:%1;\">Corrige antes de registrar: %2</span>")
+                                          .arg(Theme::Error, avisos.join(" · "));
+        lblResumen->setText(txt);
+    };
+
+    auto *timer = new QTimer(&dlg);
+    timer->setSingleShot(true);
+    timer->setInterval(350);
+    connect(timer, &QTimer::timeout, &dlg, [pintar]() { (*pintar)(); });
+    connect(txtEans, &QPlainTextEdit::textChanged, timer, qOverload<>(&QTimer::start));
+    connect(combo, &QComboBox::currentIndexChanged, &dlg, [pintar]() { (*pintar)(); });
+
+    ApiClient::instance()->listarProveedores([combo, guard](bool ok, const QJsonValue &data, const QString &) {
+        if (!guard || !ok || !data.isArray()) return;
         for (const auto &v : data.toArray()) {
             const ProveedorDto p = ProveedorDto::fromJson(v.toObject());
             combo->addItem(p.nombre_proveedor, p.id_proveedor);
         }
     });
 
-    QPointer<QDialog> guard(&dlg);
     QPointer<JefeInventarioView> self(this);
     connect(dlg.okButton(), &QPushButton::clicked, &dlg, [&, guard, self]() {
-        QList<qint64> eans;
-        for (const QString &l : txtEans->toPlainText().split('\n', Qt::SkipEmptyParts)) {
-            bool okNum = false;
-            const qint64 e = l.trimmed().toLongLong(&okNum);
-            if (!okNum || l.trimmed().size() != 13) {
-                Toast::showToast(&dlg, QString("EAN inválido: «%1» (deben ser 13 dígitos)").arg(l.trimmed()), Toast::Warning);
-                return;
-            }
-            if (!eans.contains(e)) eans << e;
-        }
+        (*pintar)();
+        const QList<qint64> eans = leer(nullptr);
         if (combo->currentIndex() < 0 || txtRef->text().trimmed().isEmpty() || eans.isEmpty()) {
             Toast::showToast(&dlg, "Elige la editorial, escribe la referencia y al menos un EAN", Toast::Warning);
+            return;
+        }
+        if (*problemas > 0) {
+            Toast::showToast(&dlg, "Revisa la vista previa: hay EAN inválidos, inexistentes, de otra editorial o aún buscándose",
+                             Toast::Warning);
             return;
         }
         dlg.okButton()->setEnabled(false);

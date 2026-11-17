@@ -111,6 +111,11 @@ muestra.
   - Calendario con rango legible.
   - Nota obligatoria al rechazar.
   - Botón para el acta aprobada.
+  - Icono del ojo en cada fila: lista de lo que se devuelve; aprobar o
+    rechazar se confirma con esa lista.
+- **Muebles (18, 19)**: el código lleva el prefijo fijo del área (`P-` / `B-`)
+  y solo se escribe el número; el error de capacidad sale al guardar.
+- **Alta (9)**: el precio empieza en $0.00 y es obligatorio.
 - **Acta PDF (21)**
   - Columnas COSTO y P. VENTA con sus importes (diagrama, paso 8).
   - Pie con quién solicitó y quién autorizó.
