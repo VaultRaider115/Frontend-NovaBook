@@ -68,6 +68,7 @@ VendedorDevolucionClienteView::VendedorDevolucionClienteView(QWidget *parent)
     auto *addRow = new QHBoxLayout();
     addRow->setSpacing(16);
     m_txtEanCambio = new QLineEdit(m_panelCambio);
+    Ui::eanInput(m_txtEanCambio);
     m_txtEanCambio->setPlaceholderText("EAN del producto que se lleva");
     m_txtEanCambio->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
     addRow->addWidget(Ui::field("Producto nuevo (EAN-13)", m_txtEanCambio, m_panelCambio), 1);

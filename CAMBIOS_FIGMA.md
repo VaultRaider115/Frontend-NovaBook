@@ -116,6 +116,10 @@ muestra.
 - **Muebles (18, 19)**: el código lleva el prefijo fijo del área (`P-` / `B-`)
   y solo se escribe el número; el error de capacidad sale al guardar.
 - **Alta (9)**: el precio empieza en $0.00 y es obligatorio.
+- **Compras a Proveedor (6, 40, 41)**: secciones "Registrar factura" y
+  "Facturas registradas"; el ojo muestra lo que se compró en cada factura.
+  El número de factura lleva el prefijo fijo `F-`.
+- **Campos de EAN**: solo dígitos, máximo 13.
 - **Acta PDF (21)**
   - Columnas COSTO y P. VENTA con sus importes (diagrama, paso 8).
   - Pie con quién solicitó y quién autorizó.

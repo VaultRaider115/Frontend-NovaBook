@@ -9,6 +9,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QList>
+#include <QStackedWidget>
 #include "Models.h"
 
 struct CompraCartItem {
@@ -26,7 +27,9 @@ class BodegaComprasView : public QWidget {
 
 public:
     explicit BodegaComprasView(QWidget *parent = nullptr);
+    void cargar();               // proveedores + facturas registradas
     void cargarProveedores();
+    void cargarFacturas();
 
 private slots:
     void onEanChanged(const QString &text);
@@ -37,6 +40,9 @@ private slots:
 
 private:
     void recalcularTotales();
+    void mostrarSeccion(int i);
+    void pintarFacturas();
+    void verFactura(const CompraResponse &c);
 
     QComboBox *m_comboProveedor;
     QLineEdit *m_txtEan;
@@ -55,4 +61,13 @@ private:
 
     QList<CompraCartItem> m_items;
     QList<ProveedorDto> m_proveedores;
+
+    // Secciones: registrar factura / facturas registradas
+    QList<QPushButton *> m_segmentos;
+    QStackedWidget *m_stack;
+    QLineEdit *m_txtBuscarFactura;
+    QLabel *m_lblFacturas;
+    QTableWidget *m_tablaFacturas;
+    QList<CompraResponse> m_facturas;
+    QList<CompraResponse> m_facturasVisibles;
 };

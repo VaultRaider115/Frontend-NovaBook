@@ -239,6 +239,7 @@ struct CompraResponse {
     double total = 0.0;
     int total_articulos = 0;
     QString observaciones;
+    QString factura;   // número de factura del proveedor (puede venir vacío)
     QList<ItemCompraDto> items;
     QString mensaje;
 
@@ -253,6 +254,7 @@ struct CompraResponse {
         cr.total = obj.value("total").toDouble();
         cr.total_articulos = obj.value("total_articulos").toInt();
         cr.observaciones = obj.value("observaciones").toString();
+        cr.factura = obj.value("factura").toString();
         cr.mensaje = obj.value("mensaje").toString();
 
         QJsonArray arr = obj.value("items").toArray();

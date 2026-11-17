@@ -46,6 +46,7 @@ VendedorVentasView::VendedorVentasView(QWidget *parent)
     addLayout->setSpacing(16);
 
     m_txtEan = new QLineEdit(addCard);
+    Ui::eanInput(m_txtEan);
     m_txtEan->setPlaceholderText("Escriba el código de barras");
     m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
     addLayout->addWidget(Ui::field("Código EAN-13 / ISSN-13", m_txtEan, addCard), 1);

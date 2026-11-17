@@ -7,6 +7,7 @@
 #include <QHeaderView>
 #include <QStyle>
 #include <QVBoxLayout>
+#include <QRegularExpressionValidator>
 
 namespace Ui {
 
@@ -147,6 +148,11 @@ QLineEdit *searchBox(const QString &placeholder, QWidget *parent) {
     e->addAction(QIcon(":/icons/search.svg"), QLineEdit::LeadingPosition);
     e->setClearButtonEnabled(true);
     return e;
+}
+
+void eanInput(QLineEdit *e) {
+    e->setMaxLength(13);
+    e->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,13}"), e));
 }
 
 QFrame *stepper(QSpinBox *spin, QWidget *parent) {
