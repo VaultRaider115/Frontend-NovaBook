@@ -140,10 +140,11 @@ void JefeUsuariosView::abrirFormulario(const UsuarioDto *u) {
     txtId->setMaxLength(18);
     txtId->setEnabled(false);
 
-    const QRegularExpression rxNombre("^[\\p{L} '\\-\\.]+$");
+    const QRegularExpression rxNombre("^[\\p{L} '\\-\\.]*$");
     auto *txtNombre = new QLineEdit(u->nombre, &dlg);
     txtNombre->setPlaceholderText("Ej: Maria");
     txtNombre->setMaxLength(50);
+    txtNombre->setValidator(new QRegularExpressionValidator(rxNombre, txtNombre));
 
     auto *comboRol = new QComboBox(&dlg);
     comboRol->addItem("Vendedor", 3);
@@ -158,10 +159,12 @@ void JefeUsuariosView::abrirFormulario(const UsuarioDto *u) {
     auto *txtPat = new QLineEdit(u->apellido_paterno, &dlg);
     txtPat->setPlaceholderText("Ej: Antonieta");
     txtPat->setMaxLength(30);
+    txtPat->setValidator(new QRegularExpressionValidator(rxNombre, txtPat));
 
     auto *txtMat = new QLineEdit(u->apellido_materno, &dlg);
     txtMat->setPlaceholderText("Ej: de Las Nieves");
     txtMat->setMaxLength(30);
+    txtMat->setValidator(new QRegularExpressionValidator(rxNombre, txtMat));
 
     auto *txtTel = new QLineEdit(u->telefono > 0 ? QString::number(u->telefono) : QString(), &dlg);
     txtTel->setPlaceholderText("10 dígitos, ej. 8443509259");

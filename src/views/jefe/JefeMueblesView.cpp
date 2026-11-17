@@ -111,7 +111,8 @@ void JefeMueblesView::abrirFormulario(const MuebleDto *m) {
     auto *txtCodigo = new QLineEdit(numero, codigoBox);
     txtCodigo->setPlaceholderText("Ej. 011");
     txtCodigo->setMaxLength(8);   // + el prefijo = 10 (tamaño de la columna)
-    txtCodigo->setValidator(new QRegularExpressionValidator(QRegularExpression("[A-Za-z0-9][A-Za-z0-9\\-]{0,7}"), txtCodigo));
+    txtCodigo->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,8}"), txtCodigo));
+    txtCodigo->setInputMethodHints(Qt::ImhDigitsOnly);
     cl->addWidget(lblPrefijo);
     cl->addWidget(txtCodigo, 1);
 

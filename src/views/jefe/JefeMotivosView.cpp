@@ -8,6 +8,7 @@
 #include <QPlainTextEdit>
 #include <QPointer>
 #include <QRegularExpression>
+#include <QRegularExpressionValidator>
 
 JefeMotivosView::JefeMotivosView(QWidget *parent)
     : CatalogView("Jefatura · Gestión de motivos", "Catálogo y Gestión de Motivos",
@@ -57,10 +58,11 @@ void JefeMotivosView::abrirFormulario(const MotivoDto *m) {
     const bool edit = m != nullptr;
     Ui::FormDialog dlg(edit ? "Editar Motivo" : "Registrar Nuevo Motivo", edit ? "Actualizar Motivo" : "Registrar Motivo", this);
 
-    const QRegularExpression rxMotivo("^[\\p{L} '\\-\\.,/()]+$");
+    const QRegularExpression rxMotivo("^[\\p{L} '\\-\\.,/()]*$");
     auto *txtNombre = new QLineEdit(edit ? m->nombre : QString(), &dlg);
     txtNombre->setPlaceholderText("Ej: Finalización de contrato");
     txtNombre->setMaxLength(50);
+    txtNombre->setValidator(new QRegularExpressionValidator(rxMotivo, txtNombre));
 
     auto *txtDesc = new QPlainTextEdit(edit ? m->descripcion : QString(), &dlg);
     txtDesc->setPlaceholderText("Ej: Fin del contrato anual de libros (máx. 200 caracteres).");

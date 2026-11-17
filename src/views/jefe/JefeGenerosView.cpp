@@ -6,6 +6,7 @@
 #include <QLineEdit>
 #include <QPointer>
 #include <QRegularExpression>
+#include <QRegularExpressionValidator>
 
 JefeGenerosView::JefeGenerosView(QWidget *parent)
     : CatalogView("Jefatura · Gestión de géneros", "Catálogo y Gestión de Géneros",
@@ -13,6 +14,7 @@ JefeGenerosView::JefeGenerosView(QWidget *parent)
                   "Buscar género...", "Registrar Nuevo Género",
                   {"Nombre de género", "Títulos asociados", "Acciones"}, 0, 0, parent)
 {
+    m_search->setValidator(new QRegularExpressionValidator(QRegularExpression("^[^\\p{N}]*$"), m_search));
 }
 
 void JefeGenerosView::cargarGeneros() {
@@ -54,10 +56,11 @@ void JefeGenerosView::abrirFormulario(const GeneroDto *g) {
     const bool edit = g != nullptr;
     Ui::FormDialog dlg(edit ? "Editar Género" : "Registrar Nuevo Género", edit ? "Actualizar Género" : "Registrar Género", this);
 
-    const QRegularExpression rxGenero("^[\\p{L} '\\-\\.]+$");
+    const QRegularExpression rxGenero("^[\\p{L} '\\-\\.]*$");
     auto *txt = new QLineEdit(edit ? g->genero_literario : QString(), &dlg);
     txt->setPlaceholderText("Ej: Romantasy");
     txt->setMaxLength(45);
+    txt->setValidator(new QRegularExpressionValidator(rxGenero, txt));
     dlg.addField("Nombre del Género", txt, 0, 0, 2);
 
     QPointer<QDialog> guard(&dlg);

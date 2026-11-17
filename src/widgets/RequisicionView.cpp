@@ -126,18 +126,35 @@ void RequisicionView::agregar() {
 void RequisicionView::render() {
     m_table->clearContents();
     m_table->setRowCount(m_items.size());
-    int total = 0;
     for (int i = 0; i < m_items.size(); ++i) {
         const Partida &p = m_items.at(i);
-        total += p.cantidad;
         Ui::cellText(m_table, i, 0, QString::number(p.ean), true);
         Ui::cellWidget(m_table, i, 1, Ui::tipoChip(p.tipo));
         Ui::cellText(m_table, i, 2, p.nombre);
-        Ui::cellText(m_table, i, 3, QString::number(p.cantidad));
+        if (m_salida) {
+            auto *cantidad = new QSpinBox(m_table);
+            cantidad->setRange(1, 9999);
+            cantidad->setValue(p.cantidad);
+            cantidad->setAccessibleName(QString("Cantidad de %1").arg(p.nombre));
+            connect(cantidad, QOverload<int>::of(&QSpinBox::valueChanged), this, [this, i](int valor) {
+                if (i < 0 || i >= m_items.size()) return;
+                m_items[i].cantidad = valor;
+                actualizarResumen();
+            });
+            Ui::cellWidget(m_table, i, 3, cantidad);
+        } else {
+            Ui::cellText(m_table, i, 3, QString::number(p.cantidad));
+        }
         auto *quitar = Ui::iconButton("trash", "Quitar partida");
         connect(quitar, &QPushButton::clicked, this, [this, i]() { m_items.removeAt(i); render(); });
         Ui::cellWidget(m_table, i, 4, quitar);
     }
+    actualizarResumen();
+}
+
+void RequisicionView::actualizarResumen() {
+    int total = 0;
+    for (const Partida &p : std::as_const(m_items)) total += p.cantidad;
     const QString editorial = m_items.isEmpty() ? QString() : m_items.first().editorial;
     m_lblTotal->setText((editorial.isEmpty() ? QString() : "Editorial: " + editorial.toHtmlEscaped() + " · ")
                         + QString("Piezas Totales: <b style=\"color:#FFFFFF;\">%1</b>").arg(total));
@@ -158,7 +175,13 @@ void RequisicionView::enviarTodo() {
         m_btnEnviar->setEnabled(true);
         if (!ok || !data.isObject()) {
             // Nada se movió: la lista se conserva para corregir y reintentar.
-            Toast::showToast(this, "No se registró la requisición: " + msg, Toast::Error, 6000);
+            QString error = msg;
+            if (m_salida) {
+                for (const Partida &p : std::as_const(m_items)) {
+                    error.replace(QString("EAN %1").arg(p.ean), QString("\"%1\"").arg(p.nombre));
+                }
+            }
+            Toast::showToast(this, "No se registró la requisición: " + error, Toast::Error, 6000);
             return;
         }
         const QJsonObject o = data.toObject();

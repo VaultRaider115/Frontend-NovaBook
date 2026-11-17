@@ -7,7 +7,7 @@ class VendedorTrasladoView : public RequisicionView {
 
 public:
     explicit VendedorTrasladoView(QWidget *parent = nullptr)
-        : RequisicionView("Vendedor · movimiento", "Requisición de Entrada Venta > Bodega",
+        : RequisicionView("Vendedor · movimiento", "Requisición de Entrada Piso de Venta > Bodega",
                           "Registrar y Devolver a Bodega", "Mercancía reingresada a Bodega",
                           /*salida=*/false, parent) {}
 };

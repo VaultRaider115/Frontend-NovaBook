@@ -10,7 +10,7 @@ class VendedorConsultaView : public QWidget {
     Q_OBJECT
 
 public:
-    explicit VendedorConsultaView(QWidget *parent = nullptr);
+    explicit VendedorConsultaView(QWidget *parent = nullptr, bool paraBodega = false);
     void buscarExistencias();
 
 private:

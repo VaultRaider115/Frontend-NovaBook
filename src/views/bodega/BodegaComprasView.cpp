@@ -65,7 +65,8 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     m_txtObs = new QLineEdit(facturaBox);
     m_txtObs->setPlaceholderText("Ej. 1024");
     m_txtObs->setMaxLength(28);   // + "F-" = 30 (tamaño de la columna)
-    m_txtObs->setValidator(new QRegularExpressionValidator(QRegularExpression("[A-Za-z0-9][A-Za-z0-9\\-]{0,27}"), m_txtObs));
+    m_txtObs->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,28}"), m_txtObs));
+    m_txtObs->setInputMethodHints(Qt::ImhDigitsOnly);
     m_txtObs->setAccessibleName("Número de factura (sin el prefijo F-)");
     m_txtObs->addAction(QIcon(":/icons/receipt.svg"), QLineEdit::LeadingPosition);
     fl->addWidget(lblF);

@@ -22,11 +22,11 @@ JefeDevolucionesView::JefeDevolucionesView(bool puedeAprobar, QWidget *parent)
     auto *top = new QHBoxLayout();
     if (puedeAprobar)
         top->addWidget(Ui::pageHeader("Jefatura · Control de merma y devoluciones",
-                                      "Historial y Aprobación de Devoluciones a Proveedor",
+                                      "Control y Aprobación de Devoluciones a Proveedor",
                                       "Revisa, autoriza o rechaza los lotes de devolución generados.", this), 1);
     else
         top->addWidget(Ui::pageHeader("Gerencia · Control de devoluciones",
-                                      "Historial de Devoluciones a Proveedor",
+                                      "Control de Devoluciones a Proveedor",
                                       "Consulta los lotes de devolución y descarga las actas aprobadas. "
                                       "La autorización corresponde al Jefe de Departamento.", this), 1);
     auto *stat = Ui::card(this);
@@ -277,7 +277,13 @@ bool JefeDevolucionesView::mostrarDetalle(const Devolucion &dev, const QString &
     resumen->setWordWrap(true);
 
     auto *tabla = Ui::table({"EAN", "Título", "Piezas", "Motivo"}, 1, &dlg, 44);
-    tabla->setRowCount(dev.items.size());
+    tabla->setRowCount(dev.items.isEmpty() ? 1 : dev.items.size());
+    if (dev.items.isEmpty()) {
+        Ui::cellText(tabla, 0, 0, "—");
+        Ui::cellText(tabla, 0, 1, "Sin partidas registradas", false, true);
+        Ui::cellText(tabla, 0, 2, "0");
+        Ui::cellText(tabla, 0, 3, "—", false, false, Theme::TextMuted);
+    }
     for (int i = 0; i < dev.items.size(); ++i) {
         const ItemDevolucion &it = dev.items.at(i);
         Ui::cellText(tabla, i, 0, QString::number(it.codigo_ean), true);

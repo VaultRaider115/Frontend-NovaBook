@@ -12,6 +12,8 @@
 #include <QIcon>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 
 LoginWindow::LoginWindow(QWidget *parent)
     : QWidget(parent)
@@ -85,6 +87,9 @@ LoginWindow::LoginWindow(QWidget *parent)
     m_txtUsuario = new QLineEdit(card);
     m_txtUsuario->setStyleSheet(inputQss);
     m_txtUsuario->setAccessibleName("Número de empleado");
+    m_txtUsuario->setMaxLength(18);
+    m_txtUsuario->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,18}"), m_txtUsuario));
+    m_txtUsuario->setInputMethodHints(Qt::ImhDigitsOnly);
     cl->addWidget(Ui::field("Número de Empleado", m_txtUsuario, card));
 
     m_txtPassword = new QLineEdit(card);

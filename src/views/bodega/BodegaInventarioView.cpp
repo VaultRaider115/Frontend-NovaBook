@@ -16,7 +16,7 @@ BodegaInventarioView::BodegaInventarioView(QWidget *parent)
     layout->setContentsMargins(32, 28, 32, 28);
     layout->setSpacing(20);
 
-    layout->addWidget(Ui::pageHeader("Bodega · Inventario", "Inventario General de Almacén", "", this));
+    layout->addWidget(Ui::pageHeader("Bodega · Inventario", "Inventario General", "", this));
 
     // Toolbar
     auto *toolbar = new QHBoxLayout();

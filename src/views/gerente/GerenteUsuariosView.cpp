@@ -144,10 +144,11 @@ void GerenteUsuariosView::abrirFormulario(const UsuarioDto *u) {
     txtId->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,18}"), txtId));
     txtId->setEnabled(!edit);
 
-    const QRegularExpression rxNombre("^[\\p{L} '\\-\\.]+$");
+    const QRegularExpression rxNombre("^[\\p{L} '\\-\\.]*$");
     auto *txtNombre = new QLineEdit(edit ? u->nombre : QString(), &dlg);
     txtNombre->setPlaceholderText("Ej: Maria");
     txtNombre->setMaxLength(50);
+    txtNombre->setValidator(new QRegularExpressionValidator(rxNombre, txtNombre));
 
     auto *comboRol = new QComboBox(&dlg);
     comboRol->addItem("Vendedor", 3);
@@ -164,10 +165,12 @@ void GerenteUsuariosView::abrirFormulario(const UsuarioDto *u) {
     auto *txtPat = new QLineEdit(edit ? u->apellido_paterno : QString(), &dlg);
     txtPat->setPlaceholderText("Ej: Antonieta");
     txtPat->setMaxLength(30);
+    txtPat->setValidator(new QRegularExpressionValidator(rxNombre, txtPat));
 
     auto *txtMat = new QLineEdit(edit ? u->apellido_materno : QString(), &dlg);
     txtMat->setPlaceholderText("Ej: de Las Nieves");
     txtMat->setMaxLength(30);
+    txtMat->setValidator(new QRegularExpressionValidator(rxNombre, txtMat));
 
     auto *txtTel = new QLineEdit(edit && u->telefono > 0 ? QString::number(u->telefono) : QString(), &dlg);
     txtTel->setPlaceholderText("10 dígitos, ej. 8443509259");

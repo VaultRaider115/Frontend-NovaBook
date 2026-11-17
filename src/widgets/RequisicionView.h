@@ -22,6 +22,7 @@ private:
     struct Partida { qint64 ean; QString tipo; QString nombre; int cantidad; QString editorial; };
     void agregar();
     void render();
+    void actualizarResumen();
     void enviarTodo();
     void imprimirUltima();
 
