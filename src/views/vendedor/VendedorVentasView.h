@@ -36,7 +36,6 @@ private:
     void recalcularTotales();
 
     QLineEdit *m_txtCliente;
-    QLabel *m_lblFecha;
     QList<QPushButton *> m_btnsPago;
     QString m_metodoPago = "Efectivo";
     QLineEdit *m_txtEan;

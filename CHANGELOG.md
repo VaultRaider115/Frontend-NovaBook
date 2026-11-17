@@ -4,14 +4,127 @@ Todos los cambios relevantes del frontend se registran aquí siguiendo el format
 
 ## [Unreleased]
 
-### Changed
-- Actualizada la documentación para reflejar el estado real del proyecto: frontend Qt 6/C++ y no una aplicación web.
-- Sincronizada la estructura de archivos con `src/core`, `src/widgets`, `src/views` y `src/resources` reales presentes en el repositorio.
-- Eliminadas referencias obsoletas a una SPA web o a rutas de archivos inexistentes en este proyecto.
+Rama `integracion-validaciones`: pantallas iguales a los diseños de
+`docs/disenos/` y conectadas a la API del esquema unificado.
 
 ### Added
-- Documentación de la arquitectura por roles y módulos de interfaz.
-- Descripción actualizada de `ApiClient`, `Theme`, `EanClassifier`, `CatalogView` y `RequisicionView`.
+- Revisión del equipo (16-nov):
+  - **Aprobación de Devoluciones**: icono del ojo con la lista de lo que se
+    devuelve (EAN, título, piezas, motivo); aprobar o rechazar se confirma
+    viendo esa lista.
+  - **Muebles**: el código lleva el prefijo fijo del área (`P-` piso, `B-`
+    bodega) y solo se escribe el número; la capacidad deja escribir menos de
+    lo ocupado y, al guardar, explica el error con las piezas que tiene.
+  - **Inventario Mensual (Jefe)**: la solicitud de editorial muestra, al
+    escribir los EAN, cada título con su stock, "N títulos · M piezas por
+    regresar" y avisa de EAN inválidos, inexistentes o de otra editorial (no
+    deja registrar así). La tabla muestra títulos y piezas, y el ojo los lista.
+  - **Inventario Mensual (Vendedor)**: lo que va a devolución sale en rojo
+    con "Separar · pidió la editorial" o "Separar · añejado" y el pie cuenta
+    los títulos por separar.
+  - **Alta de Mercancía**: el precio empieza en $0.00 y no deja registrar
+    sin capturarlo.
+- **Compra incompleta** (diagrama, paso 1):
+  - Compras a Proveedor captura "Facturadas" y "Llegaron"; la tabla marca en
+    ámbar lo que faltó.
+  - Si la API abre una incidencia, la app ofrece abrir el programa de correo
+    del equipo con el aviso al proveedor (`Documentos::abrirCorreo`, mailto:).
+    Si el proveedor no tiene correo o no hay programa de correo, copia el
+    texto al portapapeles.
+  - Pantalla nueva **Incidencias de Compra** (Bodega): faltantes por
+    factura, reenviar el aviso y registrar lo que llega después.
+- **Recepción de la salida** (pasos 2 y 3):
+  - Pantalla nueva **Recepción de Salida** (Vendedor): por cada salida
+    pendiente se captura lo recibido y el mueble de piso de cada libro. Si
+    algo no coincide, la requisición se corrige y se reimprime.
+  - Pantalla nueva **Seguimiento de Salidas** (Bodega, solo lectura): estado
+    de cada salida y reimpresión.
+  - El PDF de la requisición recibida lleva columna MUEBLE, la cantidad
+    original tachada donde hubo diferencia, el sello CORREGIDA y quién
+    recibió.
+- **Cierre de sesión**:
+  - Automático cuando la API responde 401 (token vencido o usuario dado de
+    baja).
+  - Por inactividad, con `InactivityWatcher`; el tiempo se configura en
+    `INACTIVIDAD_MINUTOS` (15 por defecto).
+- **PDFs** (módulo `Documentos`): se guardan en `Documentos/NovaBook` y se
+  abren en el visor del sistema para imprimir.
+  - La requisición se genera con `QPdfWriter`.
+  - El acta de devolución se descarga de la API.
+- **Requisiciones con folio** `REQ-AAAA-n`:
+  - Un solo documento, todo o nada; se imprime al registrarla.
+  - Una sola editorial por documento: bloquea al agregar un artículo de
+    otra y muestra la editorial en el pie y en el PDF.
+- **Vendedor**:
+  - **Mis Devoluciones**: estado, acta aprobada y motivo del rechazo.
+  - **Devolución de Cliente**: busca el ticket, marca las piezas (con o sin
+    defecto) y permite reembolso o cambio por igual o mayor valor.
+  - **Inventario Mensual**: abrir, escanear (cada escaneo suma 1), corregir
+    y cerrar el conteo.
+- **Jefe**: revisión del inventario mensual (aprobar o rechazar con motivo)
+  y registro de las solicitudes de editorial.
+- **Gerente**: **Devoluciones a Proveedor** en solo lectura (consulta y
+  descarga de actas; aprobar es solo del Jefe).
+- **Bitácora**:
+  - Paginación en el servidor (5 filas) y filtro por categoría.
+  - Columna única "Descripción" con chips de color: VENTA verde, TRASLADO
+    azul, COMPRA morado, ACCESO gris, DEVOLUCIÓN ámbar, INVENTARIO rosa,
+    USUARIOS dorado, CATÁLOGO índigo; los accesos fallidos van en rojo.
+- **Ventas**: método de pago. **Compras**: número de factura.
+
+### Changed
+- **Revisión visual** contra `docs/disenos/` (1–21) en Login, Consulta,
+  Ventas, Devoluciones, Requisiciones, Compras, Alta, Bitácora, Aprobación,
+  Autores, Géneros, Motivos, Muebles, Usuarios y sus diálogos.
+  - `pageHeader` muestra la etiqueta superior (eyebrow) correcta.
+  - Chips y avatares completos y sin recortes en las celdas
+    (`Ui::fitColumn`).
+  - Etiquetas de campo en mayúsculas espaciadas.
+  - Se arreglaron las flechas de fecha y cantidad.
+- **Alta de mercancía**:
+  - Sin campo Cantidad.
+  - Mueble de bodega y editorial reales.
+  - Validación de EAN-13 (978/979 libros, 977 revistas) y de SKU de 6 a 7
+    dígitos.
+- **Menús de catálogos** según el diagrama de procesos:
+  - Autores, géneros, motivos y muebles: solo el Jefe.
+  - Proveedores y editoriales: el Jefe; Bodega solo da de alta.
+- **Usuarios** (Gerente y Jefe), con las mismas reglas que la API:
+  - Trim en los nombres; teléfono solo con dígitos.
+  - Guardar se deshabilita mientras responde la API.
+  - Nadie edita su propio rol.
+  - El Jefe no toca roles ni cuentas de Gerente.
+- **Catálogos**: el ícono de borrar se deshabilita cuando un registro no se
+  puede eliminar.
+- **Calendarios y rangos de fecha** legibles en la bitácora y en el
+  historial de devoluciones.
+- **Devoluciones**:
+  - El motivo se envía por id.
+  - La nota del Jefe se lee de `devolucion.observaciones`.
+- **Existencias de Bodega**: la consulta usa `/api/bodega/existencias`, de
+  modo que la requisición de salida ya muestra los títulos.
+- **`StatCard`**: el acento por defecto se toma de `Theme::Accent`; antes
+  era el dorado viejo `#C8973A`.
+- **Documentación**:
+  - `README.md` reescrito: estructura real, menús por rol, configuración
+    (`API_URL`, `INACTIVIDAD_MINUTOS`), sesión, PDFs, compilación en Windows
+    y Linux.
+  - `CAMBIOS_FIGMA.md` reescrito:
+    - mapa de los diseños 1–21 a su vista Qt;
+    - paleta real de `Theme.h` (acento `#D4A346`) y colores por rol;
+    - diferencias con el diseño hechas a propósito;
+    - pantallas sin diseño.
+  - `AI_CONTEXT.md` nuevo: contexto técnico del cliente (`ApiClient`, kit
+    `Ui`, patrón de vistas, errores conocidos de Qt).
+  - `CHANGELOG.md` con los cambios de esta rama.
+
+### Fixed
+- **Avisos (`Toast`)**: no pintaban su fondo y quedaban transparentes
+  encima de la pantalla; ahora toman el ancho del texto (hasta 560 px).
+- **Requisición**: al agregar un artículo se usa el renglón exacto del EAN
+  y no el primer resultado de la búsqueda.
+- **Cantidades en tablas**: los QSpinBox ya no se ven recortados dentro de
+  las celdas.
 
 ## [0.1.0] - 2026-09-18
 

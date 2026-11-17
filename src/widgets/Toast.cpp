@@ -3,6 +3,7 @@
 #include <QHBoxLayout>
 #include <QGraphicsOpacityEffect>
 #include <QPropertyAnimation>
+#include <algorithm>
 
 Toast::Toast(QWidget *parent, const QString &message, Type type)
     : QWidget(parent)
@@ -37,6 +38,9 @@ Toast::Toast(QWidget *parent, const QString &message, Type type)
     }
 
     setObjectName("toastWidget");
+    // Sin esto un QWidget simple no pinta el fondo de su hoja de estilo y el
+    // texto queda transparente encima de la pantalla.
+    setAttribute(Qt::WA_StyledBackground, true);
     setStyleSheet(QString(R"(
         #toastWidget {
             background-color: %1;
@@ -74,6 +78,9 @@ void Toast::showToast(QWidget *parent, const QString &message, Type type, int du
     if (!parent) return;
 
     auto *toast = new Toast(parent, message, type);
+    // Ancho del texto en una línea, hasta 560 px; si no cabe, se parte en renglones.
+    const int texto = toast->m_label->fontMetrics().horizontalAdvance(toast->m_label->text()) + 36;
+    toast->setFixedWidth(std::clamp(std::min(texto, parent->width() - 40), 120, 560));
     toast->adjustSize();
 
     // Position at top center of parent widget

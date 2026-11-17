@@ -9,6 +9,8 @@
 #include <QIcon>
 #include <QHeaderView>
 #include <QFrame>
+#include <QMessageBox>
+#include "Documentos.h"
 
 BodegaComprasView::BodegaComprasView(QWidget *parent)
     : QWidget(parent)
@@ -16,7 +18,10 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(40, 32, 40, 32);
     layout->setSpacing(18);
-    layout->addWidget(Ui::pageHeader("Bodega · Compras", "Recepción de Mercancía — Compras a Proveedor", "", this));
+    // Diseño 6: la segunda parte del título va atenuada.
+    layout->addWidget(Ui::pageHeader("Bodega · Compras",
+        QString("Recepción de Mercancía <span style=\"color:%1; font-weight:400;\">— Compras a Proveedor</span>")
+            .arg(Theme::TextMuted), "", this));
 
     // Datos de factura: proveedor + número de factura / observaciones
     auto *headerCard = Ui::card(this);
@@ -26,6 +31,8 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     m_comboProveedor = new QComboBox(headerCard);
     m_txtObs = new QLineEdit(headerCard);
     m_txtObs->setPlaceholderText("Ej. F-1024");
+    m_txtObs->setMaxLength(30);
+    m_txtObs->addAction(QIcon(":/icons/receipt.svg"), QLineEdit::LeadingPosition);
     hl->addWidget(Ui::field("Proveedor Oficial", m_comboProveedor, headerCard), 1);
     hl->addWidget(Ui::field("Número de Factura", m_txtObs, headerCard), 1);
     layout->addWidget(headerCard);
@@ -43,15 +50,31 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
     addLayout->addWidget(Ui::field("Código EAN-13", m_txtEan, addCard), 1);
 
+    // Diagrama, paso 1: si llegan menos piezas de las facturadas se abre una incidencia.
     m_spnCantidad = new QSpinBox(addCard);
     m_spnCantidad->setRange(1, 9999);
     m_spnCantidad->setValue(1);
-    addLayout->addWidget(Ui::field("Cantidad", Ui::stepper(m_spnCantidad, addCard), addCard));
+    m_spnCantidad->setAccessibleName("Piezas facturadas");
+    addLayout->addWidget(Ui::field("Facturadas", Ui::stepper(m_spnCantidad, addCard), addCard));
+
+    m_spnRecibidas = new QSpinBox(addCard);
+    m_spnRecibidas->setRange(0, 1);
+    m_spnRecibidas->setValue(1);
+    m_spnRecibidas->setAccessibleName("Piezas que llegaron");
+    m_spnRecibidas->setToolTip("Piezas que llegaron en el paquete; si son menos que las facturadas se abre una incidencia");
+    addLayout->addWidget(Ui::field("Llegaron", Ui::stepper(m_spnRecibidas, addCard), addCard));
+    // "Llegaron" sigue a "Facturadas" mientras no se haya capturado algo distinto.
+    connect(m_spnCantidad, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int fac) {
+        const bool seguia = m_spnRecibidas->value() == m_spnRecibidas->maximum();
+        m_spnRecibidas->setMaximum(fac);
+        if (seguia) m_spnRecibidas->setValue(fac);
+    });
 
     m_spnCosto = new QDoubleSpinBox(addCard);
     m_spnCosto->setRange(0.0, 99999.0);
     m_spnCosto->setValue(150.0);
     m_spnCosto->setPrefix("$ ");
+    m_spnCosto->setButtonSymbols(QAbstractSpinBox::NoButtons);
     m_spnCosto->setFixedWidth(130);
     addLayout->addWidget(Ui::field("Costo unitario", m_spnCosto, addCard));
 
@@ -65,7 +88,7 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     layout->addWidget(addCard);
 
     // Partidas de la compra
-    m_tableCart = Ui::table({"EAN", "Tipo", "Descripción", "Cantidad", "Costo unit.", "Subtotal", "Acción"}, 2, this, 56);
+    m_tableCart = Ui::table({"EAN", "Tipo", "Descripción", "Llegaron / Fact.", "Costo unit.", "Subtotal", "Acción"}, 2, this, 56);
     layout->addWidget(m_tableCart, 1);
 
     // Liquidación
@@ -131,11 +154,12 @@ void BodegaComprasView::onAgregarArticulo() {
 
     qint64 ean = eanStr.toLongLong();
     int cant = m_spnCantidad->value();
+    int recibidas = qMin(m_spnRecibidas->value(), cant);
     double costo = m_spnCosto->value();
     QString tipo = (eanRes.tipo == EanClassifier::Tipo::Libro ? "libro" : "revista");
 
     // Consult existing item title
-    ApiClient::instance()->consultarExistencias(eanStr, tipo, 0, [this, ean, cant, costo, tipo](bool ok, const QJsonValue &data, const QString &) {
+    ApiClient::instance()->consultarExistencias(eanStr, tipo, 0, [this, ean, cant, recibidas, costo, tipo](bool ok, const QJsonValue &data, const QString &) {
         QString titulo = QString("Artículo %1").arg(ean);
         if (ok && data.isArray() && !data.toArray().isEmpty()) {
             QJsonObject obj = data.toArray().first().toObject();
@@ -147,6 +171,7 @@ void BodegaComprasView::onAgregarArticulo() {
         for (auto &item : m_items) {
             if (item.ean == ean) {
                 item.cantidad += cant;
+                item.recibidas += recibidas;
                 item.costo_unitario = costo;
                 item.subtotal = item.cantidad * item.costo_unitario;
                 found = true;
@@ -160,12 +185,15 @@ void BodegaComprasView::onAgregarArticulo() {
             ci.tipo = tipo;
             ci.nombre = titulo;
             ci.cantidad = cant;
+            ci.recibidas = recibidas;
             ci.costo_unitario = costo;
             ci.subtotal = cant * costo;
             m_items.append(ci);
         }
 
         m_txtEan->clear();
+        m_spnCantidad->setValue(1);
+        m_spnRecibidas->setValue(1);
         m_txtEan->setFocus();
         recalcularTotales();
     });
@@ -188,18 +216,23 @@ void BodegaComprasView::recalcularTotales() {
     m_tableCart->clearContents();
     m_tableCart->setRowCount(m_items.size());
 
-    int totalPiezas = 0;
+    int totalPiezas = 0, totalRecibidas = 0;
     double totalDinero = 0.0;
 
     for (int i = 0; i < m_items.size(); ++i) {
         const auto &item = m_items.at(i);
         totalPiezas += item.cantidad;
+        totalRecibidas += item.recibidas;
         totalDinero += item.subtotal;
 
         Ui::cellText(m_tableCart, i, 0, QString::number(item.ean), true);
         Ui::cellWidget(m_tableCart, i, 1, Ui::tipoChip(item.tipo));
         Ui::cellText(m_tableCart, i, 2, item.nombre);
-        Ui::cellText(m_tableCart, i, 3, QString::number(item.cantidad));
+        if (item.recibidas < item.cantidad)
+            Ui::cellText(m_tableCart, i, 3, QString("%1 / %2").arg(item.recibidas).arg(item.cantidad), false, true, Theme::Warning)
+                ->setToolTip(QString("Faltan %1: se abrirá una incidencia").arg(item.cantidad - item.recibidas));
+        else
+            Ui::cellText(m_tableCart, i, 3, QString::number(item.cantidad));
         Ui::cellText(m_tableCart, i, 4, Ui::money(item.costo_unitario), false, false, Theme::TextMuted);
         Ui::cellText(m_tableCart, i, 5, Ui::money(item.subtotal), false, true);
 
@@ -208,7 +241,10 @@ void BodegaComprasView::recalcularTotales() {
         Ui::cellWidget(m_tableCart, i, 6, btnQuitar);
     }
 
-    m_lblTotalArticulos->setText(QString("Piezas Totales: %1").arg(totalPiezas));
+    m_lblTotalArticulos->setText(totalRecibidas < totalPiezas
+        ? QString("Piezas: %1 de %2 <span style=\"color:%3;\">(faltan %4)</span>")
+              .arg(totalRecibidas).arg(totalPiezas).arg(Theme::Warning).arg(totalPiezas - totalRecibidas)
+        : QString("Piezas Totales: %1").arg(totalPiezas));
     m_lblTotalPagar->setText(QString("Total Factura: %1").arg(Ui::money(totalDinero)));
 }
 
@@ -226,7 +262,14 @@ void BodegaComprasView::onRegistrarCompra() {
     QJsonObject req;
     req["id_proveedor"] = idProveedor;
     if (!m_txtObs->text().trimmed().isEmpty()) {
-        req["observaciones"] = m_txtObs->text().trimmed();
+        req["factura"] = m_txtObs->text().trimmed();
+    }
+
+    int recibidasTotal = 0;
+    for (const auto &it : std::as_const(m_items)) recibidasTotal += it.recibidas;
+    if (recibidasTotal == 0) {
+        Toast::showToast(this, "No llegó ninguna pieza: no hay compra que registrar", Toast::Warning);
+        return;
     }
 
     QJsonArray itemsArr;
@@ -234,7 +277,8 @@ void BodegaComprasView::onRegistrarCompra() {
         QJsonObject obj;
         obj["codigo_ean"] = it.ean;
         obj["tipo_producto"] = it.tipo;
-        obj["cantidad"] = it.cantidad;
+        obj["cantidad"] = it.recibidas;
+        obj["cantidad_facturada"] = it.cantidad;
         obj["costo_unitario"] = it.costo_unitario;
         itemsArr.append(obj);
     }
@@ -248,6 +292,22 @@ void BodegaComprasView::onRegistrarCompra() {
 
         CompraResponse cr = CompraResponse::fromJson(data.toObject());
         limpiarCarrito();
-        Toast::showToast(this, QString("Compra #%1 registrada con éxito. Inventario en bodega actualizado.").arg(cr.id_compra), Toast::Success);
+        const QJsonObject inc = data.toObject().value("incidencia").toObject();
+        if (inc.isEmpty()) {
+            Toast::showToast(this, QString("Compra #%1 registrada con éxito. Inventario en bodega actualizado.").arg(cr.id_compra), Toast::Success);
+            return;
+        }
+        // Diagrama, paso 1: paquete incompleto → incidencia y correo al proveedor.
+        const QString para = inc.value("correo").toObject().value("para").toString();
+        const auto r = QMessageBox::question(this, "Paquete incompleto",
+            QString("La compra #%1 se registró con lo que llegó y se abrió la incidencia #%2: faltan %3 pieza(s) de %4.\n\n"
+                    "¿Abrir el correo para pedir al proveedor los artículos restantes%5?\n"
+                    "Cuando lleguen, regístralos en Incidencias de Compra.")
+                .arg(cr.id_compra).arg(inc.value("id_incidencia").toInt()).arg(inc.value("piezas_pendientes").toInt())
+                .arg(inc.value("proveedor").toString(), para.isEmpty() ? QString() : " (" + para + ")"),
+            QMessageBox::Yes | QMessageBox::No);
+        if (r == QMessageBox::Yes) Documentos::abrirCorreo(this, inc.value("correo").toObject());
+        else Toast::showToast(this, QString("Incidencia #%1 abierta; puedes avisar después desde Incidencias de Compra")
+                                        .arg(inc.value("id_incidencia").toInt()), Toast::Warning, 6000);
     });
 }

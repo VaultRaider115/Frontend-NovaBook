@@ -4,6 +4,8 @@
 #include "ApiClient.h"
 #include "Ui.h"
 #include <QAction>
+#include <QApplication>
+#include <QDialog>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFrame>
@@ -39,21 +41,27 @@ LoginWindow::LoginWindow(QWidget *parent)
     root->addLayout(content, 1);
 
     // Encabezado
-    auto *brand = new QLabel("Nova Book", this);
+    // Diseño 10: "NOVA BOOK" en mayúsculas espaciadas, BOOK en naranja.
+    auto *brand = new QLabel("NOVA <span style=\"color:#EFA65A;\">BOOK</span>", this);
+    brand->setTextFormat(Qt::RichText);
     brand->setAlignment(Qt::AlignCenter);
-    brand->setStyleSheet("font-size: 54px; font-weight: 800; color: #FFFFFF;");
+    brand->setStyleSheet("font-size: 54px; font-weight: 800; color: #E5E5E5;");
+    Ui::spaced(brand, 8);
     content->addWidget(brand);
 
     auto *sub = new QLabel("Sistema de Gestión de Librería", this);
     sub->setAlignment(Qt::AlignCenter);
     sub->setStyleSheet("font-size: 15px; color: #9CA3AF;");
+    Ui::spaced(sub, 0.5);
     content->addWidget(sub);
 
+    // Píldora: el radio debe ser <= media altura o Qt dibuja esquinas rectas.
     auto *pill = new QLabel("Sanborns · Saltillo", this);
     pill->setAlignment(Qt::AlignCenter);
+    pill->setFixedHeight(36);
     pill->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
-    pill->setStyleSheet("background-color: #1C1C1D; border: 1px solid #3F3F46; border-radius: 16px; "
-                        "color: #FFC964; font-size: 13px; padding: 6px 14px;");
+    pill->setStyleSheet("background-color: #1C1C1D; border: 1px solid #3F3F46; border-radius: 18px; "
+                        "color: #FFC964; font-size: 13px; padding: 0px 16px;");
     content->addWidget(pill, 0, Qt::AlignHCenter);
 
     // Tarjeta de sesión
@@ -64,15 +72,17 @@ LoginWindow::LoginWindow(QWidget *parent)
     cl->setContentsMargins(32, 32, 32, 32);
     cl->setSpacing(14);
 
-    auto *cardTitle = new QLabel("Iniciar sesión", card);
-    cardTitle->setStyleSheet("font-size: 14px; font-weight: 700; color: #7A7A7A;");
+    auto *cardTitle = new QLabel("INICIAR SESIÓN", card);
+    cardTitle->setStyleSheet("font-size: 14px; font-weight: 700; color: #F5F5F5;");
+    Ui::spaced(cardTitle, 1.5);
     cl->addWidget(cardTitle);
 
+    // Alto fijo en vez de padding vertical: así el ícono del ojo queda centrado.
     const QString inputQss = "QLineEdit { background-color: #1C1C1C; border: 1px solid #2A2A2A; border-radius: 8px; "
-                             "padding: 14px 20px; font-size: 15px; } QLineEdit:focus { border: 1px solid #D4A346; }";
+                             "padding: 0px 18px; min-height: 46px; max-height: 46px; font-size: 15px; } "
+                             "QLineEdit:focus { border: 1px solid #D4A346; }";
 
     m_txtUsuario = new QLineEdit(card);
-    m_txtUsuario->setPlaceholderText("Número de empleado");
     m_txtUsuario->setStyleSheet(inputQss);
     m_txtUsuario->setAccessibleName("Número de empleado");
     cl->addWidget(Ui::field("Número de Empleado", m_txtUsuario, card));
@@ -80,7 +90,7 @@ LoginWindow::LoginWindow(QWidget *parent)
     m_txtPassword = new QLineEdit(card);
     m_txtPassword->setEchoMode(QLineEdit::Password);
     m_txtPassword->setMaxLength(16);
-    m_txtPassword->setPlaceholderText("Ingresa tu contraseña (máx. 16 caracteres)");
+    m_txtPassword->setPlaceholderText("Ingresa tu contraseña");
     m_txtPassword->setStyleSheet(inputQss);
     m_txtPassword->setAccessibleName("Contraseña");
     auto *eye = m_txtPassword->addAction(QIcon(":/icons/eye.svg"), QLineEdit::TrailingPosition);
@@ -99,23 +109,26 @@ LoginWindow::LoginWindow(QWidget *parent)
     m_lblError->hide();
     cl->addWidget(m_lblError);
 
-    m_btnLogin = Ui::button("Ingresar al sistema", "primary", card);
+    m_btnLogin = Ui::button("INGRESAR AL SISTEMA", "primary", card);
     m_btnLogin->setStyleSheet("QPushButton { padding: 14px; font-size: 15px; font-weight: 700; }");
+    Ui::spaced(m_btnLogin, 1.5);
     cl->addWidget(m_btnLogin);
     content->addWidget(card);
 
     // Aviso legal
-    auto *legal = new QLabel("NovaBook · Uso exclusivo para personal autorizado de Sanborns", this);
+    auto *legal = new QLabel("NOVABOOK · USO EXCLUSIVO PARA PERSONAL AUTORIZADO DE SANBORNS", this);
     legal->setAlignment(Qt::AlignCenter);
     legal->setWordWrap(true);
     legal->setStyleSheet("background-color: #141414; border-radius: 12px; color: #999292; "
-                         "font-size: 13px; font-weight: 700; padding: 22px 32px;");
+                         "font-size: 13px; font-weight: 700; padding: 22px 48px;");
+    Ui::spaced(legal, 1.5);
     content->addWidget(legal);
     content->addStretch();
 
     connect(m_btnLogin, &QPushButton::clicked, this, &LoginWindow::onLoginClicked);
     connect(m_txtUsuario, &QLineEdit::returnPressed, this, [this]() { m_txtPassword->setFocus(); });
     connect(m_txtPassword, &QLineEdit::returnPressed, this, &LoginWindow::onLoginClicked);
+    connect(ApiClient::instance(), &ApiClient::sessionExpired, this, &LoginWindow::onSessionExpired);
 }
 
 LoginWindow::~LoginWindow() {
@@ -177,4 +190,26 @@ void LoginWindow::onLogoutRequested() {
     m_lblError->hide();
     show();
     m_txtUsuario->setFocus();
+}
+
+void LoginWindow::onSessionExpired(const QString &reason) {
+    // Cierra diálogos abiertos (formularios, confirmaciones) que ya no tienen sesión.
+    // El límite evita un ciclo si algún modal se resiste a cerrarse.
+    for (int i = 0; i < 10; ++i) {
+        auto *dlg = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+        if (!dlg) break;
+        dlg->reject();
+    }
+
+    // Mostrar el login antes de ocultar la principal para que la app no se cierre.
+    m_txtPassword->clear();
+    m_lblError->setText(reason);
+    m_lblError->show();
+    show();
+    raise();
+    activateWindow();
+    if (m_mainWindow) {
+        m_mainWindow->hide();
+    }
+    m_txtPassword->setFocus();
 }

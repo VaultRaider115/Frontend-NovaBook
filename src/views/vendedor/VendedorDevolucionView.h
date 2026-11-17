@@ -17,6 +17,7 @@ struct ReturnItemDraft {
     QString nombre;
     int cantidad = 1;
     QString motivo;
+    int id_motivo = 0;
 };
 
 class VendedorDevolucionView : public QWidget {

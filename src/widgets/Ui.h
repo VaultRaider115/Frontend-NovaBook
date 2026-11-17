@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QDateEdit>
 #include <QDialog>
 #include <QFrame>
 #include <QGridLayout>
@@ -15,7 +16,9 @@ namespace Ui {
 
 QString money(double value);
 QString initials(const QString &fullName);
+QString phone(qint64 number); // 10 dígitos agrupados: 844 111 2233
 void repolish(QWidget *w);
+void spaced(QWidget *w, qreal px); // espaciado entre letras (QSS no lo soporta)
 
 QLabel *label(const QString &text, const char *objectName,
               QWidget *parent = nullptr);
@@ -39,6 +42,7 @@ QLabel *avatar(const QString &fullName, const char *tone = "gray",
                QWidget *parent = nullptr);
 
 QLineEdit *searchBox(const QString &placeholder, QWidget *parent = nullptr);
+void decorateDate(QDateEdit *d); // ícono de calendario a la izquierda
 QFrame *stepper(QSpinBox *spin, QWidget *parent = nullptr);
 QWidget *field(const QString &label, QWidget *input,
                QWidget *parent = nullptr); // etiqueta arriba
@@ -53,6 +57,8 @@ QTableWidgetItem *cellText(QTableWidget *t, int row, int col,
 void cellWidget(QTableWidget *t, int row, int col,
                 QWidget *w); // alineado a la izquierda con margen
 void cellWidgets(QTableWidget *t, int row, int col, const QList<QWidget *> &ws);
+// Ensancha la columna si un widget de celda no cabe (ResizeToContents lo ignora).
+void fitColumn(QTableWidget *t, int col, QWidget *content);
 
 // Diálogo de formulario (tarjeta con encabezado, cuerpo en rejilla y pie
 // Cancelar / Aceptar).

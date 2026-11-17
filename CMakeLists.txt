@@ -26,6 +26,8 @@ set(SOURCES
     src/main.cpp
     src/core/Theme.cpp
     src/core/ApiClient.cpp
+    src/core/InactivityWatcher.cpp
+    src/core/Documentos.cpp
     src/widgets/StatCard.cpp
     src/widgets/Toast.cpp
     src/widgets/Ui.cpp
@@ -40,16 +42,22 @@ set(SOURCES
     src/views/jefe/JefeGenerosView.cpp
     src/views/jefe/JefeMotivosView.cpp
     src/views/jefe/JefeMueblesView.cpp
+    src/views/jefe/JefeInventarioView.cpp
     src/views/bodega/BodegaDashboardView.cpp
     src/views/bodega/BodegaRegistroView.cpp
     src/views/bodega/BodegaAutoresView.cpp
     src/views/bodega/BodegaProveedoresView.cpp
     src/views/bodega/BodegaComprasView.cpp
+    src/views/bodega/BodegaIncidenciasView.cpp
     src/views/bodega/BodegaInventarioView.cpp
     src/views/vendedor/VendedorDashboardView.cpp
     src/views/vendedor/VendedorConsultaView.cpp
     src/views/vendedor/VendedorVentasView.cpp
     src/views/vendedor/VendedorDevolucionView.cpp
+    src/views/vendedor/VendedorMisDevolucionesView.cpp
+    src/views/vendedor/VendedorDevolucionClienteView.cpp
+    src/views/vendedor/VendedorInventarioView.cpp
+    src/views/vendedor/VendedorRecepcionView.cpp
     src/views/gerente/GerenteDashboardView.cpp
     src/views/gerente/GerenteUsuariosView.cpp
 )
@@ -58,6 +66,8 @@ set(HEADERS
     src/core/Theme.h
     src/core/Models.h
     src/core/ApiClient.h
+    src/core/InactivityWatcher.h
+    src/core/Documentos.h
     src/core/EanClassifier.h
     src/widgets/StatCard.h
     src/widgets/Toast.h
@@ -73,11 +83,13 @@ set(HEADERS
     src/views/jefe/JefeGenerosView.h
     src/views/jefe/JefeMotivosView.h
     src/views/jefe/JefeMueblesView.h
+    src/views/jefe/JefeInventarioView.h
     src/views/bodega/BodegaDashboardView.h
     src/views/bodega/BodegaRegistroView.h
     src/views/bodega/BodegaAutoresView.h
     src/views/bodega/BodegaProveedoresView.h
     src/views/bodega/BodegaComprasView.h
+    src/views/bodega/BodegaIncidenciasView.h
     src/views/bodega/BodegaTrasladoView.h
     src/views/bodega/BodegaInventarioView.h
     src/views/vendedor/VendedorDashboardView.h
@@ -85,6 +97,10 @@ set(HEADERS
     src/views/vendedor/VendedorVentasView.h
     src/views/vendedor/VendedorTrasladoView.h
     src/views/vendedor/VendedorDevolucionView.h
+    src/views/vendedor/VendedorMisDevolucionesView.h
+    src/views/vendedor/VendedorDevolucionClienteView.h
+    src/views/vendedor/VendedorInventarioView.h
+    src/views/vendedor/VendedorRecepcionView.h
     src/views/gerente/GerenteDashboardView.h
     src/views/gerente/GerenteUsuariosView.h
 )

@@ -13,8 +13,8 @@
 #include <QRegularExpressionValidator>
 
 GerenteUsuariosView::GerenteUsuariosView(QWidget *parent)
-    : CatalogView("Gerencia · CRUD Usuarios", "Administración de Usuarios",
-                  "Control completo de acceso del personal de la librería.",
+    : CatalogView("Gerencia · Catálogo de usuarios", "Administración y Gestión de Usuarios",
+                  "Control de acceso del personal de la librería.",
                   "Buscar por ID, nombre, rol o teléfono...", "Registrar Nuevo Usuario",
                   {"Número de empleado", "Colaborador", "Rol en sistema", "Teléfono", "Estado", "Acciones"}, 1, 0, parent)
 {
@@ -64,13 +64,23 @@ void GerenteUsuariosView::cargarUsuarios() {
         for (const auto &v : arr) m_usuarios.append(UsuarioDto::fromJson(v.toObject()));
 
         int activos = 0;
+        int gerentesActivos = 0;
+        for (const UsuarioDto &u : std::as_const(m_usuarios)) {
+            if (u.activo()) {
+                ++activos;
+                if (u.id_roles == 4) ++gerentesActivos;
+            }
+        }
+
+        const qint64 miId = ApiClient::instance()->currentUser().id_usuarios;
+
         for (const UsuarioDto &u : std::as_const(m_usuarios)) {
             const int r = appendRow(QString("%1 %2 %3 %4").arg(u.id_usuarios).arg(u.nombreCompleto(), Theme::roleName(u.id_roles)).arg(u.telefono));
             Ui::cellText(m_table, r, 0, QString::number(u.id_usuarios), true);
 
             auto *name = new QWidget();
             auto *nl = new QHBoxLayout(name);
-            nl->setContentsMargins(16, 0, 16, 0);
+            nl->setContentsMargins(0, 0, 0, 0);
             nl->setSpacing(12);
             nl->addWidget(Ui::avatar(u.nombreCompleto(), "gray", name));
             nl->addWidget(new QLabel(u.nombreCompleto(), name));
@@ -78,15 +88,38 @@ void GerenteUsuariosView::cargarUsuarios() {
             m_table->setCellWidget(r, 1, name);
 
             Ui::cellWidget(m_table, r, 2, Ui::chip(Theme::roleName(u.id_roles), chipRol(u.id_roles).toUtf8().constData()));
-            Ui::cellText(m_table, r, 3, u.telefono > 0 ? QString::number(u.telefono) : "—", false, false, Theme::TextMuted);
+            Ui::cellText(m_table, r, 3, u.telefono > 0 ? Ui::phone(u.telefono) : "—", false, false, Theme::TextMuted);
             Ui::cellWidget(m_table, r, 4, Ui::chip(u.activo() ? "● Activo" : "Inactivo", u.activo() ? "ok" : "neutral"));
-            if (u.activo()) ++activos;
 
             const bool activo = u.activo();
-            Ui::cellWidgets(m_table, r, 5, rowActions(u.nombreCompleto(),
+            const bool esMismoUsuario = (u.id_usuarios == miId);
+            const bool esUnicoGerente = (u.id_roles == 4 && activo && gerentesActivos <= 1);
+            const bool puedeDarDeBaja = !activo || (!esMismoUsuario && !esUnicoGerente);
+
+            auto actions = rowActions(u.nombreCompleto(),
                 [this, u]() { abrirFormulario(&u); },
-                [this, u]() { if (u.activo()) darDeBaja(u); else reactivar(u); },
-                activo ? "trash" : "check-gold", activo ? "Eliminar" : "Reactivar"));
+                [this, u, puedeDarDeBaja, esMismoUsuario, esUnicoGerente]() {
+                    if (!u.activo()) {
+                        reactivar(u);
+                        return;
+                    }
+                    if (esMismoUsuario) {
+                        Toast::showToast(this, "No puedes dar de baja tu propio usuario", Toast::Warning);
+                        return;
+                    }
+                    if (esUnicoGerente) {
+                        Toast::showToast(this, "Debe permanecer al menos un gerente activo en el sistema", Toast::Warning);
+                        return;
+                    }
+                    darDeBaja(u);
+                },
+                activo ? "trash" : "check-gold", activo ? "Eliminar" : "Reactivar");
+
+            if (activo && !puedeDarDeBaja && actions.size() > 1) {
+                actions.last()->setEnabled(false);
+                actions.last()->setVisible(false);
+            }
+            Ui::cellWidgets(m_table, r, 5, actions);
         }
         finishRows(QString("Total de usuarios: %1 · %2 activos · %3 inactivos")
                        .arg(m_usuarios.size()).arg(activos).arg(m_usuarios.size() - activos));
@@ -95,32 +128,53 @@ void GerenteUsuariosView::cargarUsuarios() {
 
 void GerenteUsuariosView::abrirFormulario(const UsuarioDto *u) {
     const bool edit = u != nullptr;
+    int gerentesActivos = 0;
+    for (const UsuarioDto &item : std::as_const(m_usuarios)) {
+        if (item.activo() && item.id_roles == 4) ++gerentesActivos;
+    }
+    const bool esMismoUsuario = edit && u->id_usuarios == ApiClient::instance()->currentUser().id_usuarios;
+    const bool esUnicoGerente = edit && u->id_roles == 4 && u->activo() && gerentesActivos <= 1;
+    const bool bloquearCambioRol = esMismoUsuario || esUnicoGerente;
+
     Ui::FormDialog dlg(edit ? "Modificar Empleado" : "Registrar Nuevo Empleado", edit ? "Actualizar Empleado" : "Registrar Empleado", this);
 
     auto *txtId = new QLineEdit(edit ? QString::number(u->id_usuarios) : QString(), &dlg);
     txtId->setPlaceholderText("Ej: 350925976");
-    txtId->setMaxLength(19);
-    txtId->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,19}"), txtId));
+    txtId->setMaxLength(18);
+    txtId->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,18}"), txtId));
     txtId->setEnabled(!edit);
+
+    const QRegularExpression rxNombre("^[\\p{L} '\\-\\.]+$");
     auto *txtNombre = new QLineEdit(edit ? u->nombre : QString(), &dlg);
     txtNombre->setPlaceholderText("Ej: Maria");
     txtNombre->setMaxLength(50);
+
     auto *comboRol = new QComboBox(&dlg);
     comboRol->addItem("Vendedor", 3);
     comboRol->addItem("Personal de Bodega", 2);
     comboRol->addItem("Jefe de Departamento", 1);
     comboRol->addItem("Gerente General", 4);
     if (edit) comboRol->setCurrentIndex(comboRol->findData(u->id_roles));
+    if (bloquearCambioRol) {
+        comboRol->setEnabled(false);
+        comboRol->setToolTip(esMismoUsuario ? "No puedes cambiar tu propio rol"
+                                            : "No puedes cambiar el rol del único gerente activo del sistema");
+    }
+
     auto *txtPat = new QLineEdit(edit ? u->apellido_paterno : QString(), &dlg);
     txtPat->setPlaceholderText("Ej: Antonieta");
     txtPat->setMaxLength(30);
+
     auto *txtMat = new QLineEdit(edit ? u->apellido_materno : QString(), &dlg);
     txtMat->setPlaceholderText("Ej: de Las Nieves");
     txtMat->setMaxLength(30);
+
     auto *txtTel = new QLineEdit(edit && u->telefono > 0 ? QString::number(u->telefono) : QString(), &dlg);
     txtTel->setPlaceholderText("10 dígitos, ej. 8443509259");
     txtTel->setMaxLength(10);
-    txtTel->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,10}"), txtTel));
+    // Solo dígitos y sin 0 inicial (mismas reglas que la API).
+    txtTel->setValidator(new QRegularExpressionValidator(QRegularExpression("[1-9][0-9]{0,9}"), txtTel));
+
     auto *txtPass = new QLineEdit(&dlg);
     txtPass->setEchoMode(QLineEdit::Password);
     txtPass->setMaxLength(16);
@@ -143,54 +197,121 @@ void GerenteUsuariosView::abrirFormulario(const UsuarioDto *u) {
     dlg.addField("Rol en sistema", comboRol, 3, 0, 2);
 
     QPointer<QDialog> guard(&dlg);
-    connect(dlg.okButton(), &QPushButton::clicked, &dlg, [&, edit, u]() {
+    QPointer<GerenteUsuariosView> self(this);
+    connect(dlg.okButton(), &QPushButton::clicked, &dlg, [&, edit, u, guard, self, bloquearCambioRol, rxNombre]() {
         bool okId = false;
         const qint64 id = txtId->text().trimmed().toLongLong(&okId);
         if (!okId || id <= 0) {
-            Toast::showToast(&dlg, "El número de empleado debe ser numérico y válido", Toast::Warning);
+            Toast::showToast(&dlg, "El número de empleado debe ser numérico y mayor a 0", Toast::Warning);
+            txtId->setFocus();
             return;
         }
-        if (txtNombre->text().trimmed().isEmpty() || (!edit && txtPass->text().trimmed().isEmpty())) {
-            Toast::showToast(&dlg, "Nombre y contraseña son obligatorios", Toast::Warning);
+        if (!edit) {
+            for (const UsuarioDto &item : std::as_const(m_usuarios)) {
+                if (item.id_usuarios == id) {
+                    Toast::showToast(&dlg, "Ya existe un empleado registrado con ese número", Toast::Warning);
+                    txtId->setFocus();
+                    return;
+                }
+            }
+        }
+
+        const QString nombre = txtNombre->text().simplified();   // sin espacios sobrantes, como la API
+        if (nombre.isEmpty()) {
+            Toast::showToast(&dlg, "El nombre es obligatorio", Toast::Warning);
+            txtNombre->setFocus();
             return;
         }
-        if (!txtTel->text().trimmed().isEmpty() && txtTel->text().trimmed().size() != 10) {
-            Toast::showToast(&dlg, "El teléfono debe contener exactamente 10 dígitos", Toast::Warning);
+        if (!rxNombre.match(nombre).hasMatch()) {
+            Toast::showToast(&dlg, "El nombre solo debe contener letras y espacios", Toast::Warning);
+            txtNombre->setFocus();
             return;
         }
-        if (!txtPass->text().isEmpty() && txtPass->text().trimmed().isEmpty()) {
+
+        const QString pat = txtPat->text().simplified();
+        if (!pat.isEmpty() && !rxNombre.match(pat).hasMatch()) {
+            Toast::showToast(&dlg, "El apellido paterno solo debe contener letras y espacios", Toast::Warning);
+            txtPat->setFocus();
+            return;
+        }
+
+        const QString mat = txtMat->text().simplified();
+        if (!mat.isEmpty() && !rxNombre.match(mat).hasMatch()) {
+            Toast::showToast(&dlg, "El apellido materno solo debe contener letras y espacios", Toast::Warning);
+            txtMat->setFocus();
+            return;
+        }
+
+        const QString telStr = txtTel->text().trimmed();
+        // Mismos mensajes que la API.
+        if (telStr.startsWith('0')) {
+            Toast::showToast(&dlg, "El teléfono no puede empezar con 0", Toast::Warning);
+            txtTel->setFocus();
+            return;
+        }
+        if (!telStr.isEmpty() && telStr.size() != 10) {
+            Toast::showToast(&dlg, QString("El teléfono debe tener exactamente 10 dígitos (tiene %1)").arg(telStr.size()),
+                             Toast::Warning);
+            txtTel->setFocus();
+            return;
+        }
+
+        const QString pass = txtPass->text();
+        if (!edit && pass.trimmed().isEmpty()) {
+            Toast::showToast(&dlg, "La contraseña es obligatoria", Toast::Warning);
+            txtPass->setFocus();
+            return;
+        }
+        if (!pass.isEmpty() && pass.trimmed().isEmpty()) {
             Toast::showToast(&dlg, "La contraseña no puede contener solo espacios", Toast::Warning);
+            txtPass->setFocus();
             return;
         }
-        if (txtPass->text().size() > 16) {
+        if (pass.size() > 16) {
             Toast::showToast(&dlg, "La contraseña no puede exceder 16 caracteres", Toast::Warning);
+            txtPass->setFocus();
             return;
         }
+
+        if (bloquearCambioRol && comboRol->currentData().toInt() != u->id_roles) {
+            Toast::showToast(&dlg, "Debe permanecer al menos un gerente activo en el sistema", Toast::Warning);
+            return;
+        }
+
         QJsonObject obj;
         if (!edit) obj["id_usuarios"] = id;
         obj["id_roles"] = comboRol->currentData().toInt();
-        obj["nombre"] = txtNombre->text().trimmed();
-        obj["apellido_paterno"] = txtPat->text().trimmed();
-        obj["apellido_materno"] = txtMat->text().trimmed();
-        if (!txtTel->text().trimmed().isEmpty()) {
+        obj["nombre"] = nombre;
+        obj["apellido_paterno"] = pat;
+        obj["apellido_materno"] = mat;
+        if (!telStr.isEmpty()) {
             bool okTelefono = false;
-            const qint64 telefono = txtTel->text().trimmed().toLongLong(&okTelefono);
-            if (!okTelefono) {
-                Toast::showToast(&dlg, "El teléfono debe ser numérico", Toast::Warning);
+            const qint64 telefono = telStr.toLongLong(&okTelefono);
+            if (!okTelefono || telefono < 1000000000LL) {
+                Toast::showToast(&dlg, "El teléfono debe ser numérico de 10 dígitos", Toast::Warning);
+                txtTel->setFocus();
                 return;
             }
             obj["telefono"] = telefono;
         }
-        if (!txtPass->text().isEmpty()) obj["contrasena"] = txtPass->text();
+        if (!pass.isEmpty()) obj["contrasena"] = pass;
 
-        auto done = [this, guard, edit](bool ok, const QJsonValue &, const QString &msg) {
+        dlg.okButton()->setEnabled(false);
+
+        auto done = [self, guard, edit](bool ok, const QJsonValue &, const QString &msg) {
             if (!ok) {
-                Toast::showToast(guard ? guard.data() : static_cast<QWidget *>(this), "No se pudo guardar el usuario: " + msg, Toast::Error);
+                if (guard) {
+                    guard->findChild<QPushButton *>(); // mantiene diálogo vivo
+                    static_cast<Ui::FormDialog *>(guard.data())->okButton()->setEnabled(true);
+                }
+                Toast::showToast(guard ? guard.data() : static_cast<QWidget *>(self.data()), "No se pudo guardar el usuario: " + msg, Toast::Error);
                 return;
             }
-            Toast::showToast(this, edit ? "Usuario actualizado correctamente" : "Usuario creado exitosamente", Toast::Success);
+            if (self) {
+                Toast::showToast(self, edit ? "Usuario actualizado correctamente" : "Usuario creado exitosamente", Toast::Success);
+                self->cargarUsuarios();
+            }
             if (guard) guard->accept();
-            cargarUsuarios();
         };
         if (edit) ApiClient::instance()->actualizarUsuario(u->id_usuarios, obj, done);
         else ApiClient::instance()->crearUsuario(obj, done);

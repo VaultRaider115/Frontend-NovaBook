@@ -97,7 +97,10 @@ struct AutorDto {
             if (v.isDouble()) { a.total_libros = v.toInt(); break; }
             if (v.isArray()) { a.total_libros = v.toArray().size(); break; }
         }
-        a.estatus = obj.value("estatus").toString(obj.value("estado").toString());
+        // La API devuelve "estado" como booleano (true = activo); también se acepta texto.
+        const QJsonValue est = obj.contains("estado") ? obj.value("estado") : obj.value("estatus");
+        if (est.isBool()) a.estatus = est.toBool() ? "Activo" : "Inactivo";
+        else a.estatus = est.toString();
         return a;
     }
 };
@@ -302,6 +305,8 @@ struct ItemDevolucion {
 
 struct Devolucion {
     qint64 id_devolucion = 0;
+    QString folio;            // p. ej. "DEV-2026-7"
+    QString solicitante_rol;
     QString fecha;
     int total_piezas = 0;
     QString estado;
@@ -316,11 +321,14 @@ struct Devolucion {
     QString proveedor_direccion;
     QString proveedor_contacto;
     QString tipo_producto;
+    QString observaciones;   // nota del Jefe al aprobar o rechazar
     QList<ItemDevolucion> items;
 
     static Devolucion fromJson(const QJsonObject &obj) {
         Devolucion d;
         d.id_devolucion = obj.value("id_devolucion").toVariant().toLongLong();
+        d.folio = obj.value("folio").toString();
+        d.solicitante_rol = obj.value("solicitante_rol").toString();
         d.fecha = obj.value("fecha").toString();
         d.total_piezas = obj.value("total_piezas").toInt();
         d.estado = obj.value("estado").toString();
@@ -335,6 +343,7 @@ struct Devolucion {
         d.proveedor_direccion = obj.value("proveedor_direccion").toString();
         d.proveedor_contacto = obj.value("proveedor_contacto").toString();
         d.tipo_producto = obj.value("tipo_producto").toString();
+        d.observaciones = obj.value("observaciones").toString();
 
         QJsonArray arr = obj.value("items").toArray();
         for (const auto &val : arr) {
@@ -350,10 +359,12 @@ struct MovimientoDiarioItem {
     QString rol;
     QString accion;
     QString detalle;
+    QString categoria;   // ACCESO, VENTA, COMPRA... (solo en la bitácora paginada)
 
     static MovimientoDiarioItem fromJson(const QJsonObject &obj) {
         MovimientoDiarioItem m;
         m.fecha_hora = obj.value("fecha_hora").toString();
+        m.categoria = obj.value("categoria").toString();
         m.usuario = obj.value("usuario").toString();
         m.rol = obj.value("rol").toString();
         m.accion = obj.value("accion").toString();
@@ -384,12 +395,14 @@ struct MotivoDto {
     int id_motivo = 0;
     QString nombre;
     QString descripcion;
+    int total_devoluciones = 0;
 
     static MotivoDto fromJson(const QJsonObject &obj) {
         MotivoDto m;
         m.id_motivo = obj.value("id_motivo").toInt();
         m.nombre = obj.value("nombre_motivo").toString(obj.value("motivo").toString(obj.value("nombre").toString()));
         m.descripcion = obj.value("descripcion").toString();
+        m.total_devoluciones = obj.value("total_devoluciones").toInt(0);
         return m;
     }
 };

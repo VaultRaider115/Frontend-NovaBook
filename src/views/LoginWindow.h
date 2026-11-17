@@ -18,6 +18,7 @@ public:
 private slots:
     void onLoginClicked();
     void onLogoutRequested();
+    void onSessionExpired(const QString &reason);
 
 private:
     QLineEdit *m_txtUsuario;

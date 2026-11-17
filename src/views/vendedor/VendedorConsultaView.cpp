@@ -40,13 +40,22 @@ VendedorConsultaView::VendedorConsultaView(QWidget *parent)
     m_comboUbicacion->setMinimumWidth(210);
     toolbar->addWidget(m_comboUbicacion);
 
-    m_btnBuscar = Ui::button("Buscar", "primary", filters);
+    m_btnBuscar = Ui::button("Buscar", "primary", filters, "search-dark");
     toolbar->addWidget(m_btnBuscar);
-    m_btnLimpiar = Ui::button("Restablecer filtros", "outline", filters);
+    m_btnLimpiar = Ui::button("Restablecer filtros", "outline", filters, "refresh");
     toolbar->addWidget(m_btnLimpiar);
     layout->addWidget(filters);
 
     m_table = Ui::table({"EAN", "SKU", "Título", "Tipo", "Autor / Editorial", "Géneros / Categoría", "Stock Tienda", "Stock Bodega", "Precio"}, 2, this, 64);
+    // Título y autor ajustan línea (como en el diseño) para que las 9 columnas quepan;
+    // las numéricas llevan ancho fijo para no acaparar espacio.
+    auto *hh = m_table->horizontalHeader();
+    hh->setSectionResizeMode(4, QHeaderView::Stretch);
+    for (int c : {6, 7, 8}) {
+        hh->setSectionResizeMode(c, QHeaderView::Fixed);
+        m_table->setColumnWidth(c, c == 8 ? 96 : 108);
+    }
+    m_table->setWordWrap(true);
     layout->addWidget(m_table, 1);
 
     connect(m_btnBuscar, &QPushButton::clicked, this, &VendedorConsultaView::buscarExistencias);
@@ -84,11 +93,16 @@ void VendedorConsultaView::buscarExistencias() {
             Ui::cellWidget(m_table, i, 3, Ui::tipoChip(ex.tipo_producto));
             Ui::cellText(m_table, i, 4, ex.autor_o_editorial.isEmpty() ? "—" : ex.autor_o_editorial);
 
-            QList<QWidget *> generos;
-            const QStringList lista = ex.generos.split(',', Qt::SkipEmptyParts);
-            for (const QString &g : lista) generos << Ui::chip(g.trimmed(), "neutral");
-            if (generos.isEmpty()) generos << Ui::chip("General", "neutral");
-            Ui::cellWidgets(m_table, i, 5, generos);
+            // Géneros apilados (uno por línea), como en el diseño.
+            auto *gen = new QWidget();
+            auto *gl = new QVBoxLayout(gen);
+            gl->setContentsMargins(0, 0, 0, 0);
+            gl->setSpacing(4);
+            QStringList lista = ex.generos.split(',', Qt::SkipEmptyParts);
+            if (lista.isEmpty()) lista << "General";
+            for (const QString &g : std::as_const(lista)) gl->addWidget(Ui::chip(g.trimmed(), "neutral"), 0, Qt::AlignLeft);
+            m_table->setCellWidget(i, 5, gen);
+            Ui::fitColumn(m_table, 5, gen);
 
             // Stock en cero se marca en rojo (el color no es el único indicador: el número se muestra siempre)
             if (ex.stock_tienda == 0) Ui::cellWidget(m_table, i, 6, Ui::chip("0", "danger"));

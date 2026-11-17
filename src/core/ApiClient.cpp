@@ -8,10 +8,11 @@
 
 using namespace std;
 
-static string loadApiUrl() {
-    const char* envUrl = getenv("API_URL");
-    if (envUrl && *envUrl != '\0') {
-        return string(envUrl);
+// Busca `key` en las variables de entorno y luego en el archivo .env.
+QString ApiClient::setting(const QString &key, const QString &fallback) {
+    const QByteArray envValue = qgetenv(key.toUtf8().constData());
+    if (!envValue.isEmpty()) {
+        return QString::fromUtf8(envValue);
     }
 
     const QStringList envFileCandidates = {
@@ -37,19 +38,18 @@ static string loadApiUrl() {
                 continue;
             }
 
-            const QString key = line.left(separator).trimmed();
             QString value = line.mid(separator + 1).trimmed();
             if (value.startsWith('"') && value.endsWith('"')) {
                 value = value.mid(1, value.length() - 2);
             }
 
-            if (key == "API_URL" && !value.isEmpty()) {
-                return value.toStdString();
+            if (line.left(separator).trimmed() == key && !value.isEmpty()) {
+                return value;
             }
         }
     }
 
-    return string("http://localhost:8080");
+    return fallback;
 }
 
 ApiClient* ApiClient::instance() {
@@ -60,7 +60,7 @@ ApiClient* ApiClient::instance() {
 ApiClient::ApiClient(QObject *parent)
     : QObject(parent)
     , m_nam(new QNetworkAccessManager(this))
-    , m_baseUrl(QString::fromStdString(loadApiUrl()))
+    , m_baseUrl(setting("API_URL", "http://localhost:8080"))
 {
 }
 
@@ -102,6 +102,34 @@ UsuarioDto ApiClient::currentUser() const {
     return m_currentUser;
 }
 
+bool ApiClient::handleUnauthorized(int httpStatus, const QString &sentToken, const QByteArray &body) {
+    // Sin token (p. ej. login con credenciales incorrectas) el 401 es un error normal.
+    if (httpStatus != 401 || sentToken.isEmpty()) {
+        return false;
+    }
+    // Respuesta de una sesión anterior: ya se cerró o se inició otra; se descarta.
+    if (sentToken != m_token) {
+        return true;
+    }
+
+    QString reason = "Tu sesión expiró. Vuelve a iniciar sesión.";
+    const QJsonObject err = QJsonDocument::fromJson(body).object().value("error").toObject();
+    if (err.value("code").toString() != "INVALID_TOKEN") {
+        const QString serverMsg = err.value("message").toString();
+        if (!serverMsg.isEmpty()) reason = serverMsg;
+    }
+
+    expireSession(reason);
+    return true;
+}
+
+void ApiClient::expireSession(const QString &reason) {
+    if (m_token.isEmpty()) return;   // ya no hay sesión: no notificar dos veces
+    m_token.clear();
+    m_currentUser = UsuarioDto();
+    emit sessionExpired(reason);
+}
+
 void ApiClient::sendRequest(const QString &verb, const QString &endpoint, const QUrlQuery &query,
                             const QByteArray &body, ApiCallback cb) {
     QUrl url(m_baseUrl + endpoint);
@@ -130,10 +158,14 @@ void ApiClient::sendRequest(const QString &verb, const QString &endpoint, const 
         return;
     }
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, cb]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, cb, sentToken = m_token]() {
         reply->deleteLater();
         int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         QByteArray respData = reply->readAll();
+
+        if (handleUnauthorized(httpStatus, sentToken, respData)) {
+            return;
+        }
 
         if (reply->error() != QNetworkReply::NoError && respData.isEmpty()) {
             if (cb) cb(false, QJsonValue(), QString("Error de red (%1): %2").arg(httpStatus).arg(reply->errorString()));
@@ -156,9 +188,6 @@ void ApiClient::sendRequest(const QString &verb, const QString &endpoint, const 
             if (root.contains("error") && root.value("error").isObject()) {
                 QJsonObject errObj = root.value("error").toObject();
                 message = errObj.value("message").toString(message);
-            }
-            if (httpStatus == 401) {
-                emit sessionExpired();
             }
             if (message.isEmpty()) {
                 message = QString("Error en la solicitud (Código HTTP %1)").arg(httpStatus);
@@ -294,6 +323,10 @@ void ApiClient::eliminarAutor(int id, ApiCallback cb) {
 
 // --- CRUD Proveedores ---
 
+void ApiClient::listarEditoriales(ApiCallback cb) {
+    sendRequest("GET", "/api/editoriales", QUrlQuery(), QByteArray(), cb);
+}
+
 void ApiClient::listarProveedores(ApiCallback cb) {
     sendRequest("GET", "/api/proveedores", QUrlQuery(), QByteArray(), cb);
 }
@@ -356,12 +389,21 @@ void ApiClient::consultarExistencias(const QString &q, const QString &tipo, int 
     if (!tipo.isEmpty()) query.addQueryItem("tipo", tipo);
     if (ubicacion > 0) query.addQueryItem("ubicacion", QString::number(ubicacion));
 
-    sendRequest("GET", "/api/vendedor/existencias", query, QByteArray(), cb);
+    // Bodega la usa para armar la requisición de salida (título y editorial) y el
+    // Jefe para ver los títulos de una solicitud de editorial.
+    const int rol = currentUser().id_roles;
+    const QString ruta = rol == 2 ? "/api/bodega/existencias" : (rol == 1 ? "/api/jefe/existencias" : "/api/vendedor/existencias");
+    sendRequest("GET", ruta, query, QByteArray(), cb);
 }
 
 void ApiClient::registrarVenta(const QString &cliente, const QJsonArray &items, ApiCallback cb) {
+    registrarVenta(cliente, "EFECTIVO", items, cb);
+}
+
+void ApiClient::registrarVenta(const QString &cliente, const QString &metodoPago, const QJsonArray &items, ApiCallback cb) {
     QJsonObject req;
     req["cliente"] = cliente;
+    req["metodo_pago"] = metodoPago;
     req["items"] = items;
     sendRequest("POST", "/api/vendedor/ventas", QUrlQuery(), QJsonDocument(req).toJson(), cb);
 }
@@ -394,9 +436,122 @@ void ApiClient::crearDevolucion(int idProveedor, const QString &tipo, const QJso
     sendRequest("POST", "/api/vendedor/devoluciones", QUrlQuery(), QJsonDocument(req).toJson(), cb);
 }
 
+void ApiClient::registrarRequisicion(bool salida, const QJsonArray &items, ApiCallback cb) {
+    QJsonObject req;
+    req["items"] = items;
+    sendRequest("POST", salida ? "/api/bodega/requisiciones" : "/api/vendedor/requisiciones",
+                QUrlQuery(), QJsonDocument(req).toJson(), cb);
+}
+
+namespace {
+// Bodega (rol 2) y Vendedor (rol 3) consultan requisiciones bajo su propio prefijo.
+QString prefijoRequisiciones(int rol) {
+    return rol == 2 ? QStringLiteral("/api/bodega/requisiciones") : QStringLiteral("/api/vendedor/requisiciones");
+}
+} // namespace
+
+void ApiClient::listarRequisiciones(const QString &tipo, const QString &estado, ApiCallback cb) {
+    QUrlQuery query;
+    if (!tipo.isEmpty()) query.addQueryItem("tipo", tipo);
+    if (!estado.isEmpty()) query.addQueryItem("estado", estado);
+    sendRequest("GET", prefijoRequisiciones(m_currentUser.id_roles), query, QByteArray(), cb);
+}
+
+void ApiClient::obtenerRequisicion(const QString &folio, ApiCallback cb) {
+    sendRequest("GET", prefijoRequisiciones(m_currentUser.id_roles) + "/" + QUrl::toPercentEncoding(folio),
+                QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::recibirRequisicion(const QString &folio, const QJsonArray &items, const QString &observaciones, ApiCallback cb) {
+    QJsonObject req;
+    req["items"] = items;
+    if (!observaciones.trimmed().isEmpty()) req["observaciones"] = observaciones.trimmed();
+    sendRequest("POST", "/api/vendedor/requisiciones/" + QUrl::toPercentEncoding(folio) + "/recepcion",
+                QUrlQuery(), QJsonDocument(req).toJson(), cb);
+}
+
+void ApiClient::listarIncidencias(const QString &estado, ApiCallback cb) {
+    QUrlQuery query;
+    if (!estado.isEmpty()) query.addQueryItem("estado", estado);
+    sendRequest("GET", "/api/bodega/incidencias", query, QByteArray(), cb);
+}
+
+void ApiClient::reponerIncidencia(qint64 idIncidencia, const QJsonArray &items, ApiCallback cb) {
+    sendRequest("POST", QString("/api/bodega/incidencias/%1/reposicion").arg(idIncidencia), QUrlQuery(),
+                QJsonDocument(QJsonObject{{"items", items}}).toJson(), cb);
+}
+
+void ApiClient::consultarMisDevoluciones(const QString &estado, ApiCallback cb) {
+    QUrlQuery query;
+    if (!estado.isEmpty()) query.addQueryItem("estado", estado);
+    sendRequest("GET", "/api/vendedor/devoluciones", query, QByteArray(), cb);
+}
+
+void ApiClient::consultarTicket(qint64 idVenta, ApiCallback cb) {
+    sendRequest("GET", QString("/api/vendedor/tickets/%1").arg(idVenta), QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::registrarDevolucionCliente(const QJsonObject &req, ApiCallback cb) {
+    sendRequest("POST", "/api/vendedor/devoluciones-cliente", QUrlQuery(), QJsonDocument(req).toJson(), cb);
+}
+
+// --- Inventario mensual ---
+
+void ApiClient::inventarioActual(ApiCallback cb) {
+    sendRequest("GET", "/api/vendedor/inventarios/actual", QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::abrirInventario(ApiCallback cb) {
+    sendRequest("POST", "/api/vendedor/inventarios", QUrlQuery(), QByteArray("{}"), cb);
+}
+
+void ApiClient::registrarConteo(qint64 idInventario, qint64 ean, int cantidad, ApiCallback cb) {
+    QJsonObject req{{"codigo_ean", ean}, {"cantidad", cantidad}};
+    sendRequest("PUT", QString("/api/vendedor/inventarios/%1/conteos").arg(idInventario), QUrlQuery(),
+                QJsonDocument(req).toJson(), cb);
+}
+
+void ApiClient::cerrarInventario(qint64 idInventario, ApiCallback cb) {
+    sendRequest("POST", QString("/api/vendedor/inventarios/%1/cerrar").arg(idInventario), QUrlQuery(),
+                QByteArray("{}"), cb);
+}
+
+void ApiClient::listarInventarios(ApiCallback cb) {
+    sendRequest("GET", "/api/jefe/inventarios", QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::obtenerInventario(qint64 idInventario, ApiCallback cb) {
+    sendRequest("GET", QString("/api/jefe/inventarios/%1").arg(idInventario), QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::revisarInventario(qint64 idInventario, bool aprobar, const QString &observaciones, ApiCallback cb) {
+    QJsonObject req{{"aprobar", aprobar}};
+    if (!observaciones.trimmed().isEmpty()) req["observaciones"] = observaciones.trimmed();
+    sendRequest("PUT", QString("/api/jefe/inventarios/%1/revisar").arg(idInventario), QUrlQuery(),
+                QJsonDocument(req).toJson(), cb);
+}
+
+void ApiClient::listarSolicitudesEditorial(ApiCallback cb) {
+    sendRequest("GET", "/api/jefe/solicitudes-editorial", QUrlQuery(), QByteArray(), cb);
+}
+
+void ApiClient::crearSolicitudEditorial(int idProveedor, const QString &referencia, const QList<qint64> &eans, ApiCallback cb) {
+    QJsonArray arr;
+    for (qint64 e : eans) arr.append(e);
+    QJsonObject req{{"id_proveedor", idProveedor}, {"referencia", referencia}, {"eans", arr}};
+    sendRequest("POST", "/api/jefe/solicitudes-editorial", QUrlQuery(), QJsonDocument(req).toJson(), cb);
+}
+
+void ApiClient::atenderSolicitudEditorial(qint64 idSolicitud, ApiCallback cb) {
+    sendRequest("PUT", QString("/api/jefe/solicitudes-editorial/%1/atender").arg(idSolicitud), QUrlQuery(),
+                QByteArray("{}"), cb);
+}
+
 void ApiClient::descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo, PdfCallback cb) {
     QString subpath = (tipo.toLower() == "revista") ? "revistas" : "libros";
-    const QString rolPath = m_currentUser.id_roles == 1 ? "jefe" : "vendedor";
+    // El acta la descargan su solicitante (ruta de vendedor), el Jefe o el Gerente.
+    const QString rolPath = m_currentUser.id_roles == 1 ? "jefe"
+                          : m_currentUser.id_roles == 4 ? "gerente" : "vendedor";
     QUrl url(QString("%1/api/%2/devoluciones/%3/pdf/%4")
                  .arg(m_baseUrl, rolPath)
                  .arg(idDevolucion)
@@ -408,10 +563,18 @@ void ApiClient::descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo,
     }
 
     QNetworkReply *reply = m_nam->get(request);
-    connect(reply, &QNetworkReply::finished, this, [reply, cb]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, cb, sentToken = m_token]() {
         reply->deleteLater();
+        const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QByteArray body = reply->readAll();
+        if (httpStatus == 401 && handleUnauthorized(httpStatus, sentToken, body)) {
+            return;
+        }
         if (reply->error() != QNetworkReply::NoError) {
-            if (cb) cb(false, QByteArray(), reply->errorString());
+            // La API explica el motivo en JSON (p. ej. "solo existe si está aprobada").
+            const QString apiMsg = QJsonDocument::fromJson(body).object()
+                                       .value("error").toObject().value("message").toString();
+            if (cb) cb(false, QByteArray(), apiMsg.isEmpty() ? reply->errorString() : apiMsg);
             return;
         }
 
@@ -421,8 +584,7 @@ void ApiClient::descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo,
             filename = disposition.section("filename=", 1, 1).replace("\"", "").trimmed();
         }
 
-        QByteArray data = reply->readAll();
-        if (cb) cb(true, data, filename);
+        if (cb) cb(true, body, filename);
     });
 }
 
@@ -434,7 +596,9 @@ void ApiClient::consultarHistorialDevoluciones(const QString &fecha, const QStri
     if (!estado.isEmpty() && estado != "Todos") query.addQueryItem("estado", estado);
     if (idProveedor > 0) query.addQueryItem("id_proveedor", QString::number(idProveedor));
 
-    sendRequest("GET", "/api/jefe/devoluciones/historial", query, QByteArray(), cb);
+    // El Gerente consulta el mismo historial por su propia ruta (solo lectura).
+    const QString base = m_currentUser.id_roles == 4 ? "/api/gerente" : "/api/jefe";
+    sendRequest("GET", base + "/devoluciones/historial", query, QByteArray(), cb);
 }
 
 void ApiClient::consultarMovimientoDiario(const QString &fecha, ApiCallback cb) {
@@ -442,6 +606,17 @@ void ApiClient::consultarMovimientoDiario(const QString &fecha, ApiCallback cb) 
     if (!fecha.isEmpty()) query.addQueryItem("fecha", fecha);
 
     sendRequest("GET", "/api/jefe/movimientos/diarios", query, QByteArray(), cb);
+}
+
+void ApiClient::consultarBitacora(const QString &desde, const QString &hasta, const QString &categoria,
+                                  int page, int perPage, ApiCallback cb) {
+    QUrlQuery query;
+    query.addQueryItem("desde", desde);
+    query.addQueryItem("hasta", hasta);
+    if (!categoria.isEmpty()) query.addQueryItem("categoria", categoria);
+    query.addQueryItem("page", QString::number(page));
+    query.addQueryItem("per_page", QString::number(perPage));
+    sendRequest("GET", "/api/jefe/bitacora", query, QByteArray(), cb);
 }
 
 void ApiClient::aprobarDevolucion(qint64 idDevolucion, bool aprobar, const QString &notas, ApiCallback cb) {

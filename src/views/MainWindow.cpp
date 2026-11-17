@@ -26,6 +26,8 @@
 #include "BodegaDashboardView.h"
 #include "BodegaRegistroView.h"
 #include "BodegaComprasView.h"
+#include "BodegaIncidenciasView.h"
+#include "VendedorRecepcionView.h"
 #include "BodegaAutoresView.h"
 #include "BodegaProveedoresView.h"
 #include "BodegaTrasladoView.h"
@@ -37,6 +39,10 @@
 #include "VendedorVentasView.h"
 #include "VendedorTrasladoView.h"
 #include "VendedorDevolucionView.h"
+#include "VendedorMisDevolucionesView.h"
+#include "VendedorDevolucionClienteView.h"
+#include "VendedorInventarioView.h"
+#include "JefeInventarioView.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -157,9 +163,12 @@ void MainWindow::buildRoleViews() {
         // --- GERENTE / SUBGERENTE  (RF01: CRUD Usuarios) ---
         auto *dash     = new GerenteDashboardView(m_stack);
         auto *usuarios = new GerenteUsuariosView(m_stack);
+        // Consulta de devoluciones y actas (sin aprobar: eso es del Jefe).
+        auto *devs     = new JefeDevolucionesView(/*puedeAprobar=*/false, m_stack);
 
         addPage("Panel Principal",     dash,     [dash]()     { dash->refreshData(); });
         addPage("Gestión de Usuarios", usuarios, [usuarios]() { usuarios->cargarUsuarios(); });
+        addPage("Devoluciones a Proveedor", devs, [devs]()   { devs->cargarDevoluciones(); });
 
     } else if (m_user.id_roles == 1) {
         // --- JEFE DE DEPARTAMENTO ---
@@ -173,12 +182,14 @@ void MainWindow::buildRoleViews() {
         // RF21: Gestionar Muebles y Estantería
         auto *dash     = new JefeDashboardView(m_stack);
         auto *bitacora = new JefeBitacoraView(m_stack);
-        auto *devs     = new JefeDevolucionesView(m_stack);
+        auto *devs     = new JefeDevolucionesView(/*puedeAprobar=*/true, m_stack);
         auto *usuarios = new JefeUsuariosView(m_stack);
         auto *autores  = new BodegaAutoresView("Jefatura · Gestión de autores", m_stack);
         auto *generos  = new JefeGenerosView(m_stack);
         auto *motivos  = new JefeMotivosView(m_stack);
         auto *muebles  = new JefeMueblesView(m_stack);
+        auto *prov     = new BodegaProveedoresView("Jefatura · Proveedores", true, m_stack);
+        auto *invMes   = new JefeInventarioView(m_stack);
 
         addPage("Panel Principal",            dash,     [dash]()     { dash->refreshData(); });
         addPage("Historial de Movimientos",   bitacora, [bitacora]() { bitacora->cargarMovimientos(); });
@@ -188,23 +199,29 @@ void MainWindow::buildRoleViews() {
         addPage("Catálogo de Géneros",        generos,  [generos]()  { generos->cargarGeneros(); });
         addPage("Catálogo de Motivos",        motivos,  [motivos]()  { motivos->cargarMotivos(); });
         addPage("Muebles y Estantería",       muebles,  [muebles]()  { muebles->cargarMuebles(); });
+        addPage("Proveedores",                prov,     [prov]()     { prov->cargarProveedores(); });
+        addPage("Inventario Mensual",         invMes,   [invMes]()   { invMes->cargar(); });
 
     } else if (m_user.id_roles == 2) {
         // --- BODEGA ---
         auto *dash = new BodegaDashboardView(m_stack);
         auto *registro = new BodegaRegistroView(m_stack);
         auto *compras = new BodegaComprasView(m_stack);
-        auto *autores = new BodegaAutoresView("Bodega · Gestión de autores", m_stack);
-        auto *prov = new BodegaProveedoresView(m_stack);
+        // Catálogos: Bodega solo da de alta proveedores nuevos (diagrama de procesos, paso 1);
+        // autores, géneros y muebles los administra el Jefe.
+        auto *prov = new BodegaProveedoresView("Bodega · Proveedores", false, m_stack);
         auto *traslado = new BodegaTrasladoView(m_stack);
+        auto *salidas = new VendedorRecepcionView(/*puedeRecibir=*/false, m_stack);
+        auto *incidencias = new BodegaIncidenciasView(m_stack);
         auto *inv = new BodegaInventarioView(m_stack);
 
         addPage("Panel Principal", dash, [dash]() { dash->refreshData(); });
         addPage("Alta de Mercancía (EAN)", registro, [registro]() { registro->cargarCatalogos(); });
         addPage("Compras a Proveedor", compras, [compras]() { compras->cargarProveedores(); });
-        addPage("Autores", autores, [autores]() { autores->cargarAutores(); });
+        addPage("Incidencias de Compra", incidencias, [incidencias]() { incidencias->cargar(); });
         addPage("Proveedores", prov, [prov]() { prov->cargarProveedores(); });
         addPage("Requisición de Salida", traslado);
+        addPage("Seguimiento de Salidas", salidas, [salidas]() { salidas->cargar(); });
         addPage("Consultar Inventario", inv, [inv]() { inv->cargarInventario(); });
 
     } else {
@@ -213,13 +230,21 @@ void MainWindow::buildRoleViews() {
         auto *consulta = new VendedorConsultaView(m_stack);
         auto *ventas = new VendedorVentasView(m_stack);
         auto *traslado = new VendedorTrasladoView(m_stack);
+        auto *recepcion = new VendedorRecepcionView(/*puedeRecibir=*/true, m_stack);
         auto *devolucion = new VendedorDevolucionView(m_stack);
+        auto *misDevs = new VendedorMisDevolucionesView(m_stack);
+        auto *devCliente = new VendedorDevolucionClienteView(m_stack);
+        auto *inventario = new VendedorInventarioView(m_stack);
 
         addPage("Panel Principal", dash, [dash]() { dash->refreshData(); });
         addPage("Consulta de Existencias", consulta, [consulta]() { consulta->buscarExistencias(); });
         addPage("Punto de Venta", ventas);
+        addPage("Devolución de Cliente", devCliente);
+        addPage("Recepción de Salida", recepcion, [recepcion]() { recepcion->cargar(); });
         addPage("Requisición de Entrada", traslado);
         addPage("Devoluciones a Proveedor", devolucion, [devolucion]() { devolucion->cargarCatalogos(); });
+        addPage("Mis Devoluciones", misDevs, [misDevs]() { misDevs->cargar(); });
+        addPage("Inventario Mensual", inventario, [inventario]() { inventario->cargar(); });
     }
 
     onNavButtonClicked(0);

@@ -10,6 +10,14 @@
     <file alias="plus-muted.svg">icons/plus-muted.svg</file>
     <file alias="minus-muted.svg">icons/minus-muted.svg</file>
     <file alias="search.svg">icons/search.svg</file>
+    <file alias="search-dark.svg">icons/search-dark.svg</file>
+    <file alias="refresh.svg">icons/refresh.svg</file>
+    <file alias="calendar-gold.svg">icons/calendar-gold.svg</file>
+    <file alias="card.svg">icons/card.svg</file>
+    <file alias="cash.svg">icons/cash.svg</file>
+    <file alias="phone.svg">icons/phone.svg</file>
+    <file alias="printer-dark.svg">icons/printer-dark.svg</file>
+    <file alias="user.svg">icons/user.svg</file>
     <file alias="scan-gold.svg">icons/scan-gold.svg</file>
     <file alias="x.svg">icons/x.svg</file>
     <file alias="eye.svg">icons/eye.svg</file>

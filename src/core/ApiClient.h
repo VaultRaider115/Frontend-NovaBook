@@ -27,6 +27,11 @@ public:
     QString token() const;
     bool isAuthenticated() const;
     void logout();
+    // Cierra la sesión sin intervención del usuario (401, inactividad) y emite sessionExpired.
+    void expireSession(const QString &reason);
+
+    // Valor de configuración: variable de entorno o, si no existe, línea KEY=valor del .env.
+    static QString setting(const QString &key, const QString &fallback = QString());
 
     void setCurrentUser(const UsuarioDto &user);
     UsuarioDto currentUser() const;
@@ -69,6 +74,7 @@ public:
 
     // --- CRUD Proveedores (Bodega / Gerente) ---
     void listarProveedores(ApiCallback cb);
+    void listarEditoriales(ApiCallback cb);
     void obtenerProveedor(int id, ApiCallback cb);
     void crearProveedor(const QJsonObject &provObj, ApiCallback cb);
     void actualizarProveedor(int id, const QJsonObject &provObj, ApiCallback cb);
@@ -81,29 +87,67 @@ public:
     void trasladoBodegaRevistas(qint64 ean, int cant, const QString &obs, ApiCallback cb);
     void registrarCompra(const QJsonObject &compraObj, ApiCallback cb);
     void listarCompras(ApiCallback cb);
+    // Incidencias por paquete incompleto (diagrama, paso 1). estado: "", "ABIERTA", "CERRADA".
+    void listarIncidencias(const QString &estado, ApiCallback cb);
+    // items: [{codigo_ean, cantidad}] que llegaron después.
+    void reponerIncidencia(qint64 idIncidencia, const QJsonArray &items, ApiCallback cb);
 
     // --- Vendedor ---
     void consultarExistencias(const QString &q, const QString &tipo, int ubicacion, ApiCallback cb);
     void registrarVenta(const QString &cliente, const QJsonArray &items, ApiCallback cb);
+    void registrarVenta(const QString &cliente, const QString &metodoPago, const QJsonArray &items, ApiCallback cb);
     void registrarVenta(const QJsonArray &items, ApiCallback cb);
+    // Requisición de varias partidas con folio (todo o nada).
+    // salida = true: Bodega → Piso (rol Bodega); false: Piso → Bodega (rol Vendedor).
+    // items: [{codigo_ean, cantidad}]
+    void registrarRequisicion(bool salida, const QJsonArray &items, ApiCallback cb);
+    // Requisiciones con su estado (Bodega y Vendedor; la ruta depende del rol en sesión).
+    // tipo: "", "SALIDA", "ENTRADA"; estado: "", "PENDIENTE", "CONFIRMADA", "CORREGIDA", "REGISTRADA".
+    void listarRequisiciones(const QString &tipo, const QString &estado, ApiCallback cb);
+    void obtenerRequisicion(const QString &folio, ApiCallback cb);
+    // Vendedor recibe la salida en piso (pasos 2 y 3): items [{codigo_ean, cantidad_recibida, id_mueble}].
+    void recibirRequisicion(const QString &folio, const QJsonArray &items, const QString &observaciones, ApiCallback cb);
     void trasladoTiendaLibros(qint64 ean, int cant, const QString &obs, ApiCallback cb);
     void trasladoTiendaRevistas(qint64 ean, int cant, const QString &obs, ApiCallback cb);
     void crearDevolucion(int idProveedor, const QString &tipo, const QJsonArray &items, ApiCallback cb);
     void descargarPdfDevolucion(qint64 idDevolucion, const QString &tipo, PdfCallback cb);
+    // Vendedor: sus propias solicitudes de devolución (estado: "Todos", "PENDIENTE", ...)
+    void consultarMisDevoluciones(const QString &estado, ApiCallback cb);
+    // Devolución de cliente con ticket (máx. 15 días): consulta y registro.
+    void consultarTicket(qint64 idVenta, ApiCallback cb);
+    void registrarDevolucionCliente(const QJsonObject &req, ApiCallback cb);
+
+    // Inventario mensual (Vendedor cuenta; Jefe revisa) y solicitudes de editorial.
+    void inventarioActual(ApiCallback cb);
+    void abrirInventario(ApiCallback cb);
+    void registrarConteo(qint64 idInventario, qint64 ean, int cantidad, ApiCallback cb);
+    void cerrarInventario(qint64 idInventario, ApiCallback cb);
+    void listarInventarios(ApiCallback cb);
+    void obtenerInventario(qint64 idInventario, ApiCallback cb);
+    void revisarInventario(qint64 idInventario, bool aprobar, const QString &observaciones, ApiCallback cb);
+    void listarSolicitudesEditorial(ApiCallback cb);
+    void crearSolicitudEditorial(int idProveedor, const QString &referencia, const QList<qint64> &eans, ApiCallback cb);
+    void atenderSolicitudEditorial(qint64 idSolicitud, ApiCallback cb);
 
     // --- Jefe de Departamento ---
     void consultarHistorialDevoluciones(const QString &fecha, const QString &estado, int idProveedor, ApiCallback cb);
     void consultarMovimientoDiario(const QString &fecha, ApiCallback cb);
+    void consultarBitacora(const QString &desde, const QString &hasta, const QString &categoria, int page, int perPage, ApiCallback cb);
     void aprobarDevolucion(qint64 idDevolucion, bool aprobar, const QString &notas, ApiCallback cb);
 
 signals:
-    void sessionExpired();
+    // Se emite una sola vez cuando el servidor rechaza (401) el token vigente.
+    void sessionExpired(const QString &reason);
     void userLoggedIn(const UsuarioDto &user);
     void userLoggedOut();
 
 private:
     explicit ApiClient(QObject *parent = nullptr);
     ~ApiClient() override = default;
+
+    // Devuelve true si el 401 invalidó la sesión actual (y ya se notificó);
+    // en ese caso la respuesta no debe llegar a la vista.
+    bool handleUnauthorized(int httpStatus, const QString &sentToken, const QByteArray &body);
 
     void sendRequest(const QString &verb, const QString &endpoint, const QUrlQuery &query,
                      const QByteArray &body, ApiCallback cb);

@@ -3,13 +3,10 @@
 #include "Ui.h"
 #include "ApiClient.h"
 #include "Toast.h"
+#include "Documentos.h"
 #include "EanClassifier.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QFileDialog>
-#include <QFile>
-#include <QDir>
-#include <QFileInfo>
 #include <QSharedPointer>
 
 VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
@@ -22,7 +19,7 @@ VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
     // Encabezado + proveedor destino
     auto *top = new QHBoxLayout();
     top->setSpacing(24);
-    top->addWidget(Ui::pageHeader("Logística", "Gestión de Devoluciones a Proveedor",
+    top->addWidget(Ui::pageHeader("Vendedor · Logística","Gestión de Devoluciones a Proveedor",
                                   "Registra artículos para devolución con descarga de acta PDF.", this), 1);
 
     auto *provCard = Ui::card(this);
@@ -55,9 +52,8 @@ VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
     row->addWidget(Ui::field("Cantidad", Ui::stepper(m_spnCantidad, addCard), addCard));
 
     m_comboMotivo = new QComboBox(addCard);
-    m_comboMotivo->setEditable(true); // si el catálogo no carga, se puede escribir el motivo
+    m_comboMotivo->setPlaceholderText("Selecciona un motivo");
     m_comboMotivo->setCurrentIndex(-1);
-    m_comboMotivo->lineEdit()->setPlaceholderText("Selecciona un motivo");
     row->addWidget(Ui::field("Motivo de devolución", m_comboMotivo, addCard), 2);
 
     m_btnAgregar = Ui::button("Añadir a Devolución", "tint", addCard, "plus-gold");
@@ -83,7 +79,9 @@ VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
     auto *tl = new QVBoxLayout(tot);
     tl->setContentsMargins(0, 0, 0, 0);
     tl->setSpacing(2);
-    tl->addWidget(Ui::label("Total piezas a devolver", "FieldLabel", tot));
+    auto *totLbl = Ui::label("TOTAL PIEZAS A DEVOLVER", "FieldLabel", tot);
+    Ui::spaced(totLbl, 0.8);
+    tl->addWidget(totLbl);
     m_lblTotal = Ui::label("0", "BigNumber", tot);
     tl->addWidget(m_lblTotal);
     fl->addWidget(tot);
@@ -93,7 +91,9 @@ VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
     auto *ll = new QVBoxLayout(lote);
     ll->setContentsMargins(0, 0, 0, 0);
     ll->setSpacing(2);
-    ll->addWidget(Ui::label("Lote de devolución", "FieldLabel", lote));
+    auto *loteLbl = Ui::label("LOTE DE DEVOLUCIÓN", "FieldLabel", lote);
+    Ui::spaced(loteLbl, 0.8);
+    ll->addWidget(loteLbl);
     m_lblLote = Ui::label("—", "Gold", lote);
     m_lblLote->setStyleSheet(QString("font-family: %1; font-size: 18px;").arg(Theme::FontMono));
     ll->addWidget(m_lblLote);
@@ -135,7 +135,10 @@ void VendedorDevolucionView::cargarCatalogos() {
         if (!ok || !data.isArray()) return;
         m_comboMotivo->clear();
         const QJsonArray arr = data.toArray();
-        for (const auto &v : arr) m_comboMotivo->addItem(MotivoDto::fromJson(v.toObject()).nombre);
+        for (const auto &v : arr) {
+            const MotivoDto m = MotivoDto::fromJson(v.toObject());
+            m_comboMotivo->addItem(m.nombre, m.id_motivo);
+        }
         m_comboMotivo->setCurrentIndex(-1);
     });
 }
@@ -157,7 +160,8 @@ void VendedorDevolucionView::onAgregarArticulo() {
         return;
     }
     const QString motivo = m_comboMotivo->currentText().trimmed();
-    if (motivo.isEmpty()) {
+    const int idMotivo = m_comboMotivo->currentIndex() >= 0 ? m_comboMotivo->currentData().toInt() : 0;
+    if (motivo.isEmpty() || idMotivo <= 0) {
         Toast::showToast(this, "Selecciona el motivo de la devolución", Toast::Warning);
         return;
     }
@@ -166,11 +170,19 @@ void VendedorDevolucionView::onAgregarArticulo() {
     const int cant = m_spnCantidad->value();
     const QString tipo = eanRes.tipo == EanClassifier::Tipo::Libro ? "libro" : "revista";
 
-    ApiClient::instance()->consultarExistencias(eanStr, tipo, 0, [this, ean, cant, tipo, motivo](bool ok, const QJsonValue &data, const QString &) {
+    // Límite de 60 piezas por solicitud (se valida también en la API)
+    int yaAgregadas = 0;
+    for (const auto &it : std::as_const(m_items)) if (it.tipo == tipo) yaAgregadas += it.cantidad;
+    if (yaAgregadas + cant > 60) {
+        Toast::showToast(this, QString("Una devolución no puede exceder 60 piezas (llevas %1)").arg(yaAgregadas), Toast::Warning);
+        return;
+    }
+
+    ApiClient::instance()->consultarExistencias(eanStr, tipo, 0, [this, ean, cant, tipo, motivo, idMotivo](bool ok, const QJsonValue &data, const QString &) {
         QString titulo = QString("Artículo %1").arg(ean);
         if (ok && data.isArray() && !data.toArray().isEmpty())
             titulo = data.toArray().first().toObject().value("titulo").toString(titulo);
-        m_items.append({ean, tipo, titulo, cant, motivo});
+        m_items.append({ean, tipo, titulo, cant, motivo, idMotivo});
         renderItems();
 
         m_txtEan->clear();
@@ -213,7 +225,7 @@ void VendedorDevolucionView::onEnviarDevolucion() {
     QStringList tipos;
     for (const auto &it : std::as_const(m_items)) if (!tipos.contains(it.tipo)) tipos << it.tipo;
 
-    struct Estado { int pendientes; QList<QPair<qint64, QString>> ok; QString error; };
+    struct Estado { int pendientes; QList<QPair<qint64, QString>> ok; QStringList folios; QString error; };
     auto st = QSharedPointer<Estado>::create();
     st->pendientes = tipos.size();
     m_btnEnviar->setEnabled(false);
@@ -225,12 +237,17 @@ void VendedorDevolucionView::onEnviarDevolucion() {
             QJsonObject o;
             o["codigo_ean"] = it.ean;
             o["cantidad"] = it.cantidad;
-            o["motivo"] = it.motivo;
+            o["id_motivo"] = it.id_motivo;
             itemsArr.append(o);
         }
         ApiClient::instance()->crearDevolucion(provId, tipo, itemsArr, [this, st, tipo](bool ok, const QJsonValue &data, const QString &msg) {
-            if (ok && data.isObject()) st->ok << qMakePair(Devolucion::fromJson(data.toObject()).id_devolucion, tipo);
-            else st->error = msg;
+            if (ok && data.isObject()) {
+                const Devolucion d = Devolucion::fromJson(data.toObject());
+                st->ok << qMakePair(d.id_devolucion, tipo);
+                st->folios << "#" + (d.folio.isEmpty() ? QString("DEV-%1").arg(d.id_devolucion) : d.folio);
+            } else {
+                st->error = msg;
+            }
             if (--st->pendientes > 0) return;
 
             m_btnEnviar->setEnabled(true);
@@ -239,14 +256,13 @@ void VendedorDevolucionView::onEnviarDevolucion() {
                 return;
             }
             m_ultimas = st->ok;
-            QStringList folios;
-            for (const auto &r : std::as_const(m_ultimas)) folios << QString("#DEV-%1").arg(r.first);
-            m_lblLote->setText(folios.join(" · "));
+            m_btnPdf->setToolTip("El acta se puede descargar cuando el Jefe apruebe la solicitud");
+            m_lblLote->setText(st->folios.join(" · "));
             m_btnPdf->setEnabled(true);
             m_items.clear();
             renderItems();
             Toast::showToast(this, st->error.isEmpty()
-                ? "Solicitud registrada. Requiere autorización del Jefe."
+                ? "Solicitud registrada. Requiere autorización del Jefe; revisa su estado en «Mis Devoluciones»."
                 : "Solo se registró una parte de la solicitud: " + st->error,
                 st->error.isEmpty() ? Toast::Success : Toast::Warning);
         });
@@ -256,28 +272,16 @@ void VendedorDevolucionView::onEnviarDevolucion() {
 void VendedorDevolucionView::onDescargarPdf() {
     if (m_ultimas.isEmpty()) return;
 
-    QString dir;
-    if (m_ultimas.size() == 1) {
-        const QString path = QFileDialog::getSaveFileName(this, "Guardar Acta de Devolución en PDF",
-            QString("devolucion_%1_%2.pdf").arg(m_ultimas.first().first).arg(m_ultimas.first().second), "Archivos PDF (*.pdf)");
-        if (path.isEmpty()) return;
-        dir = path;
-    } else {
-        dir = QFileDialog::getExistingDirectory(this, "Carpeta donde guardar las actas (libros y revistas)");
-        if (dir.isEmpty()) return;
-    }
-
+    // Una acta por solicitud (libros y revistas van separadas). La API solo la
+    // entrega si el Jefe ya aprobó; si no, su mensaje lo explica.
     for (const auto &r : std::as_const(m_ultimas)) {
-        const QString path = m_ultimas.size() == 1 ? dir
-            : QDir(dir).filePath(QString("devolucion_%1_%2.pdf").arg(r.first).arg(r.second));
-        ApiClient::instance()->descargarPdfDevolucion(r.first, r.second, [this, path](bool ok, const QByteArray &bytes, const QString &msg) {
-            QFile f(path);
-            if (!ok || bytes.isEmpty() || !f.open(QIODevice::WriteOnly)) {
-                Toast::showToast(this, "No se pudo guardar el acta: " + msg, Toast::Error);
+        const qint64 id = r.first;
+        ApiClient::instance()->descargarPdfDevolucion(id, r.second, [this, id](bool ok, const QByteArray &bytes, const QString &msg) {
+            if (!ok) {
+                Toast::showToast(this, QString("Acta #DEV-%1: %2").arg(id).arg(msg), Toast::Warning, 6000);
                 return;
             }
-            f.write(bytes);
-            Toast::showToast(this, "Acta PDF guardada: " + QFileInfo(path).fileName(), Toast::Success);
+            Documentos::guardarYAbrir(this, bytes, QString("acta_DEV-%1.pdf").arg(id));
         });
     }
 }

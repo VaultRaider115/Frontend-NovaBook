@@ -13,12 +13,16 @@ class JefeDevolucionesView : public QWidget {
     Q_OBJECT
 
 public:
-    explicit JefeDevolucionesView(QWidget *parent = nullptr);
+    // puedeAprobar = false: modo consulta para el Gerente (ve el historial y
+    // descarga actas; aprobar/rechazar es solo del Jefe).
+    explicit JefeDevolucionesView(bool puedeAprobar = true, QWidget *parent = nullptr);
     void cargarDevoluciones();
 
 private:
+    bool m_puedeAprobar;
     void evaluar(const Devolucion &dev, bool aprobar);
     void verActaPdf(const Devolucion &dev);
+    bool mostrarDetalle(const Devolucion &dev, const QString &okText);
 
     QDateEdit *m_fecha;
     QCheckBox *m_chkTodasFechas;

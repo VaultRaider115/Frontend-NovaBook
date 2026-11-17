@@ -28,6 +28,7 @@ private:
     QLabel *m_lblTotal;
     PagerBar *m_pager;
 
-    QList<MovimientoDiarioItem> m_todos;     // todo el rango consultado
-    QList<MovimientoDiarioItem> m_filtrados; // tras filtrar por tipo de evento
+    QList<MovimientoDiarioItem> m_pagina;   // filas de la página actual (paginación en el servidor)
+    int m_total = 0;                        // eventos que cumplen el filtro
+    bool m_cargando = false;
 };
