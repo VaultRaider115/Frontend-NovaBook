@@ -8,6 +8,16 @@ Rama `integracion-validaciones`: pantallas iguales a los diseños de
 `docs/disenos/` y conectadas a la API del esquema unificado.
 
 ### Added
+- Los campos de EAN aceptan solo dígitos y máximo 13 (`Ui::eanInput`) en
+  Compras, Alta, Ventas, Devoluciones (proveedor y cliente), Requisiciones e
+  Inventario Mensual.
+- Compras a Proveedor: el número de factura lleva el prefijo fijo `F-` y solo
+  se escribe el número (si escriben "F-12" no se repite).
+- **Facturas registradas** (Compras a Proveedor): segunda sección con las
+  facturas ya capturadas (factura, proveedor, fecha, quién la registró,
+  títulos, piezas y total), buscador por factura, proveedor, título o EAN, y
+  el icono del ojo (o doble clic) con lo que se compró en cada una. Usa
+  `GET /api/bodega/compras`; `CompraResponse` ahora lee `factura`.
 - Revisión del equipo (16-nov):
   - **Aprobación de Devoluciones**: icono del ojo con la lista de lo que se
     devuelve (EAN, título, piezas, motivo); aprobar o rechazar se confirma

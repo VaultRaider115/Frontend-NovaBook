@@ -25,6 +25,7 @@ RequisicionView::RequisicionView(const QString &eyebrow, const QString &title, c
     row->setSpacing(16);
 
     m_txtEan = new QLineEdit(addCard);
+    Ui::eanInput(m_txtEan);
     m_txtEan->setPlaceholderText("9780000000000");
     m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
     row->addWidget(Ui::field("Código EAN-13", m_txtEan, addCard), 1);

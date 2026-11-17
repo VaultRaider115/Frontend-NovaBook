@@ -217,7 +217,7 @@ void MainWindow::buildRoleViews() {
 
         addPage("Panel Principal", dash, [dash]() { dash->refreshData(); });
         addPage("Alta de Mercancía (EAN)", registro, [registro]() { registro->cargarCatalogos(); });
-        addPage("Compras a Proveedor", compras, [compras]() { compras->cargarProveedores(); });
+        addPage("Compras a Proveedor", compras, [compras]() { compras->cargar(); });
         addPage("Incidencias de Compra", incidencias, [incidencias]() { incidencias->cargar(); });
         addPage("Proveedores", prov, [prov]() { prov->cargarProveedores(); });
         addPage("Requisición de Salida", traslado);

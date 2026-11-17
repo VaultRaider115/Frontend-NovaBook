@@ -31,6 +31,7 @@ BodegaRegistroView::BodegaRegistroView(QWidget *parent)
     eanLayout->setContentsMargins(0, 0, 0, 0);
     eanLayout->setSpacing(6);
     m_txtEan = new QLineEdit(eanBox);
+    Ui::eanInput(m_txtEan);
     m_txtEan->setProperty("tone", "gold");
     m_txtEan->setPlaceholderText("Escanear o ingresar EAN-13 (13 dígitos)");
     eanLayout->addWidget(m_txtEan);

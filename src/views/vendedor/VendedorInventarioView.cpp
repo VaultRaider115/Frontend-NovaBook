@@ -40,6 +40,7 @@ VendedorInventarioView::VendedorInventarioView(QWidget *parent)
     auto *sl = new QVBoxLayout(scanCard);
     sl->setContentsMargins(20, 20, 20, 20);
     m_txtEan = new QLineEdit(scanCard);
+    Ui::eanInput(m_txtEan);
     m_txtEan->setPlaceholderText("Escanea el código de barras (cada escaneo suma 1)");
     m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
     sl->addWidget(Ui::field("Código EAN-13", m_txtEan, scanCard));
