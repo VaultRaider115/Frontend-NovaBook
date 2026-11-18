@@ -9,7 +9,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Svg)
 
 include_directories(
     src
@@ -105,11 +105,15 @@ set(HEADERS
     src/views/gerente/GerenteUsuariosView.h
 )
 
-add_executable(novabook_frontend ${SOURCES} ${HEADERS} src/resources/resources.qrc)
+add_executable(novabook_frontend
+${SOURCES}
+${HEADERS}
+src/resources/resources.qrc)
 
 target_link_libraries(novabook_frontend PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
     Qt6::Network
+    Qt6::Svg
 )
