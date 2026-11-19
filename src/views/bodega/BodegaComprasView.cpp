@@ -113,7 +113,6 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     m_spnCosto->setRange(0.0, 99999.0);
     m_spnCosto->setValue(150.0);
     m_spnCosto->setPrefix("$ ");
-    m_spnCosto->setButtonSymbols(QAbstractSpinBox::NoButtons);
     m_spnCosto->setFixedWidth(130);
     addLayout->addWidget(Ui::field("Costo unitario", m_spnCosto, addCard));
 

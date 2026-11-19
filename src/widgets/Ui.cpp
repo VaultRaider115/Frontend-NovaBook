@@ -164,11 +164,19 @@ QFrame *stepper(QSpinBox *spin, QWidget *parent) {
 
     spin->setParent(f);
     spin->setProperty("bare", true);
-    spin->setButtonSymbols(QAbstractSpinBox::NoButtons);
-    spin->setAlignment(Qt::AlignCenter);
+    // Sin setButtonSymbols(NoButtons): con QSS deja el QLineEdit interno en 1 px
+    // (el número no se ve). Los botones nativos ya se ocultan en Theme.cpp (width: 0).
+    // QAbstractSpinBox solo acepta AlignLeft/Right/HCenter; AlignCenter se ignora.
+    spin->setAlignment(Qt::AlignHCenter);
+    if (auto *edit = spin->findChild<QLineEdit *>())
+        edit->setAlignment(Qt::AlignHCenter);
 
     auto *minus = iconButton("minus-muted", "Disminuir", f);
     auto *plus = iconButton("plus-muted", "Aumentar", f);
+    // Fijar el tamaño evita que el layout les asigne 0 px antes de aplicar el
+    // QSS y que el número quede debajo del botón − (mismo tamaño que el tema).
+    minus->setFixedSize(32, 32);
+    plus->setFixedSize(32, 32);
     QObject::connect(minus, &QPushButton::clicked, spin, [spin]() { spin->stepDown(); });
     QObject::connect(plus, &QPushButton::clicked, spin, [spin]() { spin->stepUp(); });
 
