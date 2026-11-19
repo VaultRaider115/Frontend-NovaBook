@@ -35,6 +35,17 @@ inline Resultado clasificar(const QString &rawEan) {
         return res;
     }
 
+    // Con letras es una búsqueda por título (ProductoBuscador).
+    for (const QChar &ch : ean) {
+        if (!ch.isDigit()) {
+            res.tipo = Tipo::Desconocido;
+            res.esValido = false;
+            res.mensaje = "Búsqueda por título: elige el producto en la lista (o escribe el EAN-13 completo)";
+            res.colorEstilo = Theme::TextMuted;
+            return res;
+        }
+    }
+
     bool todosDigitos = (ean.length() == 13);
     if (todosDigitos) {
         for (const QChar &ch : ean) {

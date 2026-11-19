@@ -13,13 +13,13 @@ están en `../docs/disenos/` (`1.png` … `21.png`). Este documento indica:
 | # | Diseño | Vista Qt | Rol(es) |
 |---:|---|---|---|
 | 1 | Catálogo y Gestión de Autores | `bodega/BodegaAutoresView` | Jefe |
-| 2 | Consulta de Existencias y Disponibilidad | `vendedor/VendedorConsultaView` | Vendedor |
+| 2 | Consulta de Inventario General | `vendedor/VendedorConsultaView` | Vendedor |
 | 3 | Punto de Venta — Registro de Venta al Mostrador | `vendedor/VendedorVentasView` | Vendedor |
 | 4 | Gestión de Devoluciones a Proveedor | `vendedor/VendedorDevolucionView` | Vendedor |
-| 5 | Requisición de Entrada Venta > Bodega | `vendedor/VendedorTrasladoView` (`widgets/RequisicionView`) | Vendedor |
+| 5 | Requisición de Entrada Piso de Venta > Bodega | `vendedor/VendedorTrasladoView` (`widgets/RequisicionView`) | Vendedor |
 | 6 | Recepción de Mercancía — Compras a Proveedor | `bodega/BodegaComprasView` | Bodega |
 | 7 | Historial de Movimientos (bitácora) | `jefe/JefeBitacoraView` | Jefe |
-| 8 | Requisición de Salida Bodega > Venta | `bodega/BodegaTrasladoView` (`widgets/RequisicionView`) | Bodega |
+| 8 | Requisición de Salida Bodega > Piso de Venta | `bodega/BodegaTrasladoView` (`widgets/RequisicionView`) | Bodega |
 | 9 | Alta de Mercancía en Almacén (libro y revista) | `bodega/BodegaRegistroView` | Bodega |
 | 10 | Login | `LoginWindow` | todos |
 | 11 | Diálogo Registrar Nuevo Autor | `bodega/BodegaAutoresView` | Jefe |
@@ -134,8 +134,11 @@ que se vean como las demás:
 
 - Panel Principal de cada rol (`*DashboardView`).
 - Proveedores (`bodega/BodegaProveedoresView`): Jefe (CRUD) y Bodega (solo
-  alta).
-- Consultar Inventario de Bodega (`bodega/BodegaInventarioView`).
+  consulta).
+- Inventario General de Bodega: `vendedor/VendedorConsultaView(parent, true)`
+  (`BodegaInventarioView` ya no se usa).
+- Búsqueda por título en los campos de EAN (`widgets/ProductoBuscador`,
+  diseño 42) y aviso de stock al añadir en las requisiciones (diseño 43).
 - Devolución de Cliente (`vendedor/VendedorDevolucionClienteView`).
 - Mis Devoluciones (`vendedor/VendedorMisDevolucionesView`).
 - Recepción de Salida del Vendedor y Seguimiento de Salidas de Bodega

@@ -4,6 +4,7 @@
 #include "Theme.h"
 #include "Toast.h"
 #include "Ui.h"
+#include "ProductoBuscador.h"
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QJsonArray>
@@ -68,10 +69,10 @@ VendedorDevolucionClienteView::VendedorDevolucionClienteView(QWidget *parent)
     auto *addRow = new QHBoxLayout();
     addRow->setSpacing(16);
     m_txtEanCambio = new QLineEdit(m_panelCambio);
-    Ui::eanInput(m_txtEanCambio);
-    m_txtEanCambio->setPlaceholderText("EAN del producto que se lleva");
+    new ProductoBuscador(m_txtEanCambio);
+    m_txtEanCambio->setPlaceholderText("EAN o título del producto que se lleva");
     m_txtEanCambio->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
-    addRow->addWidget(Ui::field("Producto nuevo (EAN-13)", m_txtEanCambio, m_panelCambio), 1);
+    addRow->addWidget(Ui::field("Producto nuevo (EAN-13 o título)", m_txtEanCambio, m_panelCambio), 1);
     m_spnCantCambio = new QSpinBox(m_panelCambio);
     m_spnCantCambio->setRange(1, 99);
     addRow->addWidget(Ui::field("Cantidad", Ui::stepper(m_spnCantCambio, m_panelCambio), m_panelCambio));

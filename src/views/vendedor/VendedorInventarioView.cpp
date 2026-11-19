@@ -4,6 +4,7 @@
 #include "Theme.h"
 #include "Toast.h"
 #include "Ui.h"
+#include "ProductoBuscador.h"
 #include <QHBoxLayout>
 #include <QHash>
 #include <QJsonArray>
@@ -40,10 +41,10 @@ VendedorInventarioView::VendedorInventarioView(QWidget *parent)
     auto *sl = new QVBoxLayout(scanCard);
     sl->setContentsMargins(20, 20, 20, 20);
     m_txtEan = new QLineEdit(scanCard);
-    Ui::eanInput(m_txtEan);
-    m_txtEan->setPlaceholderText("Escanea el código de barras (cada escaneo suma 1)");
+    new ProductoBuscador(m_txtEan);
+    m_txtEan->setPlaceholderText("Escanea el código de barras o escribe el título (cada uno suma 1)");
     m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
-    sl->addWidget(Ui::field("Código EAN-13", m_txtEan, scanCard));
+    sl->addWidget(Ui::field("EAN-13 o título", m_txtEan, scanCard));
     pl->addWidget(scanCard);
 
     m_tabla = Ui::table({"EAN", "Título", "Contadas", "Devolución", ""}, 1, m_panelConteo, 52);

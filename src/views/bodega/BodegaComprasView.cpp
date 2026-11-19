@@ -11,6 +11,7 @@
 #include <QFrame>
 #include <QMessageBox>
 #include "Documentos.h"
+#include "ProductoBuscador.h"
 #include <QJsonArray>
 #include <QRegularExpressionValidator>
 
@@ -84,10 +85,14 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     auto *addLayout = new QHBoxLayout();
     addLayout->setSpacing(16);
     m_txtEan = new QLineEdit(addCard);
-    Ui::eanInput(m_txtEan);
-    m_txtEan->setPlaceholderText("9780000000000");
+    new ProductoBuscador(m_txtEan, [this](const QJsonObject &p) {
+        // Solo títulos del proveedor de la factura (la API rechaza los demás).
+        return m_comboProveedor->currentIndex() < 0
+               || p.value("id_proveedor").toInt() == m_comboProveedor->currentData().toInt();
+    });
+    m_txtEan->setPlaceholderText("EAN-13 o título del libro / revista");
     m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
-    addLayout->addWidget(Ui::field("Código EAN-13", m_txtEan, addCard), 1);
+    addLayout->addWidget(Ui::field("EAN-13 o título", m_txtEan, addCard), 1);
 
     // Diagrama, paso 1: si llegan menos piezas de las facturadas se abre una incidencia.
     m_spnCantidad = new QSpinBox(addCard);

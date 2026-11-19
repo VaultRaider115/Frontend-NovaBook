@@ -19,7 +19,9 @@ public:
                     const QString &addedMessage, bool salida, QWidget *parent = nullptr);
 
 private:
-    struct Partida { qint64 ean; QString tipo; QString nombre; int cantidad; QString editorial; };
+    // disponible: piezas en el origen (bodega en la salida, piso en la entrada)
+    // al momento de agregarla; la cantidad no puede pasar de ahí.
+    struct Partida { qint64 ean; QString tipo; QString nombre; int cantidad; QString editorial; int disponible; };
     void agregar();
     void render();
     void actualizarResumen();
