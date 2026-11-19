@@ -3,6 +3,7 @@
 #include "Ui.h"
 #include "Toast.h"
 #include "EanClassifier.h"
+#include "ProductoBuscador.h"
 #include <QHBoxLayout>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -25,10 +26,10 @@ RequisicionView::RequisicionView(const QString &eyebrow, const QString &title, c
     row->setSpacing(16);
 
     m_txtEan = new QLineEdit(addCard);
-    Ui::eanInput(m_txtEan);
-    m_txtEan->setPlaceholderText("9780000000000");
+    new ProductoBuscador(m_txtEan);
+    m_txtEan->setPlaceholderText("EAN-13 o título del libro / revista");
     m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
-    row->addWidget(Ui::field("Código EAN-13", m_txtEan, addCard), 1);
+    row->addWidget(Ui::field("EAN-13 o título", m_txtEan, addCard), 1);
 
     m_spnCantidad = new QSpinBox(addCard);
     m_spnCantidad->setRange(1, 9999);
@@ -97,8 +98,33 @@ void RequisicionView::agregar() {
                 if (v.toObject().value("codigo_ean").toVariant().toLongLong() == ean) { fila = v.toObject(); break; }
             }
         }
+        if (!ok) {
+            Toast::showToast(this, "No se pudo consultar el producto; intenta de nuevo", Toast::Error);
+            return;
+        }
+        // Se valida al agregar (no al registrar) para no armar una lista que luego no se pueda mandar.
+        if (fila.isEmpty()) {
+            Toast::showToast(this, QString("No hay ningún producto registrado con el EAN %1").arg(ean), Toast::Warning);
+            return;
+        }
         const QString titulo = fila.value("titulo").toString(QString("Artículo %1").arg(ean));
         const QString editorial = fila.value("proveedor").toString();
+        const QString origen = m_salida ? "bodega" : "piso de venta";
+        const int disponible = fila.value(m_salida ? "stock_bodega" : "stock_tienda").toInt();
+        int yaEnLista = 0;
+        for (const auto &p : std::as_const(m_items))
+            if (p.ean == ean) yaEnLista = p.cantidad;
+        if (disponible <= 0) {
+            Toast::showToast(this, QString("\"%1\" no tiene piezas en %2").arg(titulo, origen), Toast::Warning, 6000);
+            return;
+        }
+        if (yaEnLista + cant > disponible) {
+            Toast::showToast(this, yaEnLista > 0
+                ? QString("\"%1\": solo hay %2 en %3 y ya llevas %4 en la lista").arg(titulo).arg(disponible).arg(origen).arg(yaEnLista)
+                : QString("\"%1\": solo hay %2 en %3").arg(titulo).arg(disponible).arg(origen),
+                Toast::Warning, 6000);
+            return;
+        }
 
         // Diagrama, pasos 2 y 6: una sola editorial por documento.
         if (!m_items.isEmpty() && !editorial.isEmpty() && !m_items.first().editorial.isEmpty()
@@ -112,9 +138,9 @@ void RequisicionView::agregar() {
 
         bool found = false;
         for (auto &p : m_items) {
-            if (p.ean == ean) { p.cantidad += cant; found = true; break; }
+            if (p.ean == ean) { p.cantidad += cant; p.disponible = disponible; found = true; break; }
         }
-        if (!found) m_items.append({ean, tipo, titulo, cant, editorial});
+        if (!found) m_items.append({ean, tipo, titulo, cant, editorial, disponible});
 
         m_txtEan->clear();
         m_spnCantidad->setValue(1);
@@ -131,9 +157,12 @@ void RequisicionView::render() {
         Ui::cellText(m_table, i, 0, QString::number(p.ean), true);
         Ui::cellWidget(m_table, i, 1, Ui::tipoChip(p.tipo));
         Ui::cellText(m_table, i, 2, p.nombre);
-        if (m_salida) {
+        {
+            // La cantidad se ajusta en la lista, sin pasar de lo que hay en el origen.
             auto *cantidad = new QSpinBox(m_table);
-            cantidad->setRange(1, 9999);
+            cantidad->setRange(1, qMax(1, p.disponible));
+            cantidad->setFixedWidth(96);   // igual que en Recepción de Salida
+            cantidad->setToolTip(QString("Máximo %1 (hay %1 en %2)").arg(p.disponible).arg(m_salida ? "bodega" : "piso de venta"));
             cantidad->setValue(p.cantidad);
             cantidad->setAccessibleName(QString("Cantidad de %1").arg(p.nombre));
             connect(cantidad, QOverload<int>::of(&QSpinBox::valueChanged), this, [this, i](int valor) {
@@ -142,8 +171,6 @@ void RequisicionView::render() {
                 actualizarResumen();
             });
             Ui::cellWidget(m_table, i, 3, cantidad);
-        } else {
-            Ui::cellText(m_table, i, 3, QString::number(p.cantidad));
         }
         auto *quitar = Ui::iconButton("trash", "Quitar partida");
         connect(quitar, &QPushButton::clicked, this, [this, i]() { m_items.removeAt(i); render(); });

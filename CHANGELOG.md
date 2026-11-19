@@ -8,6 +8,32 @@ Rama `integracion-validaciones`: pantallas iguales a los diseños de
 `docs/disenos/` y conectadas a la API del esquema unificado.
 
 ### Added
+- Validaciones de Ian (17-nov, PR #5) y ajustes de Federico (18-nov):
+  - Solo dígitos en el número de empleado, factura, teléfono de proveedor y
+    código de mueble; solo letras en nombres de usuarios, autores, géneros,
+    motivos y cliente de la venta.
+  - Proveedores: dirección en calle, número, colonia y ciudad. **Bodega solo
+    consulta** (se ocultó "Registrar Proveedor"; el equipo decidió mantenerlo
+    así el 19-nov).
+  - Bodega: "Inventario General" usa la vista del Vendedor; el Alta avisa si
+    el libro ya está con ese proveedor; la requisición deja ajustar la
+    cantidad y el error muestra el título.
+  - Punto de Venta sin "Transferencia" y con desplazamiento; títulos de
+    pantallas y menús ("Piso de Venta", "Inventario General", "Control de
+    Devoluciones a Proveedor"); "Otra" al final de las nacionalidades.
+  - Federico: dependencia `Qt6::Svg` y el número visible en los botones +/−.
+- Cambios pedidos por el profesor (18-nov):
+  - **Búsqueda por título** en los campos de EAN (`ProductoBuscador`): Compras,
+    Punto de Venta, Devoluciones a Proveedor y de Cliente, Requisiciones e
+    Inventario Mensual. Con letras sugiere los productos que coinciden (título,
+    EAN, editorial y stock en piso y bodega); al elegir uno deja su EAN. Enter
+    con un solo resultado lo agrega. En Compras y Devoluciones solo sugiere
+    títulos del proveedor elegido. El Alta sigue pidiendo el EAN (es un
+    producto nuevo).
+  - **Requisiciones: validación al añadir a la lista**, no al registrar: el
+    producto debe existir y la cantidad (sumando lo que ya está en la lista)
+    no puede pasar de lo que hay en bodega (salida) o en piso (entrada). La
+    cantidad editable en la tabla tampoco pasa de ese máximo.
 - Los campos de EAN aceptan solo dígitos y máximo 13 (`Ui::eanInput`) en
   Compras, Alta, Ventas, Devoluciones (proveedor y cliente), Requisiciones e
   Inventario Mensual.

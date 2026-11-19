@@ -1,6 +1,7 @@
 #include "VendedorDevolucionView.h"
 #include "Theme.h"
 #include "Ui.h"
+#include "ProductoBuscador.h"
 #include "ApiClient.h"
 #include "Toast.h"
 #include "Documentos.h"
@@ -43,10 +44,14 @@ VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
     row->setSpacing(16);
 
     m_txtEan = new QLineEdit(addCard);
-    Ui::eanInput(m_txtEan);
-    m_txtEan->setPlaceholderText("Escribe el código");
+    new ProductoBuscador(m_txtEan, [this](const QJsonObject &p) {
+        // Solo títulos del proveedor elegido (la devolución es de una editorial).
+        return m_comboProveedor->currentIndex() < 0 || m_comboProveedor->currentData().toInt() <= 0
+               || p.value("id_proveedor").toInt() == m_comboProveedor->currentData().toInt();
+    });
+    m_txtEan->setPlaceholderText("EAN-13 o título del libro / revista");
     m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
-    row->addWidget(Ui::field("Código EAN-13", m_txtEan, addCard), 2);
+    row->addWidget(Ui::field("EAN-13 o título", m_txtEan, addCard), 2);
 
     m_spnCantidad = new QSpinBox(addCard);
     m_spnCantidad->setRange(1, 999);

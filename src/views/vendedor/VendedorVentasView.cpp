@@ -17,6 +17,7 @@
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include "Ui.h"
+#include "ProductoBuscador.h"
 
 VendedorVentasView::VendedorVentasView(QWidget *parent)
     : QWidget(parent)
@@ -60,10 +61,10 @@ VendedorVentasView::VendedorVentasView(QWidget *parent)
     addLayout->setSpacing(16);
 
     m_txtEan = new QLineEdit(addCard);
-    Ui::eanInput(m_txtEan);
-    m_txtEan->setPlaceholderText("Escriba el código de barras");
+    new ProductoBuscador(m_txtEan);
+    m_txtEan->setPlaceholderText("Escanee el código de barras o escriba el título");
     m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
-    addLayout->addWidget(Ui::field("Código EAN-13 / ISSN-13", m_txtEan, addCard), 1);
+    addLayout->addWidget(Ui::field("EAN-13 / ISSN-13 o título", m_txtEan, addCard), 1);
 
     m_spnCantidad = new QSpinBox(addCard);
     m_spnCantidad->setRange(1, 999);
