@@ -80,8 +80,14 @@ JefeBitacoraView::JefeBitacoraView(QWidget *parent)
     m_comboTipo->setAccessibleName("Tipo de evento");
     m_btnBuscar = Ui::button("Consultar", "primary", filters, "search-dark");
 
+    // "Hoy" es la única forma de volver al día actual: cambiar el tipo de evento,
+    // la página o salir y volver a esta pantalla conserva el rango elegido.
+    auto *btnHoy = Ui::button("Hoy", "outline", filters);
+    btnHoy->setToolTip("Regresar el rango al día de hoy");
+
     fl->addWidget(m_desde);
     fl->addWidget(m_hasta);
+    fl->addWidget(btnHoy);
     fl->addWidget(m_comboTipo);
     fl->addWidget(m_btnBuscar);
     fl->addStretch();
@@ -118,6 +124,14 @@ JefeBitacoraView::JefeBitacoraView(QWidget *parent)
     });
 
     connect(m_btnBuscar, &QPushButton::clicked, this, [this]() { m_pager->reset(); cargarMovimientos(); });
+    connect(btnHoy, &QPushButton::clicked, this, [this]() {
+        const QDate hoy = QDate::currentDate();
+        QSignalBlocker b1(m_desde), b2(m_hasta);
+        m_desde->setDate(hoy);
+        m_hasta->setDate(hoy);
+        m_pager->reset();
+        cargarMovimientos();
+    });
     connect(m_comboTipo, QOverload<int>::of(&QComboBox::activated), this, [this]() { m_pager->reset(); cargarMovimientos(); });
     connect(m_pager, &PagerBar::pageChanged, this, &JefeBitacoraView::cargarMovimientos);
 }

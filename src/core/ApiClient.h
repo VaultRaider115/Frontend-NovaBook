@@ -122,6 +122,8 @@ public:
     void abrirInventario(ApiCallback cb);
     void registrarConteo(qint64 idInventario, qint64 ean, int cantidad, ApiCallback cb);
     void cerrarInventario(qint64 idInventario, ApiCallback cb);
+    // Títulos que van a devolución: total a devolver y piezas de piso encontradas / faltantes.
+    void pendientesDevolucion(qint64 idInventario, ApiCallback cb);
     void listarInventarios(ApiCallback cb);
     void obtenerInventario(qint64 idInventario, ApiCallback cb);
     void revisarInventario(qint64 idInventario, bool aprobar, const QString &observaciones, ApiCallback cb);

@@ -26,5 +26,6 @@
     <file alias="check-dark.svg">icons/check-dark.svg</file>
     <file alias="building.svg">icons/building.svg</file>
     <file alias="receipt.svg">icons/receipt.svg</file>
+    <file alias="book-gold.svg">icons/book-gold.svg</file>
   </qresource>
 </RCC>

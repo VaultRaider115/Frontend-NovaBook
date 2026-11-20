@@ -2,7 +2,7 @@
 
 #include <QLabel>
 #include <QPushButton>
-#include <QStackedWidget>
+#include "SeccionesScroll.h"
 #include <QTableWidget>
 #include <QWidget>
 #include <QJsonObject>
@@ -26,8 +26,8 @@ private:
     void nuevaSolicitud();
     void verTitulosSolicitud(const QJsonObject &s);
 
-    QList<QPushButton *> m_segmentos;
-    QStackedWidget *m_stack;
+    // Una sola vista con scroll: inventarios y, abajo, solicitudes de editorial.
+    SeccionesScroll *m_secciones;
 
     // Inventarios
     QTableWidget *m_tablaInv;

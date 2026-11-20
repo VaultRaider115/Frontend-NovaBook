@@ -43,23 +43,13 @@ JefeInventarioView::JefeInventarioView(QWidget *parent)
     layout->addWidget(Ui::pageHeader("Jefatura · Fin de mes", "Inventario Mensual",
         "Revisa el conteo del piso de venta, aprueba el ajuste de diferencias y registra lo que pidieron las editoriales.", this));
 
-    auto *seg = new QHBoxLayout();
-    seg->setSpacing(6);
-    for (const QString &n : {QString("Inventarios"), QString("Solicitudes de editorial")}) {
-        auto *b = Ui::button(n, "page", this);
-        const int idx = m_segmentos.size();
-        connect(b, &QPushButton::clicked, this, [this, idx]() { mostrarSeccion(idx); });
-        m_segmentos << b;
-        seg->addWidget(b);
-    }
-    seg->addStretch();
-    layout->addLayout(seg);
-
-    m_stack = new QStackedWidget(this);
-    layout->addWidget(m_stack, 1);
+    // Una sola vista con scroll: inventarios y, debajo, solicitudes de editorial.
+    // Arriba quedan fijas las anclas para saltar a cada sección.
+    m_secciones = new SeccionesScroll(this);
+    layout->addWidget(m_secciones, 1);
 
     // --- Inventarios ---------------------------------------------------------
-    auto *inv = new QWidget(m_stack);
+    auto *inv = m_secciones->agregarSeccion("Inventarios");
     auto *il = new QVBoxLayout(inv);
     il->setContentsMargins(0, 0, 0, 0);
     il->setSpacing(14);
@@ -79,11 +69,11 @@ JefeInventarioView::JefeInventarioView(QWidget *parent)
     il->addLayout(detHead);
 
     m_tablaDet = Ui::table({"EAN", "Título", "Editorial", "Sistema", "Contadas", "Diferencia", "Apartadas", "A devolución"}, 1, inv, 48);
-    il->addWidget(m_tablaDet, 1);
-    m_stack->addWidget(inv);
+    m_tablaDet->setMinimumHeight(300);   // dentro del scroll ya no se estira sola
+    il->addWidget(m_tablaDet);
 
     // --- Solicitudes de editorial ------------------------------------------------
-    auto *sol = new QWidget(m_stack);
+    auto *sol = m_secciones->agregarSeccion("Solicitudes de editorial");
     auto *sol_l = new QVBoxLayout(sol);
     sol_l->setContentsMargins(0, 0, 0, 0);
     sol_l->setSpacing(14);
@@ -97,8 +87,8 @@ JefeInventarioView::JefeInventarioView(QWidget *parent)
     sol_l->addLayout(solHead);
     m_tablaSol = Ui::table({"Folio", "Fecha", "Editorial", "Referencia del correo", "Títulos", "Estado", "Acción"}, 3, sol, 56);
     m_tablaSol->setWordWrap(true);
-    sol_l->addWidget(m_tablaSol, 1);
-    m_stack->addWidget(sol);
+    m_tablaSol->setMinimumHeight(260);
+    sol_l->addWidget(m_tablaSol);
 
     connect(m_tablaInv, &QTableWidget::cellClicked, this, [this](int row, int) {
         if (row >= 0 && row < m_ids.size()) cargarDetalle(m_ids.at(row));
@@ -109,12 +99,10 @@ JefeInventarioView::JefeInventarioView(QWidget *parent)
 
     m_btnAprobar->hide();
     m_btnRechazar->hide();
-    mostrarSeccion(0);
 }
 
 void JefeInventarioView::mostrarSeccion(int i) {
-    for (int k = 0; k < m_segmentos.size(); ++k) Ui::setCurrent(m_segmentos.at(k), k == i);
-    m_stack->setCurrentIndex(i);
+    m_secciones->irA(i);
 }
 
 void JefeInventarioView::cargar() {

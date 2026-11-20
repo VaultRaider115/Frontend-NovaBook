@@ -12,6 +12,8 @@
 #include <QMessageBox>
 #include <QSpinBox>
 #include <QVBoxLayout>
+#include <QScrollArea>
+#include <QFrame>
 
 VendedorInventarioView::VendedorInventarioView(QWidget *parent)
     : QWidget(parent)
@@ -47,8 +49,43 @@ VendedorInventarioView::VendedorInventarioView(QWidget *parent)
     sl->addWidget(Ui::field("EAN-13 o título", m_txtEan, scanCard));
     pl->addWidget(scanCard);
 
+    // Para devolución: contador general arriba y, por título, cuántas piezas hay
+    // que regresar y cuántas de piso ya se encontraron (cada escaneo cuenta una).
+    auto *devCard = Ui::card(m_panelConteo);
+    auto *dl = new QVBoxLayout(devCard);
+    dl->setContentsMargins(20, 16, 20, 16);
+    dl->setSpacing(12);
+    auto *devHead = new QHBoxLayout();
+    devHead->setSpacing(28);
+    auto stat = [devCard](const QString &titulo, QLabel *&valor) {
+        auto *w = new QWidget(devCard);
+        auto *v = new QVBoxLayout(w);
+        v->setContentsMargins(0, 0, 0, 0);
+        v->setSpacing(2);
+        v->addWidget(Ui::label(titulo, "Muted", w));
+        valor = new QLabel("—", w);
+        valor->setStyleSheet("font-size: 22px; font-weight: 700;");
+        v->addWidget(valor);
+        return w;
+    };
+    auto *devTitulo = Ui::label("Para devolución", "Gold", devCard);
+    devTitulo->setStyleSheet("font-size: 15px; font-weight: 700;");
+    devHead->addWidget(devTitulo, 0, Qt::AlignVCenter);
+    devHead->addWidget(stat("Títulos", m_lblDevTitulos));
+    devHead->addWidget(stat("Piezas a devolver", m_lblDevPiezas));
+    devHead->addWidget(stat("Encontradas en piso", m_lblDevEncontradas));
+    devHead->addWidget(stat("Faltan por encontrar", m_lblDevFaltan));
+    devHead->addStretch();
+    dl->addLayout(devHead);
+    m_tablaDev = Ui::table({"EAN", "Título", "Motivo", "A devolver", "Encontrados en piso", "Faltan"}, 1, devCard, 48);
+    m_tablaDev->setMinimumHeight(200);   // caben 3 títulos sin scroll interno
+    m_tablaDev->setMaximumHeight(240);
+    dl->addWidget(m_tablaDev);
+    pl->addWidget(devCard);
+
     m_tabla = Ui::table({"EAN", "Título", "Contadas", "Devolución", ""}, 1, m_panelConteo, 52);
-    pl->addWidget(m_tabla, 1);
+    m_tabla->setMinimumHeight(280);   // dentro del scroll ya no se estira sola
+    pl->addWidget(m_tabla);
 
     auto *foot = Ui::card(m_panelConteo);
     auto *fl = new QHBoxLayout(foot);
@@ -61,7 +98,13 @@ VendedorInventarioView::VendedorInventarioView(QWidget *parent)
     m_btnCerrar->setStyleSheet("QPushButton { padding: 14px 26px; }");
     fl->addWidget(m_btnCerrar);
     pl->addWidget(foot);
-    layout->addWidget(m_panelConteo, 1);
+    // Con el apartado de devolución ya no cabe todo: el panel se desplaza.
+    m_scrollConteo = new QScrollArea(this);
+    m_scrollConteo->setWidgetResizable(true);
+    m_scrollConteo->setFrameShape(QFrame::NoFrame);
+    m_scrollConteo->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_scrollConteo->setWidget(m_panelConteo);
+    layout->addWidget(m_scrollConteo, 1);
 
     connect(m_btnIniciar, &QPushButton::clicked, this, [this]() {
         m_btnIniciar->setEnabled(false);
@@ -98,8 +141,69 @@ void VendedorInventarioView::cargar() {
         }
         m_btnIniciar->setVisible(ok && m_idInventario == 0);
         m_panelConteo->setVisible(m_idInventario > 0);
+        m_scrollConteo->setVisible(m_idInventario > 0);
         pintar();
+        cargarDevolucion();
         if (m_idInventario > 0) m_txtEan->setFocus();
+    });
+}
+
+// Pide al servidor los títulos que van a devolución y pinta el contador y la tabla.
+// Se llama al abrir la pantalla y después de cada conteo (tiempo real).
+void VendedorInventarioView::cargarDevolucion() {
+    if (m_idInventario <= 0) return;
+    const int peticion = ++m_peticionDev;
+    ApiClient::instance()->pendientesDevolucion(m_idInventario, [this, peticion](bool ok, const QJsonValue &data, const QString &msg) {
+        if (peticion != m_peticionDev) return;   // llegó una respuesta más nueva
+        if (!ok || !data.isObject()) {
+            Toast::showToast(this, "No se pudo consultar lo que va a devolución: " + msg, Toast::Error);
+            return;
+        }
+        const QJsonObject d = data.toObject();
+        const int faltan = d.value("faltantes").toInt();
+        const int conFaltantes = d.value("titulos_con_faltantes").toInt();
+        m_lblDevTitulos->setText(conFaltantes > 0
+            ? QString("%1 <span style=\"font-size:13px; color:%2;\">(%3 con faltantes)</span>").arg(d.value("titulos").toInt()).arg(Theme::Error).arg(conFaltantes)
+            : QString::number(d.value("titulos").toInt()));
+        m_lblDevPiezas->setText(QString::number(d.value("piezas_a_devolver").toInt()));
+        m_lblDevEncontradas->setText(QString("%1 de %2").arg(d.value("encontradas").toInt()).arg(d.value("en_piso").toInt()));
+        m_lblDevFaltan->setText(QString::number(faltan));
+        m_lblDevFaltan->setStyleSheet(QString("font-size: 22px; font-weight: 700; color: %1;").arg(faltan > 0 ? Theme::Error : Theme::Success));
+
+        const QJsonArray items = d.value("items").toArray();
+        m_tablaDev->clearContents();
+        m_tablaDev->setRowCount(items.isEmpty() ? 1 : items.size());
+        if (items.isEmpty()) {
+            m_tablaDev->setSpan(0, 0, 1, 6);
+            Ui::cellText(m_tablaDev, 0, 0, "Nada va a devolución en este inventario.", false, false, Theme::TextMuted);
+            return;
+        }
+        m_tablaDev->clearSpans();
+        for (int i = 0; i < items.size(); ++i) {
+            const QJsonObject it = items.at(i).toObject();
+            const int piso = it.value("en_piso").toInt();
+            const int encontradas = it.value("encontradas").toInt();
+            const int faltantes = it.value("faltantes").toInt();
+            // Los títulos con piezas por encontrar se resaltan en rojo.
+            const QString color = faltantes > 0 ? Theme::Error : QString();
+            Ui::cellText(m_tablaDev, i, 0, QString::number(it.value("codigo_ean").toVariant().toLongLong()), true, false, color);
+            Ui::cellText(m_tablaDev, i, 1, it.value("titulo").toString(), false, true, color);
+            Ui::cellWidget(m_tablaDev, i, 2, Ui::chip(it.value("motivo_devolucion").toString() == "SOLICITUD_EDITORIAL"
+                                                       ? "Pidió la editorial" : "Añejado", "amber"));
+            QStringList partes;
+            if (piso) partes << QString("piso %1").arg(piso);
+            if (it.value("en_bodega").toInt()) partes << QString("bodega %1").arg(it.value("en_bodega").toInt());
+            if (it.value("apartadas").toInt()) partes << QString("apartadas %1").arg(it.value("apartadas").toInt());
+            Ui::cellText(m_tablaDev, i, 3, QString("%1 · %2").arg(it.value("a_devolver").toInt()).arg(partes.join(" · ")))
+                ->setToolTip("Total a regresar a la editorial (piso + bodega + apartadas)");
+            auto *chip = Ui::chip(piso > 0 ? QString("%1 de %2 encontrados").arg(encontradas).arg(piso)
+                                            : QString("%1 encontrados").arg(encontradas),
+                                  faltantes > 0 ? (encontradas > 0 ? "amber" : "danger") : "ok");
+            Ui::cellWidget(m_tablaDev, i, 4, chip);
+            Ui::fitColumn(m_tablaDev, 4, chip);
+            if (faltantes > 0) Ui::cellWidget(m_tablaDev, i, 5, Ui::chip(QString("Faltan %1").arg(faltantes), "danger"));
+            else Ui::cellText(m_tablaDev, i, 5, "Completo", false, true, Theme::Success);
+        }
     });
 }
 
@@ -142,6 +246,7 @@ void VendedorInventarioView::fijarCantidad(qint64 ean, int cantidad) {
             pintar();
             // El motivo depende de lo contado (un título en 0 no se separa): se vuelve a preguntar.
             if ((antes == 0) != (cantidad == 0)) actualizarMotivos();
+            cargarDevolucion();   // "3 de 5 encontrados" se actualiza con cada escaneo
         });
 }
 

@@ -1,6 +1,7 @@
 #include "ProductoBuscador.h"
 #include "ApiClient.h"
 #include "Toast.h"
+#include "Limites.h"
 #include <QAbstractItemView>
 #include <QCompleter>
 #include <QJsonArray>
@@ -29,10 +30,10 @@ bool ProductoBuscador::esBusquedaPorTitulo(const QString &texto) {
 ProductoBuscador::ProductoBuscador(QLineEdit *edit, Filtro filtro)
     : QObject(edit), m_edit(edit), m_filtro(std::move(filtro))
 {
-    // Solo dígitos: máximo 13 (EAN). Con letras: título de hasta 100 caracteres.
-    edit->setMaxLength(100);
+    // Solo dígitos: máximo 13 (EAN). Con letras: título de hasta Limites::kBusqueda caracteres.
+    edit->setMaxLength(Limites::kBusqueda);
     edit->setValidator(new QRegularExpressionValidator(
-        QRegularExpression("^(?:[0-9]{0,13}|(?=.*[^0-9]).{0,100})$"), edit));
+        QRegularExpression(QString("^(?:[0-9]{0,13}|(?=.*[^0-9]).{0,%1})$").arg(Limites::kBusqueda)), edit));
     edit->setClearButtonEnabled(true);
 
     m_modelo = new QStandardItemModel(this);

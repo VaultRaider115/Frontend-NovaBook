@@ -9,7 +9,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QList>
-#include <QStackedWidget>
+#include "SeccionesScroll.h"
 #include "Models.h"
 
 struct CompraCartItem {
@@ -62,9 +62,8 @@ private:
     QList<CompraCartItem> m_items;
     QList<ProveedorDto> m_proveedores;
 
-    // Secciones: registrar factura / facturas registradas
-    QList<QPushButton *> m_segmentos;
-    QStackedWidget *m_stack;
+    // Una sola vista con scroll: registrar factura y, abajo, facturas registradas.
+    SeccionesScroll *m_secciones;
     QLineEdit *m_txtBuscarFactura;
     QLabel *m_lblFacturas;
     QTableWidget *m_tablaFacturas;

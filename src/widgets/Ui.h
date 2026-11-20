@@ -44,6 +44,9 @@ QLabel *avatar(const QString &fullName, const char *tone = "gray",
 QLineEdit *searchBox(const QString &placeholder, QWidget *parent = nullptr);
 // Campo de EAN-13: solo dígitos y máximo 13 (también al pegar o escanear).
 void eanInput(QLineEdit *e);
+// Contador "12/60" para un campo de texto: fija el máximo (bloquea al llegar)
+// y cambia de color al acercarse (ámbar, 90 %) y al llegar (rojo).
+QLabel *contadorCaracteres(QLineEdit *edit, int max, QWidget *parent = nullptr);
 void decorateDate(QDateEdit *d); // ícono de calendario a la izquierda
 QFrame *stepper(QSpinBox *spin, QWidget *parent = nullptr);
 QWidget *field(const QString &label, QWidget *input,

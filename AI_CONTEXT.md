@@ -101,6 +101,7 @@ estilos a mano.
 | `field(label, input)`, `rowField(...)` | campo con etiqueta en mayúsculas espaciadas |
 | `searchBox()`, `decorateDate()`, `stepper(spin)` | inputs |
 | `eanInput(lineEdit)` | campo de EAN solo numérico (máximo 13): lo usa el Alta |
+| `contadorCaracteres(lineEdit, max)` | contador "12/60" bajo un campo: fija el máximo y se pone ámbar (90 %) y rojo (lleno). Los máximos están en `core/Limites.h` |
 | `new ProductoBuscador(lineEdit, filtro)` | campo de EAN **o título**: con letras sugiere productos (`consultarExistencias`), al elegir deja el EAN; Enter con un solo resultado dispara `returnPressed`. `filtro` opcional (p. ej. solo el proveedor elegido) |
 | `table(headers, stretchColumn, parent, rowHeight)` | tabla con el estilo del diseño |
 | `cellText(t, r, c, text, mono, bold, color)`, `cellWidget(...)`, `cellWidgets(...)` | celdas |
@@ -116,6 +117,10 @@ Otros widgets:
   requisición por lista. La usan `BodegaTrasladoView` (salida) y
   `VendedorTrasladoView` (entrada). Bloquea mezclar editoriales y al
   registrar imprime el PDF.
+- **`SeccionesScroll`:** una sola vista con scroll; `agregarSeccion(título)`
+  devuelve el contenedor de cada sección y arriba queda una barra fija de
+  anclas (`irA(i)`) que marca la sección visible. La usan Compras a Proveedor
+  e Inventario Mensual del Jefe (antes eran pestañas).
 - **`StatCard`:** tarjeta de indicador de los paneles; el acento por defecto
   es `Theme::Accent`.
 - **`Toast::showToast(parent, msg, tipo, ms)`:** aviso arriba al centro, de
@@ -174,6 +179,17 @@ La API valida todo; la interfaz repite lo que ayuda a capturar mejor:
   (sumando la lista) no pase del stock del origen (bodega en la salida, piso
   en la entrada); la cantidad de la tabla tiene ese máximo. La regla de la
   mitad la valida la API al registrar.
+- Punto de Venta: el nombre del cliente y la búsqueda tienen tope y contador
+  (`Limites::kNombreCliente`, `Limites::kBusqueda`); al añadir se valida que
+  el producto exista y que alcance el stock de piso; un recuadro muestra el
+  libro (título, autor, editorial, ISBN, precio y stock; no hay portadas) y
+  cada línea del carrito y del ticket lleva autor e ISBN.
+- Inventario Mensual del Vendedor: "Para devolución" con el contador general
+  (títulos, piezas a devolver, encontradas en piso, faltan) y, por título,
+  "3 de 5 encontrados"; se actualiza después de cada escaneo
+  (`pendientesDevolucion`). Los títulos con faltantes van en rojo.
+- Historial de Movimientos: el rango de fechas solo vuelve a hoy con el
+  botón "Hoy".
 - Proveedores: Bodega solo consulta (`BodegaProveedoresView(..., false)` oculta
   el alta).
 - Recepción de la salida: pide confirmación antes de corregir y reimprime

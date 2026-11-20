@@ -8,6 +8,18 @@ Rama `integracion-validaciones`: pantallas iguales a los diseños de
 `docs/disenos/` y conectadas a la API del esquema unificado.
 
 ### Added
+- Revisión del 19-nov:
+  - **Inventario Mensual (Vendedor)**: apartado "Para devolución" con el
+    contador general y "X de Y encontrados" por título, en tiempo real; los
+    títulos con faltantes se resaltan en rojo.
+  - **Punto de Venta**: límite de caracteres con contador (cliente 60,
+    búsqueda 100; `core/Limites.h`); recuadro con el libro (título, autor,
+    editorial, ISBN, precio y stock); autor e ISBN en cada línea del carrito
+    y en el ticket; al añadir valida que exista y que alcance el stock de piso.
+  - **Una sola vista con scroll** en lugar de pestañas en Compras a Proveedor
+    e Inventario Mensual del Jefe (`widgets/SeccionesScroll`), con anclas fijas.
+  - **Historial de Movimientos**: botón "Hoy"; el rango elegido se conserva
+    al cambiar el tipo de evento o de pantalla.
 - Validaciones de Ian (17-nov, PR #5) y ajustes de Federico (18-nov):
   - Solo dígitos en el número de empleado, factura, teléfono de proveedor y
     código de mueble; solo letras en nombres de usuarios, autores, géneros,
