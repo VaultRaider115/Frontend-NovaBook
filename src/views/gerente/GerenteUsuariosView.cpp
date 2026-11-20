@@ -1,4 +1,5 @@
 #include "GerenteUsuariosView.h"
+#include "Limites.h"
 #include "Ui.h"
 #include "Theme.h"
 #include "ApiClient.h"
@@ -147,7 +148,6 @@ void GerenteUsuariosView::abrirFormulario(const UsuarioDto *u) {
     const QRegularExpression rxNombre("^[\\p{L} '\\-\\.]*$");
     auto *txtNombre = new QLineEdit(edit ? u->nombre : QString(), &dlg);
     txtNombre->setPlaceholderText("Ej: Maria");
-    txtNombre->setMaxLength(50);
     txtNombre->setValidator(new QRegularExpressionValidator(rxNombre, txtNombre));
 
     auto *comboRol = new QComboBox(&dlg);
@@ -164,12 +164,10 @@ void GerenteUsuariosView::abrirFormulario(const UsuarioDto *u) {
 
     auto *txtPat = new QLineEdit(edit ? u->apellido_paterno : QString(), &dlg);
     txtPat->setPlaceholderText("Ej: Antonieta");
-    txtPat->setMaxLength(30);
     txtPat->setValidator(new QRegularExpressionValidator(rxNombre, txtPat));
 
     auto *txtMat = new QLineEdit(edit ? u->apellido_materno : QString(), &dlg);
     txtMat->setPlaceholderText("Ej: de Las Nieves");
-    txtMat->setMaxLength(30);
     txtMat->setValidator(new QRegularExpressionValidator(rxNombre, txtMat));
 
     auto *txtTel = new QLineEdit(edit && u->telefono > 0 ? QString::number(u->telefono) : QString(), &dlg);
@@ -180,7 +178,6 @@ void GerenteUsuariosView::abrirFormulario(const UsuarioDto *u) {
 
     auto *txtPass = new QLineEdit(&dlg);
     txtPass->setEchoMode(QLineEdit::Password);
-    txtPass->setMaxLength(16);
     txtPass->setPlaceholderText(edit ? "Vacío conserva la actual (máx. 16)" : "Máximo 16 caracteres");
     auto *eye = txtPass->addAction(QIcon(":/icons/eye.svg"), QLineEdit::TrailingPosition);
     eye->setToolTip("Mostrar contraseña");
@@ -192,11 +189,11 @@ void GerenteUsuariosView::abrirFormulario(const UsuarioDto *u) {
     });
 
     dlg.addField("Número de Empleado", txtId, 0, 0);
-    dlg.addField("Nombre", txtNombre, 0, 1);
-    dlg.addField("Apellido Paterno", txtPat, 1, 0);
-    dlg.addField("Apellido Materno", txtMat, 1, 1);
+    dlg.addField("Nombre", Ui::conLimite(txtNombre, Limites::kUsuarioNombre, &dlg), 0, 1);
+    dlg.addField("Apellido Paterno", Ui::conLimite(txtPat, Limites::kUsuarioApellido, &dlg), 1, 0);
+    dlg.addField("Apellido Materno", Ui::conLimite(txtMat, Limites::kUsuarioApellido, &dlg), 1, 1);
     dlg.addField("Teléfono", txtTel, 2, 0);
-    dlg.addField(edit ? "Nueva contraseña" : "Contraseña", txtPass, 2, 1);
+    dlg.addField(edit ? "Nueva contraseña" : "Contraseña", Ui::conLimite(txtPass, Limites::kPassword, &dlg), 2, 1);
     dlg.addField("Rol en sistema", comboRol, 3, 0, 2);
 
     QPointer<QDialog> guard(&dlg);

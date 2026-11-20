@@ -1,4 +1,5 @@
 #include "SeccionesScroll.h"
+#include <QTimer>
 #include "Ui.h"
 #include <QEvent>
 #include <QFrame>
@@ -63,6 +64,12 @@ QWidget *SeccionesScroll::agregarSeccion(const QString &titulo) {
 void SeccionesScroll::irA(int i) {
     if (i < 0 || i >= m_secciones.size()) return;
     m_scroll->verticalScrollBar()->setValue(m_secciones.at(i)->y());
+    // Si la sección acaba de mostrar contenido (p. ej. el detalle que se abrió),
+    // el alto del scroll se recalcula después: se repite al terminar el layout.
+    QTimer::singleShot(0, this, [this, i]() {
+        m_scroll->verticalScrollBar()->setValue(m_secciones.at(i)->y());
+        for (int k = 0; k < m_anclas.size(); ++k) Ui::setCurrent(m_anclas.at(k), k == i);
+    });
     // Si la última sección es corta el scroll no llega a su inicio: se marca igual.
     for (int k = 0; k < m_anclas.size(); ++k) Ui::setCurrent(m_anclas.at(k), k == i);
 }

@@ -70,9 +70,9 @@ Cuando la API agrega o cambia una ruta:
     `pending`, `danger`, `neutral`, `mint`, `blue`, `purple`, `amber`,
     `rose`, `gold`, `indigo`.
 - **`Documentos`:**
-  - `guardarYAbrir(parent, bytes, nombre)` pide dónde guardar, propone
-    `Documentos/NovaBook`, escribe el archivo y lo abre en el visor del
-    sistema.
+  - `guardarYAbrir(parent, bytes, nombre)`: todos los PDF pasan por aquí. Se
+    guardan sin preguntar en Descargas/NovaBook (`carpetaPdf()`; si el nombre
+    existe, `rutaLibre` agrega " (2)") y se abren en el visor del sistema.
   - `pdfRequisicion(Requisicion)` genera la requisición con `QPdfWriter`:
     folio, editorial, origen y destino, partidas y firmas. Si las partidas
     traen `recibida >= 0`, agrega la columna MUEBLE, tacha la cantidad
@@ -101,6 +101,10 @@ estilos a mano.
 | `field(label, input)`, `rowField(...)` | campo con etiqueta en mayúsculas espaciadas |
 | `searchBox()`, `decorateDate()`, `stepper(spin)` | inputs |
 | `eanInput(lineEdit)` | campo de EAN solo numérico (máximo 13): lo usa el Alta |
+| `conLimite(edit, max)` | el campo (QLineEdit o QPlainTextEdit) con su contador debajo; úsalo en formularios y diálogos con la constante de `core/Limites.h` |
+| `pedirTexto(parent, título, etiqueta, ejemplo, max, obligatoria, out)` | nota de varias líneas con tope y contador (rechazos) |
+| `busquedaProducto(lineEdit)` | campo de EAN o título: hasta 30 caracteres; con prefijo 977/978/979 o solo dígitos, máximo 13 (ya lo aplica `ProductoBuscador`) |
+| `chipsConScroll(textos, kind, ancho)` | chips en una fila con scroll horizontal (géneros en las tablas de inventario) |
 | `contadorCaracteres(lineEdit, max)` | contador "12/60" bajo un campo: fija el máximo y se pone ámbar (90 %) y rojo (lleno). Los máximos están en `core/Limites.h` |
 | `new ProductoBuscador(lineEdit, filtro)` | campo de EAN **o título**: con letras sugiere productos (`consultarExistencias`), al elegir deja el EAN; Enter con un solo resultado dispara `returnPressed`. `filtro` opcional (p. ej. solo el proveedor elegido) |
 | `table(headers, stretchColumn, parent, rowHeight)` | tabla con el estilo del diseño |

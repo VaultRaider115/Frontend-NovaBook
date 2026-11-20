@@ -18,6 +18,9 @@ struct ReturnItemDraft {
     int cantidad = 1;
     QString motivo;
     int id_motivo = 0;
+    // Validación de editorial: se hace al añadir y se repite si cambia el proveedor.
+    enum class Validacion { Pendiente, Validada, Rechazada } validacion = Validacion::Pendiente;
+    QString nota;   // detalle o motivo (tooltip del chip)
 };
 
 class VendedorDevolucionView : public QWidget {
@@ -36,6 +39,9 @@ private slots:
 private:
     void renderItems();
     void actualizarProveedor();
+    void revalidarPartidas();      // al cambiar de proveedor
+    int piezasDeEan(qint64 ean) const;
+    bool todasValidadas() const;
 
     QComboBox *m_comboProveedor;
     QLabel *m_lblRfc;
@@ -49,6 +55,8 @@ private:
     QTableWidget *m_tableItems;
     QLabel *m_lblTotal;
     QLabel *m_lblLote;
+    QLabel *m_lblValidacion;   // estado de la validación de editorial de la lista
+    int m_revalidando = 0;
     QPushButton *m_btnEnviar;
     QPushButton *m_btnPdf;
 

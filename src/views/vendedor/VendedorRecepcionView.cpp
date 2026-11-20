@@ -2,6 +2,7 @@
 #include "ApiClient.h"
 #include "Theme.h"
 #include "Toast.h"
+#include "Limites.h"
 #include "Ui.h"
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -49,6 +50,21 @@ VendedorRecepcionView::VendedorRecepcionView(bool puedeRecibir, QWidget *parent)
     top->addWidget(stat, 0, Qt::AlignTop);
     layout->addLayout(top);
 
+    // Una sola vista con scroll: la lista y, debajo, el detalle del registro
+    // abierto; arriba quedan fijas las anclas para saltar a cada sección.
+    m_secciones = new SeccionesScroll(this);
+    layout->addWidget(m_secciones, 1);
+    auto *secLista = m_secciones->agregarSeccion("Requisiciones");
+    auto *listaLay = new QVBoxLayout(secLista);
+    listaLay->setContentsMargins(0, 0, 0, 0);
+    listaLay->setSpacing(18);
+    auto *secDetalle = m_secciones->agregarSeccion("Detalle");
+    auto *detalleLay = new QVBoxLayout(secDetalle);
+    detalleLay->setContentsMargins(0, 0, 0, 0);
+    m_lblSinDetalle = Ui::label("Pulsa \"Recibir\" o \"Ver\" en una requisición para ver aquí su detalle.", "Muted", secDetalle);
+    m_lblSinDetalle->setWordWrap(true);
+    detalleLay->addWidget(m_lblSinDetalle);
+
     auto *filters = Ui::card(this);
     auto *fl = new QHBoxLayout(filters);
     fl->setContentsMargins(16, 16, 16, 16);
@@ -64,10 +80,11 @@ VendedorRecepcionView::VendedorRecepcionView(bool puedeRecibir, QWidget *parent)
     fl->addWidget(m_comboEstado);
     fl->addWidget(m_btnActualizar);
     fl->addStretch();
-    layout->addWidget(filters);
+    listaLay->addWidget(filters);
 
     m_lista = Ui::table({"Folio", "Fecha", "Editorial", "Elaboró", "Piezas", "Estado", "Acción"}, 2, this, 56);
-    layout->addWidget(m_lista, 1);
+    m_lista->setMinimumHeight(300);
+    listaLay->addWidget(m_lista, 1);
 
     // Detalle de la requisición abierta.
     m_detalle = Ui::card(this);
@@ -83,15 +100,15 @@ VendedorRecepcionView::VendedorRecepcionView(bool puedeRecibir, QWidget *parent)
     dl->addWidget(m_lblDetalleSub);
 
     m_tabla = Ui::table({"EAN", "Tipo", "Descripción", "Enviado", "Recibido", "Mueble de piso", "Revisión"}, 2, m_detalle, 56);
-    m_tabla->setMinimumHeight(200);
+    m_tabla->setMinimumHeight(280);
     dl->addWidget(m_tabla, 1);
 
     auto *pie = new QHBoxLayout();
     pie->setSpacing(12);
     m_txtObs = new QLineEdit(m_detalle);
-    m_txtObs->setMaxLength(150);
     m_txtObs->setPlaceholderText("Observaciones (opcional): p. ej. llegaron 2 menos de Cien años de soledad");
-    pie->addWidget(m_txtObs, 1);
+    m_boxObs = Ui::conLimite(m_txtObs, Limites::kObservacionesRequisicion, m_detalle);
+    pie->addWidget(m_boxObs, 1, Qt::AlignTop);
     pie->addStretch(0);   // en solo lectura (sin observaciones) los botones quedan a la derecha
     m_lblResumen = Ui::label("", "Muted", m_detalle);
     m_lblResumen->setTextFormat(Qt::RichText);
@@ -103,14 +120,21 @@ VendedorRecepcionView::VendedorRecepcionView(bool puedeRecibir, QWidget *parent)
     pie->addWidget(m_btnImprimir);
     pie->addWidget(m_btnEnviar);
     dl->addLayout(pie);
-    m_detalle->hide();
-    layout->addWidget(m_detalle, 2);
+    detalleLay->addWidget(m_detalle);
+    mostrarDetalle(false);
 
     connect(m_btnActualizar, &QPushButton::clicked, this, &VendedorRecepcionView::cargar);
     connect(m_comboEstado, QOverload<int>::of(&QComboBox::activated), this, [this]() { cargarLista(); });
-    connect(m_btnCerrar, &QPushButton::clicked, this, [this]() { m_detalle->hide(); m_lista->clearSelection(); });
+    connect(m_btnCerrar, &QPushButton::clicked, this, [this]() { mostrarDetalle(false); m_lista->clearSelection(); });
     connect(m_btnImprimir, &QPushButton::clicked, this, [this]() { imprimir(m_actual); });
     connect(m_btnEnviar, &QPushButton::clicked, this, &VendedorRecepcionView::enviar);
+}
+
+void VendedorRecepcionView::mostrarDetalle(bool visible) {
+    m_detalle->setVisible(visible);
+    m_lblSinDetalle->setVisible(!visible);
+    // Al abrir un registro baja a su detalle; al cerrarlo regresa a la lista.
+    m_secciones->irA(visible ? 1 : 0);
 }
 
 void VendedorRecepcionView::cargar() {
@@ -260,13 +284,13 @@ void VendedorRecepcionView::mostrarDetalle(const Documentos::Requisicion &req, c
         m_filas.append(f);
     }
 
-    m_txtObs->setVisible(editable);
+    m_boxObs->setVisible(editable);
     m_txtObs->clear();
     m_btnEnviar->setVisible(editable);
     m_btnImprimir->setVisible(!editable);
     m_lblResumen->setVisible(editable);
     actualizarDiferencias();
-    m_detalle->show();
+    mostrarDetalle(true);
 }
 
 void VendedorRecepcionView::actualizarDiferencias() {

@@ -6,6 +6,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QScrollArea>
+#include "Limites.h"
 #include "Ui.h"
 #include <QLabel>
 #include <QFrame>
@@ -49,7 +50,7 @@ BodegaRegistroView::BodegaRegistroView(QWidget *parent)
 
     m_txtNombre = new QLineEdit(card);
     m_txtNombre->setPlaceholderText("Título del libro o nombre de la revista");
-    cardLayout->addWidget(Ui::rowField("Título / Nombre:", m_txtNombre, card));
+    cardLayout->addWidget(Ui::rowField("Título / Nombre:", Ui::conLimite(m_txtNombre, Limites::kTitulo, card), card));
 
     // 2. Campos de Libro (ISBN 978 / 979)
     m_panelLibro = new QWidget(card);
@@ -87,7 +88,7 @@ BodegaRegistroView::BodegaRegistroView(QWidget *parent)
     cardLayout->addWidget(Ui::rowField("Géneros / Categoría:", m_listGeneros, card));
 
     m_spnPrecio = new QDoubleSpinBox(card);
-    m_spnPrecio->setRange(0.0, 99999.0);
+    m_spnPrecio->setRange(0.0, Limites::kMontoMax);
     m_spnPrecio->setValue(0.0);
     m_spnPrecio->setPrefix("$ ");
     cardLayout->addWidget(Ui::rowField("Precio de Venta:", m_spnPrecio, card));
@@ -205,7 +206,28 @@ void BodegaRegistroView::cargarCatalogos() {
             m_proveedores.append(p);
             m_comboProveedor->addItem(QString("%1 (RFC: %2)").arg(p.nombre_proveedor, p.rfc), p.id_proveedor);
         }
+        elegirProveedorInicial();
     });
+}
+
+void BodegaRegistroView::prepararAlta(const QString &ean, int idProveedor) {
+    m_proveedorInicial = idProveedor;
+    m_txtEan->setText(ean);
+    m_txtEan->setReadOnly(true);   // es el EAN que se escaneó en la factura
+    m_txtEan->setToolTip("EAN escaneado en Recepción de mercancía");
+    m_btnLimpiar->hide();
+    elegirProveedorInicial();
+    m_txtNombre->setFocus();
+}
+
+void BodegaRegistroView::elegirProveedorInicial() {
+    if (m_proveedorInicial <= 0) return;
+    const int i = m_comboProveedor->findData(m_proveedorInicial);
+    if (i < 0) return;
+    m_comboProveedor->setCurrentIndex(i);
+    // Es el proveedor de la factura: con otro, la compra lo rechazaría.
+    m_comboProveedor->setEnabled(false);
+    m_comboProveedor->setToolTip("Proveedor de la factura que se está registrando");
 }
 
 void BodegaRegistroView::onEanChanged(const QString &text) {
@@ -354,9 +376,10 @@ void BodegaRegistroView::onRegistrar() {
         }
         obj["autores"] = autoresArr;
 
-        ApiClient::instance()->registrarLibroBodega(obj, [this](bool ok, const QJsonValue &, const QString &msg) {
+        ApiClient::instance()->registrarLibroBodega(obj, [this, ean, nombre](bool ok, const QJsonValue &, const QString &msg) {
             if (ok) {
                 Toast::showToast(this, "Libro registrado exitosamente en Bodega con géneros y autor asociados", Toast::Success);
+                emit productoRegistrado(ean, nombre, "libro");
                 limpiarCampos();
             } else {
                 Toast::showToast(this, "Error al registrar libro: " + msg, Toast::Error);
@@ -375,9 +398,10 @@ void BodegaRegistroView::onRegistrar() {
             obj["periodicidad"] = periodicidad;
         }
 
-        ApiClient::instance()->registrarRevistaBodega(obj, [this](bool ok, const QJsonValue &, const QString &msg) {
+        ApiClient::instance()->registrarRevistaBodega(obj, [this, ean, nombre](bool ok, const QJsonValue &, const QString &msg) {
             if (ok) {
                 Toast::showToast(this, "Revista registrada exitosamente en Bodega con géneros asociados", Toast::Success);
+                emit productoRegistrado(ean, nombre, "revista");
                 limpiarCampos();
             } else {
                 Toast::showToast(this, "Error al registrar revista: " + msg, Toast::Error);

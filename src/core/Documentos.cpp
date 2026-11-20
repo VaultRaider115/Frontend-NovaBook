@@ -9,7 +9,6 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
-#include <QFileDialog>
 #include <QFileInfo>
 #include <QFontMetrics>
 #include <QLocale>
@@ -71,16 +70,36 @@ bool abrirCorreo(QWidget *parent, const QJsonObject &correo) {
     return false;
 }
 
+QString carpetaPdf() {
+    QString raiz = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    if (raiz.isEmpty()) raiz = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    return QDir(raiz).filePath("NovaBook");
+}
+
+QString rutaLibre(const QString &carpeta, const QString &nombre) {
+    const QFileInfo fi(nombre);
+    const QString base = fi.completeBaseName();
+    const QString ext = fi.suffix().isEmpty() ? QString("pdf") : fi.suffix();
+    QDir dir(carpeta);
+    QString ruta = dir.filePath(base + "." + ext);
+    for (int n = 2; QFileInfo::exists(ruta); ++n)
+        ruta = dir.filePath(QString("%1 (%2).%3").arg(base).arg(n).arg(ext));
+    return ruta;
+}
+
 bool guardarYAbrir(QWidget *parent, const QByteArray &pdf, const QString &nombreSugerido) {
     if (pdf.isEmpty()) {
         Toast::showToast(parent, "El documento llegó vacío", Toast::Error);
         return false;
     }
-    const QString base = QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath("NovaBook");
-    QDir().mkpath(base);
-    const QString ruta = QFileDialog::getSaveFileName(parent, "Guardar PDF",
-        QDir(base).filePath(nombreSugerido), "Archivos PDF (*.pdf)");
-    if (ruta.isEmpty()) return false;
+    // Sin preguntar: va a la carpeta de PDFs y, si el nombre ya existe, se
+    // numera ("acta_DEV-3 (2).pdf") para no sobrescribir uno anterior.
+    const QString base = carpetaPdf();
+    if (!QDir().mkpath(base)) {
+        Toast::showToast(parent, "No se pudo crear la carpeta " + QDir::toNativeSeparators(base), Toast::Error);
+        return false;
+    }
+    const QString ruta = rutaLibre(base, nombreSugerido);
 
     QFile f(ruta);
     if (!f.open(QIODevice::WriteOnly) || f.write(pdf) != pdf.size()) {
@@ -91,9 +110,11 @@ bool guardarYAbrir(QWidget *parent, const QByteArray &pdf, const QString &nombre
 
     // Se abre en el visor predeterminado; desde ahí se imprime.
     if (!QDesktopServices::openUrl(QUrl::fromLocalFile(ruta)))
-        Toast::showToast(parent, "PDF guardado: " + QFileInfo(ruta).fileName() + " (no se pudo abrir el visor)", Toast::Warning);
+        Toast::showToast(parent, "PDF guardado en " + QDir::toNativeSeparators(ruta) + " (no se pudo abrir el visor)",
+                         Toast::Warning, 7000);
     else
-        Toast::showToast(parent, "PDF guardado y abierto: " + QFileInfo(ruta).fileName(), Toast::Success);
+        Toast::showToast(parent, "PDF guardado y abierto: " + QDir::toNativeSeparators(ruta),
+                         Toast::Success, 6000);
     return true;
 }
 

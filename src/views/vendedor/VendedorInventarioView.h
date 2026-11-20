@@ -1,4 +1,5 @@
 #pragma once
+#include "SeccionesScroll.h"
 
 #include <QLabel>
 #include <QLineEdit>
@@ -31,7 +32,7 @@ private:
     QLabel *m_lblEstado;
     QPushButton *m_btnIniciar;
     QWidget *m_panelConteo;
-    QScrollArea *m_scrollConteo;
+    SeccionesScroll *m_scrollConteo;   // escanear, para devolución y conteo con anclas
     QLineEdit *m_txtEan;
     QTableWidget *m_tabla;
     // Para devolución: contador general y "encontrados / faltantes" por título.

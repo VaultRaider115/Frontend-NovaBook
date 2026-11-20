@@ -82,7 +82,7 @@ VendedorVentasView::VendedorVentasView(QWidget *parent)
     m_lblEanStatus->setObjectName("Muted");
     auto *estadoRow = new QHBoxLayout();
     estadoRow->addWidget(m_lblEanStatus, 1);
-    estadoRow->addWidget(Ui::contadorCaracteres(m_txtEan, Limites::kBusqueda, addCard));
+    estadoRow->addWidget(Ui::contadorCaracteres(m_txtEan, Limites::kBusquedaProducto, addCard));
     cardLayout->addLayout(estadoRow);
     contentLayout->addWidget(addCard);
 

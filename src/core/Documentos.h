@@ -11,9 +11,15 @@ class QWidget;
 // (desde ahí se imprime), y generar el PDF de una requisición.
 namespace Documentos {
 
-// Pide dónde guardar (por defecto Documentos/NovaBook), escribe el PDF y lo abre.
-// Devuelve false si el usuario cancela o no se pudo escribir (ya avisó con un toast).
+// Todos los PDF del sistema pasan por aquí: se guardan solos (sin preguntar)
+// en Descargas/NovaBook y se abren en el visor predeterminado para imprimir.
+// Si el nombre ya existe se numera ("acta_DEV-3 (2).pdf"). Devuelve false si
+// no se pudo escribir (ya avisó con un toast).
 bool guardarYAbrir(QWidget *parent, const QByteArray &pdf, const QString &nombreSugerido);
+// Carpeta de los PDF: Descargas/NovaBook (Documentos/NovaBook si no hay Descargas).
+QString carpetaPdf();
+// Ruta libre en `carpeta` para `nombre`: agrega " (2)", " (3)"… si ya existe.
+QString rutaLibre(const QString &carpeta, const QString &nombre);
 
 struct PartidaReq {
     qint64 ean = 0;

@@ -1,5 +1,6 @@
 #include "BodegaProveedoresView.h"
 #include "Theme.h"
+#include "Limites.h"
 #include "Ui.h"
 #include "ApiClient.h"
 #include "Toast.h"
@@ -162,41 +163,41 @@ void BodegaProveedoresView::onCrearProveedor() {
 
     auto *txtNombre = new QLineEdit(&dlg);
     txtNombre->setPlaceholderText("Razón social o nombre comercial");
-    form->addRow("Razón Social:", txtNombre);
+    form->addRow("Razón Social:", Ui::conLimite(txtNombre, Limites::kProveedorNombre, &dlg));
 
     auto *txtRfc = new QLineEdit(&dlg);
     txtRfc->setPlaceholderText("Ej. PME850101AB1");
-    form->addRow("RFC / Id Fiscal:", txtRfc);
+    form->addRow("RFC / Id Fiscal:", Ui::conLimite(txtRfc, Limites::kRfc, &dlg));
 
     auto *txtTelefono = new QLineEdit(&dlg);
     txtTelefono->setPlaceholderText("Teléfono de contacto");
     txtTelefono->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]*"), txtTelefono));
     txtTelefono->setInputMethodHints(Qt::ImhDigitsOnly);
-    form->addRow("Teléfono:", txtTelefono);
+    form->addRow("Teléfono:", Ui::conLimite(txtTelefono, Limites::kTelefono, &dlg));
 
     auto *txtCorreo = new QLineEdit(&dlg);
     txtCorreo->setPlaceholderText("contacto@editorial.com");
-    form->addRow("Correo:", txtCorreo);
+    form->addRow("Correo:", Ui::conLimite(txtCorreo, Limites::kCorreo, &dlg));
 
     auto *txtCalle = new QLineEdit(&dlg);
     txtCalle->setPlaceholderText("Nombre de la calle");
-    form->addRow("Calle:", txtCalle);
+    form->addRow("Calle:", Ui::conLimite(txtCalle, Limites::kCalle, &dlg));
 
     auto *txtNumero = new QLineEdit(&dlg);
     txtNumero->setPlaceholderText("Número exterior/interior");
-    form->addRow("Número:", txtNumero);
+    form->addRow("Número:", Ui::conLimite(txtNumero, Limites::kNumero, &dlg));
 
     auto *txtColonia = new QLineEdit(&dlg);
     txtColonia->setPlaceholderText("Colonia");
-    form->addRow("Colonia:", txtColonia);
+    form->addRow("Colonia:", Ui::conLimite(txtColonia, Limites::kColonia, &dlg));
 
     auto *txtCiudad = new QLineEdit(&dlg);
     txtCiudad->setPlaceholderText("Ciudad");
-    form->addRow("Ciudad:", txtCiudad);
+    form->addRow("Ciudad:", Ui::conLimite(txtCiudad, Limites::kCiudad, &dlg));
 
     auto *txtContacto = new QLineEdit(&dlg);
     txtContacto->setPlaceholderText("Nombre del representante o contacto");
-    form->addRow("Persona de Contacto:", txtContacto);
+    form->addRow("Persona de Contacto:", Ui::conLimite(txtContacto, Limites::kContacto, &dlg));
 
     auto *comboEstatus = new QComboBox(&dlg);
     comboEstatus->addItem("ACTIVO", "ACTIVO");
@@ -270,34 +271,34 @@ void BodegaProveedoresView::onEditarProveedor() {
     form->setSpacing(12);
 
     auto *txtNombre = new QLineEdit(p.nombre_proveedor, &dlg);
-    form->addRow("Razón Social:", txtNombre);
+    form->addRow("Razón Social:", Ui::conLimite(txtNombre, Limites::kProveedorNombre, &dlg));
 
     auto *txtRfc = new QLineEdit(p.rfc, &dlg);
-    form->addRow("RFC / Id Fiscal:", txtRfc);
+    form->addRow("RFC / Id Fiscal:", Ui::conLimite(txtRfc, Limites::kRfc, &dlg));
 
     auto *txtTelefono = new QLineEdit(p.telefono, &dlg);
     txtTelefono->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]*"), txtTelefono));
     txtTelefono->setInputMethodHints(Qt::ImhDigitsOnly);
-    form->addRow("Teléfono:", txtTelefono);
+    form->addRow("Teléfono:", Ui::conLimite(txtTelefono, Limites::kTelefono, &dlg));
 
     auto *txtCorreo = new QLineEdit(p.correo, &dlg);
-    form->addRow("Correo:", txtCorreo);
+    form->addRow("Correo:", Ui::conLimite(txtCorreo, Limites::kCorreo, &dlg));
 
     const QStringList direccion = camposDireccionProveedor(p.direccion);
     auto *txtCalle = new QLineEdit(direccion.value(0), &dlg);
-    form->addRow("Calle:", txtCalle);
+    form->addRow("Calle:", Ui::conLimite(txtCalle, Limites::kCalle, &dlg));
 
     auto *txtNumero = new QLineEdit(direccion.value(1), &dlg);
-    form->addRow("Número:", txtNumero);
+    form->addRow("Número:", Ui::conLimite(txtNumero, Limites::kNumero, &dlg));
 
     auto *txtColonia = new QLineEdit(direccion.value(2), &dlg);
-    form->addRow("Colonia:", txtColonia);
+    form->addRow("Colonia:", Ui::conLimite(txtColonia, Limites::kColonia, &dlg));
 
     auto *txtCiudad = new QLineEdit(direccion.value(3), &dlg);
-    form->addRow("Ciudad:", txtCiudad);
+    form->addRow("Ciudad:", Ui::conLimite(txtCiudad, Limites::kCiudad, &dlg));
 
     auto *txtContacto = new QLineEdit(p.persona_contacto, &dlg);
-    form->addRow("Persona de Contacto:", txtContacto);
+    form->addRow("Persona de Contacto:", Ui::conLimite(txtContacto, Limites::kContacto, &dlg));
 
     auto *comboEstatus = new QComboBox(&dlg);
     comboEstatus->addItem("ACTIVO", "ACTIVO");
