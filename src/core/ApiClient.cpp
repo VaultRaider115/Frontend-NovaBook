@@ -511,6 +511,10 @@ void ApiClient::registrarConteo(qint64 idInventario, qint64 ean, int cantidad, A
                 QJsonDocument(req).toJson(), cb);
 }
 
+void ApiClient::pendientesDevolucion(qint64 idInventario, ApiCallback cb) {
+    sendRequest("GET", QString("/api/vendedor/inventarios/%1/devolucion").arg(idInventario), QUrlQuery(), QByteArray(), cb);
+}
+
 void ApiClient::cerrarInventario(qint64 idInventario, ApiCallback cb) {
     sendRequest("POST", QString("/api/vendedor/inventarios/%1/cerrar").arg(idInventario), QUrlQuery(),
                 QByteArray("{}"), cb);

@@ -155,6 +155,23 @@ void eanInput(QLineEdit *e) {
     e->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,13}"), e));
 }
 
+QLabel *contadorCaracteres(QLineEdit *edit, int max, QWidget *parent) {
+    edit->setMaxLength(max);
+    auto *lbl = new QLabel(parent);
+    lbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    lbl->setAccessibleName("Caracteres usados");
+    auto actualizar = [lbl, max](const QString &t) {
+        const int n = static_cast<int>(t.size());
+        const QString color = n >= max ? Theme::Error : (n * 10 >= max * 9 ? Theme::Warning : Theme::TextMuted);
+        lbl->setText(QString("%1/%2").arg(n).arg(max));
+        lbl->setStyleSheet(QString("font-size: 12px; color: %1;%2").arg(color, n >= max ? " font-weight: 700;" : ""));
+        lbl->setToolTip(n >= max ? QString("Llegaste al máximo de %1 caracteres").arg(max) : QString());
+    };
+    QObject::connect(edit, &QLineEdit::textChanged, lbl, actualizar);
+    actualizar(edit->text());
+    return lbl;
+}
+
 QFrame *stepper(QSpinBox *spin, QWidget *parent) {
     auto *f = new QFrame(parent);
     f->setObjectName("Stepper");

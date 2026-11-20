@@ -34,6 +34,7 @@ set(SOURCES
     src/widgets/CatalogView.cpp
     src/widgets/RequisicionView.cpp
     src/widgets/ProductoBuscador.cpp
+    src/widgets/SeccionesScroll.cpp
     src/views/LoginWindow.cpp
     src/views/MainWindow.cpp
     src/views/jefe/JefeDashboardView.cpp
@@ -76,6 +77,8 @@ set(HEADERS
     src/widgets/CatalogView.h
     src/widgets/RequisicionView.h
     src/widgets/ProductoBuscador.h
+    src/widgets/SeccionesScroll.h
+    src/core/Limites.h
     src/views/LoginWindow.h
     src/views/MainWindow.h
     src/views/jefe/JefeDashboardView.h

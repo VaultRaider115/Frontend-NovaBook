@@ -26,26 +26,14 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
         QString("Recepción de Mercancía <span style=\"color:%1; font-weight:400;\">— Compras a Proveedor</span>")
             .arg(Theme::TextMuted), "", this));
 
-    // Secciones: capturar una factura nueva o consultar las ya registradas.
-    auto *seg = new QHBoxLayout();
-    seg->setSpacing(6);
-    for (const QString &n : {QString("Registrar factura"), QString("Facturas registradas")}) {
-        auto *b = Ui::button(n, "page", this);
-        const int idx = m_segmentos.size();
-        connect(b, &QPushButton::clicked, this, [this, idx]() { mostrarSeccion(idx); });
-        m_segmentos << b;
-        seg->addWidget(b);
-    }
-    seg->addStretch();
-    layout->addLayout(seg);
-
-    m_stack = new QStackedWidget(this);
-    layout->addWidget(m_stack, 1);
-    auto *registro = new QWidget(m_stack);
+    // Una sola vista con scroll: la captura de la factura y, debajo, las ya
+    // registradas. Arriba quedan fijas las anclas para saltar a cada sección.
+    m_secciones = new SeccionesScroll(this);
+    layout->addWidget(m_secciones, 1);
+    auto *registro = m_secciones->agregarSeccion("Registrar factura");
     auto *rl = new QVBoxLayout(registro);
     rl->setContentsMargins(0, 0, 0, 0);
     rl->setSpacing(18);
-    m_stack->addWidget(registro);
 
     // Datos de factura: proveedor + número de factura / observaciones
     auto *headerCard = Ui::card(this);
@@ -132,7 +120,8 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
 
     // Partidas de la compra
     m_tableCart = Ui::table({"EAN", "Tipo", "Descripción", "Llegaron / Fact.", "Costo unit.", "Subtotal", "Acción"}, 2, this, 56);
-    rl->addWidget(m_tableCart, 1);
+    m_tableCart->setMinimumHeight(260);   // dentro del scroll ya no se estira sola
+    rl->addWidget(m_tableCart);
 
     // Liquidación
     auto *bottomCard = Ui::card(this);
@@ -159,7 +148,7 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     rl->addWidget(bottomCard);
 
     // --- Facturas registradas: qué se compró en cada una ---------------------
-    auto *hist = new QWidget(m_stack);
+    auto *hist = m_secciones->agregarSeccion("Facturas registradas");
     auto *hl2 = new QVBoxLayout(hist);
     hl2->setContentsMargins(0, 0, 0, 0);
     hl2->setSpacing(14);
@@ -176,8 +165,8 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     m_tablaFacturas = Ui::table({"Compra", "Factura", "Proveedor", "Fecha", "Registró", "Títulos", "Piezas", "Total", "Acción"}, 2, hist, 56);
     for (int c : {0, 1, 3, 5, 6, 7, 8})
         m_tablaFacturas->horizontalHeader()->setSectionResizeMode(c, QHeaderView::ResizeToContents);
-    hl2->addWidget(m_tablaFacturas, 1);
-    m_stack->addWidget(hist);
+    m_tablaFacturas->setMinimumHeight(320);
+    hl2->addWidget(m_tablaFacturas);
 
     connect(m_txtBuscarFactura, &QLineEdit::textChanged, this, &BodegaComprasView::pintarFacturas);
     connect(btnRecargar, &QPushButton::clicked, this, &BodegaComprasView::cargarFacturas);
@@ -191,7 +180,6 @@ BodegaComprasView::BodegaComprasView(QWidget *parent)
     connect(m_btnVaciar, &QPushButton::clicked, this, &BodegaComprasView::limpiarCarrito);
     connect(m_btnProcesar, &QPushButton::clicked, this, &BodegaComprasView::onRegistrarCompra);
 
-    mostrarSeccion(0);
     cargar();
 }
 
@@ -201,8 +189,7 @@ void BodegaComprasView::cargar() {
 }
 
 void BodegaComprasView::mostrarSeccion(int i) {
-    for (int k = 0; k < m_segmentos.size(); ++k) Ui::setCurrent(m_segmentos.at(k), k == i);
-    m_stack->setCurrentIndex(i);
+    m_secciones->irA(i);
 }
 
 void BodegaComprasView::cargarFacturas() {
