@@ -68,11 +68,19 @@ VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
 
     m_lblEanStatus = new QLabel("Ingresa el código EAN-13 para clasificar automáticamente como Libro o Revista", addCard);
     m_lblEanStatus->setObjectName("Hint");
-    cl->addWidget(m_lblEanStatus);
+    m_lblEanStatus->setWordWrap(true);
+    // Estado de la validación de editorial de toda la lista (se valida al añadir).
+    auto *estado = new QHBoxLayout();
+    estado->setSpacing(10);
+    estado->addWidget(m_lblEanStatus, 1);
+    estado->addWidget(Ui::label("Validación de editorial:", "Muted", addCard));
+    m_lblValidacion = Ui::chip("Sin artículos", "neutral", addCard);
+    estado->addWidget(m_lblValidacion);
+    cl->addLayout(estado);
     layout->addWidget(addCard);
 
     // Artículos a devolver
-    m_tableItems = Ui::table({"EAN", "Tipo", "Título", "Cantidad", "Motivo", "Acción"}, 2, this, 56);
+    m_tableItems = Ui::table({"EAN", "Tipo", "Título", "Cantidad", "Motivo", "Editorial", "Acción"}, 2, this, 56);
     layout->addWidget(m_tableItems, 1);
 
     // Pie: totales + acciones
@@ -119,7 +127,10 @@ VendedorDevolucionView::VendedorDevolucionView(QWidget *parent)
     connect(m_btnAgregar, &QPushButton::clicked, this, &VendedorDevolucionView::onAgregarArticulo);
     connect(m_btnEnviar, &QPushButton::clicked, this, &VendedorDevolucionView::onEnviarDevolucion);
     connect(m_btnPdf, &QPushButton::clicked, this, &VendedorDevolucionView::onDescargarPdf);
-    connect(m_comboProveedor, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() { actualizarProveedor(); });
+    connect(m_comboProveedor, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
+        actualizarProveedor();
+        revalidarPartidas();
+    });
 
     cargarCatalogos();
 }
@@ -184,17 +195,76 @@ void VendedorDevolucionView::onAgregarArticulo() {
         return;
     }
 
-    ApiClient::instance()->consultarExistencias(eanStr, tipo, 0, [this, ean, cant, tipo, motivo, idMotivo](bool ok, const QJsonValue &data, const QString &) {
-        QString titulo = QString("Artículo %1").arg(ean);
-        if (ok && data.isArray() && !data.toArray().isEmpty())
-            titulo = data.toArray().first().toObject().value("titulo").toString(titulo);
-        m_items.append({ean, tipo, titulo, cant, motivo, idMotivo});
+    if (m_comboProveedor->currentIndex() < 0) {
+        Toast::showToast(this, "Selecciona el proveedor destino", Toast::Warning);
+        return;
+    }
+    const int provId = m_comboProveedor->currentData().toInt();
+
+    // La validación se hace al añadir (no hasta registrar): el producto existe,
+    // es de la editorial del proveedor elegido y alcanza bodega + apartados.
+    m_btnAgregar->setEnabled(false);
+    ApiClient::instance()->validarPartidaDevolucion(provId, ean, piezasDeEan(ean) + cant,
+        [this, ean, cant, tipo, motivo, idMotivo, provId](bool ok, const QJsonValue &data, const QString &msg) {
+        m_btnAgregar->setEnabled(true);
+        if (!ok || !data.isObject()) {
+            m_lblEanStatus->setText("No se añadió: " + msg);
+            m_lblEanStatus->setStyleSheet(QString("font-size: 12px; color: %1; font-weight: bold;").arg(Theme::Error));
+            Toast::showToast(this, msg, Toast::Error, 6000);
+            return;
+        }
+        if (m_comboProveedor->currentData().toInt() != provId) return;   // cambió mientras validaba
+        const QJsonObject o = data.toObject();
+        ReturnItemDraft it{ean, tipo, o.value("titulo").toString(QString("EAN %1").arg(ean)), cant, motivo, idMotivo};
+        it.validacion = ReturnItemDraft::Validacion::Validada;
+        it.nota = QString("Editorial %1 · disponibles %2").arg(o.value("proveedor").toString())
+                      .arg(o.value("disponible").toVariant().toLongLong());
+        m_items.append(it);
         renderItems();
 
         m_txtEan->clear();
         m_spnCantidad->setValue(1);
         m_txtEan->setFocus();
     });
+}
+
+int VendedorDevolucionView::piezasDeEan(qint64 ean) const {
+    int n = 0;
+    for (const auto &it : m_items) if (it.ean == ean) n += it.cantidad;
+    return n;
+}
+
+bool VendedorDevolucionView::todasValidadas() const {
+    for (const auto &it : m_items)
+        if (it.validacion != ReturnItemDraft::Validacion::Validada) return false;
+    return true;
+}
+
+void VendedorDevolucionView::revalidarPartidas() {
+    if (m_items.isEmpty() || m_comboProveedor->currentIndex() < 0) return;
+    const int provId = m_comboProveedor->currentData().toInt();
+    for (auto &it : m_items) {
+        it.validacion = ReturnItemDraft::Validacion::Pendiente;
+        it.nota.clear();
+    }
+    renderItems();
+
+    // Una consulta por EAN con el total de piezas de ese EAN en la lista.
+    QList<qint64> eans;
+    for (const auto &it : std::as_const(m_items)) if (!eans.contains(it.ean)) eans << it.ean;
+    const int ronda = ++m_revalidando;
+    for (qint64 ean : std::as_const(eans)) {
+        ApiClient::instance()->validarPartidaDevolucion(provId, ean, piezasDeEan(ean),
+            [this, ean, ronda](bool ok, const QJsonValue &data, const QString &msg) {
+            if (ronda != m_revalidando) return;   // ya se cambió otra vez de proveedor
+            for (auto &it : m_items) {
+                if (it.ean != ean) continue;
+                it.validacion = ok ? ReturnItemDraft::Validacion::Validada : ReturnItemDraft::Validacion::Rechazada;
+                it.nota = ok ? QString("Editorial %1").arg(data.toObject().value("proveedor").toString()) : msg;
+            }
+            renderItems();
+        });
+    }
 }
 
 void VendedorDevolucionView::renderItems() {
@@ -209,11 +279,38 @@ void VendedorDevolucionView::renderItems() {
         Ui::cellText(m_tableItems, i, 2, it.nombre, false, true);
         Ui::cellText(m_tableItems, i, 3, QString::number(it.cantidad), false, true);
         Ui::cellText(m_tableItems, i, 4, it.motivo, false, false, Theme::TextMuted);
+        QLabel *estado = nullptr;
+        switch (it.validacion) {
+        case ReturnItemDraft::Validacion::Validada: estado = Ui::chip("Validada", "ok"); break;
+        case ReturnItemDraft::Validacion::Pendiente: estado = Ui::chip("Pendiente", "pending"); break;
+        case ReturnItemDraft::Validacion::Rechazada: estado = Ui::chip("No es de esta editorial", "danger"); break;
+        }
+        estado->setToolTip(it.nota);
+        Ui::cellWidget(m_tableItems, i, 5, estado);
         auto *quitar = Ui::iconButton("trash", "Quitar artículo");
         connect(quitar, &QPushButton::clicked, this, [this, i]() { m_items.removeAt(i); renderItems(); });
-        Ui::cellWidget(m_tableItems, i, 5, quitar);
+        Ui::cellWidget(m_tableItems, i, 6, quitar);
     }
     m_lblTotal->setText(QString::number(total));
+
+    // Estado de la lista: validada solo si todas las partidas pasaron.
+    int pendientes = 0, rechazadas = 0;
+    for (const auto &it : std::as_const(m_items)) {
+        if (it.validacion == ReturnItemDraft::Validacion::Pendiente) ++pendientes;
+        if (it.validacion == ReturnItemDraft::Validacion::Rechazada) ++rechazadas;
+    }
+    const char *kind = "neutral";
+    QString texto = "Sin artículos";
+    if (!m_items.isEmpty()) {
+        if (rechazadas) { kind = "danger"; texto = QString("%1 sin validar").arg(rechazadas); }
+        else if (pendientes) { kind = "pending"; texto = "Pendiente"; }
+        else { kind = "ok"; texto = "Validada"; }
+    }
+    m_lblValidacion->setText(texto);
+    m_lblValidacion->setProperty("chip", kind);
+    Ui::repolish(m_lblValidacion);
+    // Mismo ancho que calcula Ui::chip (texto + padding).
+    m_lblValidacion->setFixedWidth(m_lblValidacion->fontMetrics().horizontalAdvance(texto) + 28);
 }
 
 void VendedorDevolucionView::onEnviarDevolucion() {
@@ -223,6 +320,11 @@ void VendedorDevolucionView::onEnviarDevolucion() {
     }
     if (m_comboProveedor->currentIndex() < 0) {
         Toast::showToast(this, "Selecciona un proveedor destino", Toast::Warning);
+        return;
+    }
+    if (!todasValidadas()) {
+        Toast::showToast(this, "Hay artículos sin validar o que no son de la editorial del proveedor: quítalos o cambia el proveedor",
+                         Toast::Warning, 6000);
         return;
     }
     const int provId = m_comboProveedor->currentData().toInt();

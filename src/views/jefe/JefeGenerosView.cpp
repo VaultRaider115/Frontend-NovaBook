@@ -1,4 +1,5 @@
 #include "JefeGenerosView.h"
+#include "Limites.h"
 #include "Ui.h"
 #include "Theme.h"
 #include "ApiClient.h"
@@ -59,9 +60,8 @@ void JefeGenerosView::abrirFormulario(const GeneroDto *g) {
     const QRegularExpression rxGenero("^[\\p{L} '\\-\\.]*$");
     auto *txt = new QLineEdit(edit ? g->genero_literario : QString(), &dlg);
     txt->setPlaceholderText("Ej: Romantasy");
-    txt->setMaxLength(45);
     txt->setValidator(new QRegularExpressionValidator(rxGenero, txt));
-    dlg.addField("Nombre del Género", txt, 0, 0, 2);
+    dlg.addField("Nombre del Género", Ui::conLimite(txt, Limites::kGenero, &dlg), 0, 0, 2);
 
     QPointer<QDialog> guard(&dlg);
     QPointer<JefeGenerosView> self(this);

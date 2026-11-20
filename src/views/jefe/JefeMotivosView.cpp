@@ -1,4 +1,5 @@
 #include "JefeMotivosView.h"
+#include "Limites.h"
 #include "Ui.h"
 #include "Theme.h"
 #include "ApiClient.h"
@@ -61,15 +62,14 @@ void JefeMotivosView::abrirFormulario(const MotivoDto *m) {
     const QRegularExpression rxMotivo("^[\\p{L} '\\-\\.,/()]*$");
     auto *txtNombre = new QLineEdit(edit ? m->nombre : QString(), &dlg);
     txtNombre->setPlaceholderText("Ej: Finalización de contrato");
-    txtNombre->setMaxLength(50);
     txtNombre->setValidator(new QRegularExpressionValidator(rxMotivo, txtNombre));
 
     auto *txtDesc = new QPlainTextEdit(edit ? m->descripcion : QString(), &dlg);
-    txtDesc->setPlaceholderText("Ej: Fin del contrato anual de libros (máx. 200 caracteres).");
+    txtDesc->setPlaceholderText("Ej: Fin del contrato anual de libros ");
     txtDesc->setFixedHeight(90);
 
-    dlg.addField("Nombre del motivo", txtNombre, 0, 0, 2);
-    dlg.addField("Descripción del motivo", txtDesc, 1, 0, 2);
+    dlg.addField("Nombre del motivo", Ui::conLimite(txtNombre, Limites::kMotivoNombre, &dlg), 0, 0, 2);
+    dlg.addField("Descripción del motivo", Ui::conLimite(txtDesc, Limites::kDescripcion, &dlg), 1, 0, 2);
 
     QPointer<QDialog> guard(&dlg);
     QPointer<JefeMotivosView> self(this);

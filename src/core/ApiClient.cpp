@@ -515,6 +515,14 @@ void ApiClient::pendientesDevolucion(qint64 idInventario, ApiCallback cb) {
     sendRequest("GET", QString("/api/vendedor/inventarios/%1/devolucion").arg(idInventario), QUrlQuery(), QByteArray(), cb);
 }
 
+void ApiClient::validarPartidaDevolucion(int idProveedor, qint64 ean, int cantidad, ApiCallback cb) {
+    QUrlQuery q;
+    q.addQueryItem("id_proveedor", QString::number(idProveedor));
+    q.addQueryItem("codigo_ean", QString::number(ean));
+    q.addQueryItem("cantidad", QString::number(cantidad));
+    sendRequest("GET", "/api/vendedor/devoluciones/validar", q, QByteArray(), cb);
+}
+
 void ApiClient::cerrarInventario(qint64 idInventario, ApiCallback cb) {
     sendRequest("POST", QString("/api/vendedor/inventarios/%1/cerrar").arg(idInventario), QUrlQuery(),
                 QByteArray("{}"), cb);

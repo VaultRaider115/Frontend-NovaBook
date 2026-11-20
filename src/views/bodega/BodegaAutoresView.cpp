@@ -1,4 +1,5 @@
 #include "BodegaAutoresView.h"
+#include "Limites.h"
 #include "Ui.h"
 #include "Theme.h"
 #include "ApiClient.h"
@@ -113,12 +114,10 @@ void BodegaAutoresView::abrirFormulario(const AutorDto *a) {
 
     auto *txtNombre = new QLineEdit(edit ? a->nombre : QString(), &dlg);
     txtNombre->setPlaceholderText("Ej: Carlos");
-    txtNombre->setMaxLength(50);
     txtNombre->setValidator(new QRegularExpressionValidator(rxNombre, txtNombre));
 
     auto *txtApellidos = new QLineEdit(edit ? a->apellidos : QString(), &dlg);
     txtApellidos->setPlaceholderText("Ej: Trejo");
-    txtApellidos->setMaxLength(50);
     txtApellidos->setValidator(new QRegularExpressionValidator(rxNombre, txtApellidos));
 
     auto *comboNac = new QComboBox(&dlg);
@@ -140,8 +139,8 @@ void BodegaAutoresView::abrirFormulario(const AutorDto *a) {
         comboNac->setCurrentIndex(idx);
     }
 
-    dlg.addField("Nombre(s) *", txtNombre, 0, 0);
-    dlg.addField("Apellido(s) *", txtApellidos, 0, 1);
+    dlg.addField("Nombre(s) *", Ui::conLimite(txtNombre, Limites::kAutorNombre, &dlg), 0, 0);
+    dlg.addField("Apellido(s) *", Ui::conLimite(txtApellidos, Limites::kAutorApellidos, &dlg), 0, 1);
     dlg.addField("Nacionalidad *", comboNac, 1, 0, 2);
 
     QPointer<QDialog> guard(&dlg);

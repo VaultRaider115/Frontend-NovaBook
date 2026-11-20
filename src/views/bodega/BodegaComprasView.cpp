@@ -1,11 +1,14 @@
 #include "BodegaComprasView.h"
+#include "BodegaRegistroView.h"
 #include "ApiClient.h"
 #include "Documentos.h"
 #include "EanClassifier.h"
 #include "ProductoBuscador.h"
 #include "Theme.h"
 #include "Toast.h"
+#include "Limites.h"
 #include "Ui.h"
+#include <QDialog>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -56,14 +59,14 @@ BodegaComprasView::BodegaComprasView(QWidget *parent) : QWidget(parent) {
   lblF->setToolTip("Prefijo de factura: se agrega solo");
   m_txtObs = new QLineEdit(facturaBox);
   m_txtObs->setPlaceholderText("Ej. 1024");
-  m_txtObs->setMaxLength(28); // + "F-" = 30 (tamaño de la columna)
+  // + "F-" = 30 (tamaño de la columna); el contador lo fija Ui::conLimite.
   m_txtObs->setValidator(new QRegularExpressionValidator(
-      QRegularExpression("[0-9]{0,28}"), m_txtObs));
+      QRegularExpression(QString("[0-9]{0,%1}").arg(Limites::kFactura)), m_txtObs));
   m_txtObs->setInputMethodHints(Qt::ImhDigitsOnly);
   m_txtObs->setAccessibleName("Número de factura (sin el prefijo F-)");
   m_txtObs->addAction(QIcon(":/icons/receipt.svg"), QLineEdit::LeadingPosition);
-  fl->addWidget(lblF);
-  fl->addWidget(m_txtObs, 1);
+  fl->addWidget(lblF, 0, Qt::AlignTop);
+  fl->addWidget(Ui::conLimite(m_txtObs, Limites::kFactura, facturaBox), 1);
   hl->addWidget(Ui::field("Proveedor Oficial", m_comboProveedor, headerCard),
                 1);
   hl->addWidget(Ui::field("Número de Factura", facturaBox, headerCard), 1);
@@ -118,7 +121,7 @@ BodegaComprasView::BodegaComprasView(QWidget *parent) : QWidget(parent) {
           });
 
   m_spnCosto = new QDoubleSpinBox(addCard);
-  m_spnCosto->setRange(0.0, 99999.0);
+  m_spnCosto->setRange(0.0, Limites::kMontoMax);
   m_spnCosto->setValue(0.0);
   m_spnCosto->setPrefix("$ ");
   m_spnCosto->setFixedWidth(130);
@@ -132,8 +135,19 @@ BodegaComprasView::BodegaComprasView(QWidget *parent) : QWidget(parent) {
                               "automáticamente como Libro o Revista",
                               addCard);
   m_lblEanStatus->setObjectName("Muted");
-  cardLayout->addWidget(m_lblEanStatus);
+  m_lblEanStatus->setWordWrap(true);
+  // Si el EAN no está en el catálogo no entra a la compra: este botón abre el
+  // alta con el EAN ya puesto (diagrama, paso 1).
+  m_btnAltaNuevo = Ui::button("Agregar nuevo libro", "outline", addCard, "plus-gold");
+  m_btnAltaNuevo->setToolTip("Dar de alta el producto con este EAN y añadirlo a la compra");
+  m_btnAltaNuevo->hide();
+  auto *estadoLayout = new QHBoxLayout();
+  estadoLayout->setSpacing(12);
+  estadoLayout->addWidget(m_lblEanStatus, 1);
+  estadoLayout->addWidget(m_btnAltaNuevo);
+  cardLayout->addLayout(estadoLayout);
   rl->addWidget(addCard);
+  connect(m_btnAltaNuevo, &QPushButton::clicked, this, &BodegaComprasView::abrirAltaNuevo);
 
   // Partidas de la compra
   m_tableCart = Ui::table({"EAN", "Tipo", "Descripción", "Llegaron / Fact.",
@@ -352,6 +366,8 @@ void BodegaComprasView::verFactura(const CompraResponse &c) {
 
 void BodegaComprasView::onEanChanged(const QString &text) {
   EanClassifier::aplicarAControles(text, m_lblEanStatus);
+  // El botón de alta solo aplica al EAN que se acaba de rechazar.
+  if (text.trimmed() != m_eanNoRegistrado) m_btnAltaNuevo->hide();
 }
 
 void BodegaComprasView::cargarProveedores() {
@@ -381,56 +397,135 @@ void BodegaComprasView::onAgregarArticulo() {
     Toast::showToast(this, eanRes.mensaje, Toast::Warning);
     return;
   }
+  if (m_comboProveedor->currentIndex() < 0) {
+    Toast::showToast(this, "Selecciona el proveedor de la factura", Toast::Warning);
+    return;
+  }
+  // El costo empieza en $0 y es obligatorio (la API tampoco acepta $0).
+  if (m_spnCosto->value() <= 0.0) {
+    Toast::showToast(this, "El costo unitario debe ser mayor a $0", Toast::Warning);
+    m_spnCosto->setFocus();
+    m_spnCosto->selectAll();
+    return;
+  }
 
-  qint64 ean = eanStr.toLongLong();
-  int cant = m_spnCantidad->value();
-  int recibidas = qMin(m_spnRecibidas->value(), cant);
-  double costo = m_spnCosto->value();
-  QString tipo =
+  const qint64 ean = eanStr.toLongLong();
+  const int cant = m_spnCantidad->value();
+  const int recibidas = qMin(m_spnRecibidas->value(), cant);
+  const double costo = m_spnCosto->value();
+  const int idProveedor = m_comboProveedor->currentData().toInt();
+  const QString tipo =
       (eanRes.tipo == EanClassifier::Tipo::Libro ? "libro" : "revista");
 
-  // Consult existing item title
+  // Solo entra lo que ya está en el catálogo y es del proveedor de la factura.
+  m_btnAgregar->setEnabled(false);
   ApiClient::instance()->consultarExistencias(
       eanStr, tipo, 0,
-      [this, ean, cant, recibidas, costo, tipo](bool ok, const QJsonValue &data,
-                                                const QString &) {
-        QString titulo = QString("Artículo %1").arg(ean);
-        if (ok && data.isArray() && !data.toArray().isEmpty()) {
-          QJsonObject obj = data.toArray().first().toObject();
-          titulo = obj.value("titulo").toString(titulo);
+      [this, ean, eanStr, cant, recibidas, costo, tipo, idProveedor](
+          bool ok, const QJsonValue &data, const QString &msg) {
+        m_btnAgregar->setEnabled(true);
+        if (!ok) {
+          Toast::showToast(this, "No se pudo consultar el catálogo: " + msg, Toast::Error);
+          return;
         }
-
-        // Check if item is already in list
-        bool found = false;
-        for (auto &item : m_items) {
-          if (item.ean == ean) {
-            item.cantidad += cant;
-            item.recibidas += recibidas;
-            item.costo_unitario = costo;
-            item.subtotal = item.cantidad * item.costo_unitario;
-            found = true;
+        QJsonObject prod;
+        for (const auto &v : data.toArray()) {
+          const QJsonObject o = v.toObject();
+          if (o.value("codigo_ean").toVariant().toLongLong() == ean) {
+            prod = o;
             break;
           }
         }
-
-        if (!found) {
-          CompraCartItem ci;
-          ci.ean = ean;
-          ci.tipo = tipo;
-          ci.nombre = titulo;
-          ci.cantidad = cant;
-          ci.recibidas = recibidas;
-          ci.costo_unitario = costo;
-          ci.subtotal = cant * costo;
-          m_items.append(ci);
+        if (prod.isEmpty()) {
+          m_eanNoRegistrado = eanStr;
+          m_lblEanStatus->setText(QString("El EAN %1 no está en el catálogo: no se puede ingresar. "
+                                          "Dalo de alta con \"Agregar nuevo libro\".").arg(eanStr));
+          m_lblEanStatus->setStyleSheet(QString("color: %1; font-weight: 600;").arg(Theme::Error));
+          m_btnAltaNuevo->setText(tipo == "revista" ? "Agregar nueva revista" : "Agregar nuevo libro");
+          m_btnAltaNuevo->show();
+          Toast::showToast(this, QString("El EAN %1 no está registrado en el catálogo").arg(eanStr), Toast::Error);
+          return;
         }
-
-        m_txtEan->clear();
-        m_spnCantidad->setValue(1);
-        m_spnRecibidas->setValue(1);
-        m_txtEan->setFocus();
-        recalcularTotales();
+        const QString titulo = prod.value("titulo").toString(QString("EAN %1").arg(ean));
+        if (prod.value("id_proveedor").toInt() != idProveedor) {
+          Toast::showToast(this,
+                           QString("\"%1\" es del proveedor %2, no del de esta factura")
+                               .arg(titulo, prod.value("proveedor").toString("otro")),
+                           Toast::Error, 6000);
+          return;
+        }
+        agregarAlCarrito(ean, tipo, titulo, cant, recibidas, costo);
       });
+}
+
+void BodegaComprasView::agregarAlCarrito(qint64 ean, const QString &tipo, const QString &titulo,
+                                         int cant, int recibidas, double costo) {
+  bool found = false;
+  for (auto &item : m_items) {
+    if (item.ean == ean) {
+      item.cantidad += cant;
+      item.recibidas += recibidas;
+      item.costo_unitario = costo;
+      item.subtotal = item.cantidad * item.costo_unitario;
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    CompraCartItem ci;
+    ci.ean = ean;
+    ci.tipo = tipo;
+    ci.nombre = titulo;
+    ci.cantidad = cant;
+    ci.recibidas = recibidas;
+    ci.costo_unitario = costo;
+    ci.subtotal = cant * costo;
+    m_items.append(ci);
+  }
+
+  m_btnAltaNuevo->hide();
+  m_eanNoRegistrado.clear();
+  m_txtEan->clear();
+  m_spnCantidad->setValue(1);
+  m_spnRecibidas->setValue(1);
+  m_txtEan->setFocus();
+  recalcularTotales();
+}
+
+void BodegaComprasView::abrirAltaNuevo() {
+  const QString eanStr = m_eanNoRegistrado;
+  if (eanStr.isEmpty() || m_comboProveedor->currentIndex() < 0) return;
+  const int idProveedor = m_comboProveedor->currentData().toInt();
+
+  // Ventana sobre Compras: la factura que se está armando no se pierde.
+  QDialog dlg(this);
+  dlg.setWindowTitle("Alta de producto nuevo · EAN " + eanStr);
+  dlg.setModal(true);
+  dlg.resize(980, 760);
+  auto *lay = new QVBoxLayout(&dlg);
+  lay->setContentsMargins(0, 0, 0, 0);
+  auto *alta = new BodegaRegistroView(&dlg);
+  lay->addWidget(alta);
+  alta->cargarCatalogos();
+  alta->prepararAlta(eanStr, idProveedor);
+
+  bool registrado = false;
+  QString titulo, tipo;
+  connect(alta, &BodegaRegistroView::productoRegistrado, &dlg,
+          [&](qint64, const QString &t, const QString &tp) {
+            registrado = true;
+            titulo = t;
+            tipo = tp;
+            dlg.accept();
+          });
+  dlg.exec();
+  if (!registrado) return;
+
+  // Entra a la compra con la cantidad y el costo que ya se habían capturado.
+  const int cant = m_spnCantidad->value();
+  agregarAlCarrito(eanStr.toLongLong(), tipo, titulo, cant, qMin(m_spnRecibidas->value(), cant),
+                   m_spnCosto->value());
+  Toast::showToast(this, QString("\"%1\" se dio de alta y se añadió a la compra").arg(titulo), Toast::Success);
 }
 
 void BodegaComprasView::onQuitarFila(int row) {

@@ -6,6 +6,7 @@
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTableWidget>
@@ -44,9 +45,23 @@ QLabel *avatar(const QString &fullName, const char *tone = "gray",
 QLineEdit *searchBox(const QString &placeholder, QWidget *parent = nullptr);
 // Campo de EAN-13: solo dígitos y máximo 13 (también al pegar o escanear).
 void eanInput(QLineEdit *e);
+// Búsqueda de productos (EAN o título): título de hasta 30 caracteres; si
+// empieza con un prefijo de EAN (977/978/979) o son solo dígitos, máximo 13
+// dígitos. El tope cambia al escribir (el contador lo sigue).
+void busquedaProducto(QLineEdit *e);
 // Contador "12/60" para un campo de texto: fija el máximo (bloquea al llegar)
 // y cambia de color al acercarse (ámbar, 90 %) y al llegar (rojo).
 QLabel *contadorCaracteres(QLineEdit *edit, int max, QWidget *parent = nullptr);
+// Igual para un texto de varias líneas: recorta lo que pase del máximo (al
+// escribir o pegar) porque QPlainTextEdit no tiene maxLength.
+QLabel *contadorCaracteres(QPlainTextEdit *edit, int max, QWidget *parent = nullptr);
+// El campo con su contador debajo, a la derecha (para formularios y diálogos).
+QWidget *conLimite(QLineEdit *edit, int max, QWidget *parent = nullptr);
+QWidget *conLimite(QPlainTextEdit *edit, int max, QWidget *parent = nullptr);
+// Diálogo de una nota de varias líneas con tope y contador (rechazos).
+// Devuelve false si se canceló; `obligatoria` no deja aceptar vacía.
+bool pedirTexto(QWidget *parent, const QString &titulo, const QString &etiqueta,
+                const QString &placeholder, int max, bool obligatoria, QString &out);
 void decorateDate(QDateEdit *d); // ícono de calendario a la izquierda
 QFrame *stepper(QSpinBox *spin, QWidget *parent = nullptr);
 QWidget *field(const QString &label, QWidget *input,
@@ -62,6 +77,9 @@ QTableWidgetItem *cellText(QTableWidget *t, int row, int col,
 void cellWidget(QTableWidget *t, int row, int col,
                 QWidget *w); // alineado a la izquierda con margen
 void cellWidgets(QTableWidget *t, int row, int col, const QList<QWidget *> &ws);
+// Chips en una sola fila con scroll horizontal (p. ej. los géneros de un
+// libro): no se corta ninguno aunque sean muchos; la columna queda de `ancho`.
+QWidget *chipsConScroll(const QStringList &textos, const char *kind, int ancho, QWidget *parent = nullptr);
 // Ensancha la columna si un widget de celda no cabe (ResizeToContents lo ignora).
 void fitColumn(QTableWidget *t, int col, QWidget *content);
 

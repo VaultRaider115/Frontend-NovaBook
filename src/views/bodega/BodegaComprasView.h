@@ -43,6 +43,11 @@ private:
     void mostrarSeccion(int i);
     void pintarFacturas();
     void verFactura(const CompraResponse &c);
+    // EAN que no está en el catálogo: abre el alta en una ventana con el EAN
+    // puesto y, al guardarlo, lo añade a la compra con lo capturado.
+    void abrirAltaNuevo();
+    void agregarAlCarrito(qint64 ean, const QString &tipo, const QString &titulo,
+                          int cant, int recibidas, double costo);
 
     QComboBox *m_comboProveedor;
     QLineEdit *m_txtEan;
@@ -51,6 +56,8 @@ private:
     QSpinBox *m_spnRecibidas;     // llegaron
     QDoubleSpinBox *m_spnCosto;
     QPushButton *m_btnAgregar;
+    QPushButton *m_btnAltaNuevo;   // "Agregar nuevo libro" (solo con un EAN que no existe)
+    QString m_eanNoRegistrado;
 
     QTableWidget *m_tableCart;
     QLineEdit *m_txtObs;

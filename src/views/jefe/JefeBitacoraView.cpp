@@ -7,13 +7,14 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QScrollBar>
 #include <QDate>
 #include <QSharedPointer>
 #include <algorithm>
 
 // Colores de categoría. VENTA, TRASLADO, COMPRA y ACCESO salen del diseño 7;
 // el resto se eligió para no repetir esos tonos ni usar el rojo, que en la app
-// indica errores y rechazos (salvo un acceso fallido, ver renderPagina).
+// indica errores y rechazos (salvo un acceso fallido, ver agregarFilas).
 struct CategoriaBitacora { const char *codigo; const char *etiqueta; const char *chip; };
 static const CategoriaBitacora kCategorias[] = {
     {"ACCESO",     "ACCESO",     "neutral"},  // diseño: gris
@@ -26,6 +27,17 @@ static const CategoriaBitacora kCategorias[] = {
     {"CATALOGO",   "CATÁLOGO",   "indigo"},
     {"SISTEMA",    "SISTEMA",    "neutral"},
 };
+
+// Filtros elegidos, guardados mientras la app esté abierta: si la pantalla se
+// vuelve a crear (cerrar sesión y volver a entrar) se recupera el mismo rango
+// y tipo de evento. Solo "Hoy" regresa el rango al día actual.
+namespace {
+struct FiltrosBitacora { QDate desde, hasta; int tipo = 0; };
+FiltrosBitacora &filtrosGuardados() {
+    static FiltrosBitacora f;
+    return f;
+}
+} // namespace
 
 static const CategoriaBitacora &categoriaDe(const QString &codigo) {
     for (const auto &c : kCategorias) if (codigo == c.codigo) return c;
@@ -85,6 +97,17 @@ JefeBitacoraView::JefeBitacoraView(QWidget *parent)
     auto *btnHoy = Ui::button("Hoy", "outline", filters);
     btnHoy->setToolTip("Regresar el rango al día de hoy");
 
+    // Recupera el rango y el tipo que se habían elegido.
+    {
+        const FiltrosBitacora &g = filtrosGuardados();
+        const QDate hoy = QDate::currentDate();
+        if (g.desde.isValid() && g.hasta.isValid() && g.desde <= g.hasta && g.hasta <= hoy) {
+            m_desde->setDate(g.desde);
+            m_hasta->setDate(g.hasta);
+        }
+        if (g.tipo > 0 && g.tipo < m_comboTipo->count()) m_comboTipo->setCurrentIndex(g.tipo);
+    }
+
     fl->addWidget(m_desde);
     fl->addWidget(m_hasta);
     fl->addWidget(btnHoy);
@@ -106,8 +129,14 @@ JefeBitacoraView::JefeBitacoraView(QWidget *parent)
     hh->setSectionResizeMode(5, QHeaderView::Stretch);
     layout->addWidget(m_table, 1);
 
-    m_pager = new PagerBar(5, this);
-    layout->addWidget(m_pager);
+    // Sin páginas: todo el rango se recorre con el scroll de la tabla.
+    m_lblMostrando = Ui::label(QString(), "Muted", this);
+    layout->addWidget(m_lblMostrando);
+    connect(m_table->verticalScrollBar(), &QScrollBar::valueChanged, this, [this](int v) {
+        // Cerca del final (a 3 filas) se piden los siguientes eventos.
+        if (v >= m_table->verticalScrollBar()->maximum() - 3 * m_table->verticalHeader()->defaultSectionSize())
+            cargarMas();
+    });
 
     // Mantener el rango coherente: la fecha final nunca queda antes de la inicial.
     connect(m_desde, &QDateEdit::dateChanged, this, [this](const QDate &fecha) {
@@ -123,22 +152,42 @@ JefeBitacoraView::JefeBitacoraView(QWidget *parent)
         }
     });
 
-    connect(m_btnBuscar, &QPushButton::clicked, this, [this]() { m_pager->reset(); cargarMovimientos(); });
+    // Cada cambio se guarda al momento (aunque no se pulse "Consultar").
+    auto guardar = [this]() {
+        FiltrosBitacora &g = filtrosGuardados();
+        g.desde = m_desde->date();
+        g.hasta = m_hasta->date();
+        g.tipo = m_comboTipo->currentIndex();
+    };
+    connect(m_desde, &QDateEdit::dateChanged, this, guardar);
+    connect(m_hasta, &QDateEdit::dateChanged, this, guardar);
+    connect(m_comboTipo, &QComboBox::currentIndexChanged, this, guardar);
+
+    connect(m_btnBuscar, &QPushButton::clicked, this, [this]() { cargarMovimientos(); });
     connect(btnHoy, &QPushButton::clicked, this, [this]() {
         const QDate hoy = QDate::currentDate();
         QSignalBlocker b1(m_desde), b2(m_hasta);
         m_desde->setDate(hoy);
         m_hasta->setDate(hoy);
-        m_pager->reset();
+        filtrosGuardados().desde = hoy;
+        filtrosGuardados().hasta = hoy;
         cargarMovimientos();
     });
-    connect(m_comboTipo, QOverload<int>::of(&QComboBox::activated), this, [this]() { m_pager->reset(); cargarMovimientos(); });
-    connect(m_pager, &PagerBar::pageChanged, this, &JefeBitacoraView::cargarMovimientos);
+    connect(m_comboTipo, QOverload<int>::of(&QComboBox::activated), this, [this]() { cargarMovimientos(); });
 }
 
-void JefeBitacoraView::cargarMovimientos() {
-    if (m_cargando) return;
+namespace { constexpr int kLote = 50; }   // eventos por consulta al servidor
 
+void JefeBitacoraView::cargarMovimientos() {
+    cargarLote(true);
+}
+
+void JefeBitacoraView::cargarMas() {
+    if (m_cargando || m_filas.size() >= m_total) return;
+    cargarLote(false);
+}
+
+void JefeBitacoraView::cargarLote(bool desdeInicio) {
     // Si la app quedó abierta de un día para otro, el máximo avanza con la fecha.
     const QDate hoy = QDate::currentDate();
     m_desde->setMaximumDate(hoy);
@@ -148,35 +197,57 @@ void JefeBitacoraView::cargarMovimientos() {
         Toast::showToast(this, "La fecha final no puede ser anterior a la inicial", Toast::Warning);
         return;
     }
+    if (desdeInicio) {
+        ++m_consulta;   // una respuesta pendiente de la consulta anterior se ignora
+        m_siguiente = 0;
+        m_filas.clear();
+        m_total = 0;
+        m_table->clearContents();
+        m_table->setRowCount(0);
+    } else if (m_cargando) {
+        return;
+    }
     m_cargando = true;
     m_btnBuscar->setEnabled(false);
+    m_lblMostrando->setText("Cargando eventos…");
+    const int consulta = m_consulta;
     ApiClient::instance()->consultarBitacora(
         m_desde->date().toString("yyyy-MM-dd"), m_hasta->date().toString("yyyy-MM-dd"),
-        m_comboTipo->currentData().toString(), m_pager->page(), m_pager->pageSize(),
-        [this](bool ok, const QJsonValue &data, const QString &msg) {
+        m_comboTipo->currentData().toString(), m_siguiente, kLote,
+        [this, consulta](bool ok, const QJsonValue &data, const QString &msg) {
+            if (consulta != m_consulta) return;   // ya se cambiaron los filtros
             m_cargando = false;
             m_btnBuscar->setEnabled(true);
             if (!ok || !data.isObject()) {
                 Toast::showToast(this, "Error al cargar la bitácora: " + msg, Toast::Error);
+                actualizarPie();
                 return;
             }
             const QJsonObject o = data.toObject();
             m_total = o.value("total").toInt();
-            m_pagina.clear();
-            const QJsonArray arr = o.value("items").toArray();
-            for (const auto &v : arr) m_pagina.append(MovimientoDiarioItem::fromJson(v.toObject()));
-            renderPagina();
+            const int desde = m_filas.size();
+            for (const auto &v : o.value("items").toArray()) m_filas.append(MovimientoDiarioItem::fromJson(v.toObject()));
+            ++m_siguiente;
+            agregarFilas(desde);
+            actualizarPie();
+            // Si todo lo cargado cabe sin scroll y faltan eventos, se pide el siguiente lote.
+            if (m_table->verticalScrollBar()->maximum() == 0) cargarMas();
         });
 }
 
-void JefeBitacoraView::renderPagina() {
+void JefeBitacoraView::actualizarPie() {
     m_lblTotal->setText(QString::number(m_total));
-    m_pager->update(m_total, "eventos registrados", m_pagina.size());
+    if (m_total == 0) m_lblMostrando->setText("No hay eventos en este rango.");
+    else if (m_filas.size() < m_total)
+        m_lblMostrando->setText(QString("Mostrando %1 de %2 eventos · baja para ver más").arg(m_filas.size()).arg(m_total));
+    else
+        m_lblMostrando->setText(QString("Mostrando los %1 eventos del rango").arg(m_total));
+}
 
-    m_table->clearContents();
-    m_table->setRowCount(m_pagina.size());
-    for (int r = 0; r < m_pagina.size(); ++r) {
-        const auto &m = m_pagina.at(r);
+void JefeBitacoraView::agregarFilas(int desde) {
+    m_table->setRowCount(m_filas.size());
+    for (int r = desde; r < m_filas.size(); ++r) {
+        const auto &m = m_filas.at(r);
         const QString fh = QString(m.fecha_hora).replace('T', ' ');
         const QStringList partes = fh.split(' ', Qt::SkipEmptyParts);
         Ui::cellText(m_table, r, 0, partes.size() > 1 ? partes.at(1).left(8) : "—", true);

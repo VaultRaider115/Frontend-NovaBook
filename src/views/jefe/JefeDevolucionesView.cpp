@@ -1,5 +1,5 @@
 #include "JefeDevolucionesView.h"
-#include <QInputDialog>
+#include "Limites.h"
 #include "Theme.h"
 #include "Ui.h"
 #include "ApiClient.h"
@@ -210,19 +210,11 @@ void JefeDevolucionesView::evaluar(const Devolucion &dev, bool aprobar) {
     // Regla de negocio: el rechazo exige observaciones (devolucion.observaciones).
     QString notas;
     if (!aprobar) {
-        bool aceptado = false;
-        notas = QInputDialog::getMultiLineText(this, "Rechazar devolución",
-            "Observaciones del rechazo (obligatorias):", QString(), &aceptado).trimmed();
-        if (!aceptado) return;
-        if (notas.isEmpty()) {
-            Toast::showToast(this, "Escribe las observaciones para poder rechazar", Toast::Warning);
+        // Tope y contador con el mismo límite que la API (Limites::kObservaciones).
+        if (!Ui::pedirTexto(this, "Rechazar devolución", "Observaciones del rechazo (obligatorias)",
+                            "Ej. Los títulos no corresponden al lote acordado", Limites::kObservaciones,
+                            /*obligatoria=*/true, notas))
             return;
-        }
-        if (notas.size() > 200) {   // mismo límite que la API (se guardan en la bitácora)
-            Toast::showToast(this, QString("Las observaciones no pueden exceder 200 caracteres (tienen %1)").arg(notas.size()),
-                             Toast::Warning);
-            return;
-        }
     }
 
     m_table->setEnabled(false);

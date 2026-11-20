@@ -8,6 +8,36 @@ Rama `integracion-validaciones`: pantallas iguales a los diseños de
 `docs/disenos/` y conectadas a la API del esquema unificado.
 
 ### Added
+- Revisión del 19-nov (3a):
+  - **Historial de Movimientos sin páginas**: la tabla se recorre con scroll
+    y, al llegar al final, pide al servidor los siguientes 50 eventos
+    ("Mostrando N de M eventos · baja para ver más").
+  - **Campos de EAN o título** (`Ui::busquedaProducto`, también en la
+    consulta de inventario): título de hasta 30 caracteres; con prefijo de
+    EAN o solo dígitos, máximo 13 (el contador cambia de "/30" a "/13").
+  - **Lista + detalle en una sola vista con scroll** (`SeccionesScroll`):
+    Incidencias de Compra, Seguimiento de Salidas, Recepción de Salida,
+    Devolución de Cliente e Inventario Mensual del Vendedor; al abrir un
+    registro la vista baja sola a su detalle.
+  - **PDFs**: todos se guardan solos en Descargas\NovaBook (sin preguntar;
+    si el nombre existe se numera) y se abren (`Documentos::guardarYAbrir`).
+  - **Límites de caracteres** en todos los campos de texto, con contador
+    (`Ui::conLimite`, también para texto de varias líneas) y constantes en
+    `core/Limites.h`; los rechazos de devolución e inventario usan
+    `Ui::pedirTexto` (tope 200 con contador).
+  - **Recepción de mercancía**: un EAN fuera del catálogo no entra a la
+    compra; aparece "Agregar nuevo libro", que abre el alta en una ventana
+    con el EAN puesto y, al guardar, lo añade con la cantidad y el costo
+    capturados. El costo debe ser mayor a $0 y el título del proveedor de la
+    factura.
+  - **Devoluciones a Proveedor**: la editorial se valida al pulsar "Añadir"
+    (columna "Editorial" Validada / Pendiente / No es de esta editorial, y
+    estado de la lista); al cambiar de proveedor se vuelve a validar y no se
+    registra si algo no pasó.
+  - **Inventario (Bodega y Vendedor)**: los géneros van en una fila con
+    scroll horizontal; no se corta ninguno.
+  - **Historial de Movimientos**: el rango y el tipo de evento se conservan
+    aunque se cierre sesión y se vuelva a entrar (solo "Hoy" los reinicia).
 - Revisión del 19-nov:
   - **Inventario Mensual (Vendedor)**: apartado "Para devolución" con el
     contador general y "X de Y encontrados" por título, en tiempo real; los

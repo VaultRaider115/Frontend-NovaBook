@@ -9,6 +9,7 @@
 #include <QSpinBox>
 #include <QTableWidget>
 #include <QWidget>
+#include "SeccionesScroll.h"
 
 // Incidencias por paquete incompleto (diagrama de procesos, paso 1).
 // Se abren solas al registrar una compra donde llegó menos de lo facturado.
@@ -32,6 +33,10 @@ private:
     QLabel *m_lblAbiertas;
 
     QFrame *m_detalle;
+    // Una sola vista con scroll: la lista arriba y el detalle abajo (anclas fijas).
+    SeccionesScroll *m_secciones = nullptr;
+    QLabel *m_lblSinDetalle = nullptr;   // aviso mientras no hay un registro abierto
+    void mostrarDetalle(bool visible);
     QLabel *m_lblTitulo;
     QLabel *m_lblSub;
     QTableWidget *m_tabla;

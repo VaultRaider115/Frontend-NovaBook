@@ -17,6 +17,13 @@ class BodegaRegistroView : public QWidget {
 public:
     explicit BodegaRegistroView(QWidget *parent = nullptr);
     void cargarCatalogos();
+    // Alta desde Recepción de mercancía: deja el EAN puesto (y bloqueado) y
+    // elige el proveedor de la factura en cuanto se carguen los catálogos.
+    void prepararAlta(const QString &ean, int idProveedor);
+
+signals:
+    // Se emite al guardar el producto (antes de limpiar el formulario).
+    void productoRegistrado(qint64 ean, const QString &titulo, const QString &tipo);
 
 private slots:
     void onEanChanged(const QString &text);
@@ -56,4 +63,6 @@ private:
     QList<GeneroDto> m_generos;
     QList<AutorDto> m_autores;
     QList<ProveedorDto> m_proveedores;
+    int m_proveedorInicial = 0;   // prepararAlta: proveedor a elegir al cargar
+    void elegirProveedorInicial();
 };

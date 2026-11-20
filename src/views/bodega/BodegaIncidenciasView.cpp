@@ -29,6 +29,21 @@ BodegaIncidenciasView::BodegaIncidenciasView(QWidget *parent)
     top->addWidget(stat, 0, Qt::AlignTop);
     layout->addLayout(top);
 
+    // Una sola vista con scroll: la lista y, debajo, el detalle del registro
+    // abierto; arriba quedan fijas las anclas para saltar a cada sección.
+    m_secciones = new SeccionesScroll(this);
+    layout->addWidget(m_secciones, 1);
+    auto *secLista = m_secciones->agregarSeccion("Incidencias");
+    auto *listaLay = new QVBoxLayout(secLista);
+    listaLay->setContentsMargins(0, 0, 0, 0);
+    listaLay->setSpacing(18);
+    auto *secDetalle = m_secciones->agregarSeccion("Detalle");
+    auto *detalleLay = new QVBoxLayout(secDetalle);
+    detalleLay->setContentsMargins(0, 0, 0, 0);
+    m_lblSinDetalle = Ui::label("Pulsa \"Atender\" o \"Ver\" en una incidencia para ver aquí lo que falta.", "Muted", secDetalle);
+    m_lblSinDetalle->setWordWrap(true);
+    detalleLay->addWidget(m_lblSinDetalle);
+
     auto *filters = Ui::card(this);
     auto *fl = new QHBoxLayout(filters);
     fl->setContentsMargins(16, 16, 16, 16);
@@ -43,10 +58,11 @@ BodegaIncidenciasView::BodegaIncidenciasView(QWidget *parent)
     fl->addWidget(m_comboEstado);
     fl->addWidget(m_btnActualizar);
     fl->addStretch();
-    layout->addWidget(filters);
+    listaLay->addWidget(filters);
 
     m_lista = Ui::table({"Incidencia", "Factura", "Proveedor", "Fecha", "Faltan", "Estado", "Acción"}, 2, this, 56);
-    layout->addWidget(m_lista, 1);
+    m_lista->setMinimumHeight(300);
+    listaLay->addWidget(m_lista, 1);
 
     m_detalle = Ui::card(this);
     auto *dl = new QVBoxLayout(m_detalle);
@@ -60,7 +76,7 @@ BodegaIncidenciasView::BodegaIncidenciasView(QWidget *parent)
     dl->addWidget(m_lblTitulo);
     dl->addWidget(m_lblSub);
     m_tabla = Ui::table({"EAN", "Descripción", "Facturadas", "Recibidas", "Faltan", "Llegaron ahora"}, 1, m_detalle, 56);
-    m_tabla->setMinimumHeight(160);
+    m_tabla->setMinimumHeight(240);
     dl->addWidget(m_tabla, 1);
 
     auto *pie = new QHBoxLayout();
@@ -77,16 +93,23 @@ BodegaIncidenciasView::BodegaIncidenciasView(QWidget *parent)
     pie->addWidget(m_btnCorreo);
     pie->addWidget(m_btnLlegada);
     dl->addLayout(pie);
-    m_detalle->hide();
-    layout->addWidget(m_detalle, 2);
+    detalleLay->addWidget(m_detalle);
+    mostrarDetalle(false);
 
     connect(m_btnActualizar, &QPushButton::clicked, this, &BodegaIncidenciasView::cargar);
     connect(m_comboEstado, QOverload<int>::of(&QComboBox::activated), this, [this]() { cargar(); });
-    connect(btnCerrar, &QPushButton::clicked, this, [this]() { m_detalle->hide(); });
+    connect(btnCerrar, &QPushButton::clicked, this, [this]() { mostrarDetalle(false); });
     connect(m_btnCorreo, &QPushButton::clicked, this, [this]() {
         Documentos::abrirCorreo(this, m_actual.value("correo").toObject());
     });
     connect(m_btnLlegada, &QPushButton::clicked, this, &BodegaIncidenciasView::registrarLlegada);
+}
+
+void BodegaIncidenciasView::mostrarDetalle(bool visible) {
+    m_detalle->setVisible(visible);
+    m_lblSinDetalle->setVisible(!visible);
+    // Al abrir un registro baja a su detalle; al cerrarlo regresa a la lista.
+    m_secciones->irA(visible ? 1 : 0);
 }
 
 void BodegaIncidenciasView::cargar() {
@@ -174,7 +197,7 @@ void BodegaIncidenciasView::mostrar(const QJsonObject &inc) {
                                   : QString());
     m_btnCorreo->setVisible(abierta);
     m_btnLlegada->setVisible(abierta);
-    m_detalle->show();
+    mostrarDetalle(true);
 }
 
 void BodegaIncidenciasView::registrarLlegada() {

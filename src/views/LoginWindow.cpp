@@ -2,6 +2,7 @@
 #include "MainWindow.h"
 #include "Theme.h"
 #include "ApiClient.h"
+#include "Limites.h"
 #include "Ui.h"
 #include <QAction>
 #include <QApplication>
@@ -94,7 +95,7 @@ LoginWindow::LoginWindow(QWidget *parent)
 
     m_txtPassword = new QLineEdit(card);
     m_txtPassword->setEchoMode(QLineEdit::Password);
-    m_txtPassword->setMaxLength(16);
+    m_txtPassword->setMaxLength(Limites::kPassword);
     m_txtPassword->setPlaceholderText("Ingresa tu contraseña");
     m_txtPassword->setStyleSheet(inputQss);
     m_txtPassword->setAccessibleName("Contraseña");

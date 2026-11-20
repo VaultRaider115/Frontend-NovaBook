@@ -9,6 +9,8 @@
 #include <QLabel>
 #include "Ui.h"
 
+namespace { constexpr int kAnchoGeneros = 230; }
+
 VendedorConsultaView::VendedorConsultaView(QWidget *parent, bool paraBodega)
     : QWidget(parent)
 {
@@ -25,6 +27,7 @@ VendedorConsultaView::VendedorConsultaView(QWidget *parent, bool paraBodega)
     toolbar->setSpacing(12);
 
     m_txtBuscar = Ui::searchBox("Buscar por título, autor, EAN o SKU...", filters);
+    Ui::busquedaProducto(m_txtBuscar);
     toolbar->addWidget(m_txtBuscar, 2);
 
     m_comboTipo = new QComboBox(filters);
@@ -56,6 +59,9 @@ VendedorConsultaView::VendedorConsultaView(QWidget *parent, bool paraBodega)
         hh->setSectionResizeMode(c, QHeaderView::Fixed);
         m_table->setColumnWidth(c, c == 8 ? 96 : 108);
     }
+    // Géneros: ancho fijo; si no caben, se recorren con el scroll de la celda.
+    hh->setSectionResizeMode(5, QHeaderView::Fixed);
+    m_table->setColumnWidth(5, kAnchoGeneros + 28);
     m_table->setWordWrap(true);
     layout->addWidget(m_table, 1);
 
@@ -94,16 +100,10 @@ void VendedorConsultaView::buscarExistencias() {
             Ui::cellWidget(m_table, i, 3, Ui::tipoChip(ex.tipo_producto));
             Ui::cellText(m_table, i, 4, ex.autor_o_editorial.isEmpty() ? "—" : ex.autor_o_editorial);
 
-            // Géneros apilados (uno por línea), como en el diseño.
-            auto *gen = new QWidget();
-            auto *gl = new QVBoxLayout(gen);
-            gl->setContentsMargins(0, 0, 0, 0);
-            gl->setSpacing(4);
+            // Géneros en una fila con scroll horizontal: con muchos no se corta ninguno.
             QStringList lista = ex.generos.split(',', Qt::SkipEmptyParts);
             if (lista.isEmpty()) lista << "General";
-            for (const QString &g : std::as_const(lista)) gl->addWidget(Ui::chip(g.trimmed(), "neutral"), 0, Qt::AlignLeft);
-            m_table->setCellWidget(i, 5, gen);
-            Ui::fitColumn(m_table, 5, gen);
+            Ui::cellWidget(m_table, i, 5, Ui::chipsConScroll(lista, "neutral", kAnchoGeneros));
 
             // Stock en cero se marca en rojo (el color no es el único indicador: el número se muestra siempre)
             if (ex.stock_tienda == 0) Ui::cellWidget(m_table, i, 6, Ui::chip("0", "danger"));

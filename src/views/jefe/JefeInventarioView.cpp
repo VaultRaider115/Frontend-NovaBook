@@ -7,7 +7,7 @@
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
-#include <QInputDialog>
+#include "Limites.h"
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLineEdit>
@@ -202,14 +202,10 @@ void JefeInventarioView::revisar(bool aprobar) {
                 QString("¿Aprobar #INV-%1?\n\nEl stock de piso se ajusta con las diferencias contadas.").arg(m_idSel),
                 QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) return;
     } else {
-        bool aceptado = false;
-        obs = QInputDialog::getMultiLineText(this, "Rechazar inventario",
-            "Motivo del rechazo (obligatorio, máx. 200 caracteres):", QString(), &aceptado).trimmed();
-        if (!aceptado) return;
-        if (obs.isEmpty() || obs.size() > 200) {
-            Toast::showToast(this, "Escribe un motivo de 1 a 200 caracteres", Toast::Warning);
+        if (!Ui::pedirTexto(this, "Rechazar inventario", "Motivo del rechazo (obligatorio)",
+                            "Ej. El conteo de la sección infantil no coincide; repetirlo", Limites::kObservaciones,
+                            /*obligatoria=*/true, obs))
             return;
-        }
     }
     m_btnAprobar->setEnabled(false);
     m_btnRechazar->setEnabled(false);
@@ -299,7 +295,6 @@ void JefeInventarioView::nuevaSolicitud() {
     Ui::FormDialog dlg("Registrar solicitud de editorial", "Registrar solicitud", this, 820);
     auto *combo = new QComboBox(&dlg);
     auto *txtRef = new QLineEdit(&dlg);
-    txtRef->setMaxLength(150);
     txtRef->setPlaceholderText("Ej. Correo del 14/11: retiro de NatGeo marzo");
     auto *txtEans = new QPlainTextEdit(&dlg);
     txtEans->setPlaceholderText("Un EAN-13 por renglón (o escanéalos uno tras otro)");
@@ -317,7 +312,7 @@ void JefeInventarioView::nuevaSolicitud() {
     lblResumen->setWordWrap(true);
 
     dlg.addField("Editorial / proveedor", combo, 0, 0, 2);
-    dlg.addField("Referencia del correo", txtRef, 1, 0, 2);
+    dlg.addField("Referencia del correo", Ui::conLimite(txtRef, Limites::kReferenciaSolicitud, &dlg), 1, 0, 2);
     dlg.addField("Títulos que pide de vuelta (EAN)", txtEans, 2, 0, 2);
     dlg.addField("Vista previa", tabla, 3, 0, 2);
     dlg.addField("Resumen", lblResumen, 4, 0, 2);

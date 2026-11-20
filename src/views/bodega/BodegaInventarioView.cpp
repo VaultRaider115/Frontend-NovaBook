@@ -1,5 +1,6 @@
 #include "BodegaInventarioView.h"
 #include "Theme.h"
+#include "Limites.h"
 #include "Ui.h"
 #include "ApiClient.h"
 #include "Toast.h"
@@ -8,6 +9,8 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
+
+namespace { constexpr int kAnchoGeneros = 210; }
 
 BodegaInventarioView::BodegaInventarioView(QWidget *parent)
     : QWidget(parent)
@@ -24,6 +27,7 @@ BodegaInventarioView::BodegaInventarioView(QWidget *parent)
 
     m_txtBuscar = new QLineEdit(this);
     m_txtBuscar->setPlaceholderText("Buscar por título, autor, EAN o SKU...");
+    Ui::busquedaProducto(m_txtBuscar);
     toolbar->addWidget(m_txtBuscar, 2);
 
     m_comboTipo = new QComboBox(this);
@@ -51,12 +55,14 @@ BodegaInventarioView::BodegaInventarioView(QWidget *parent)
     m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
     m_table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
-    m_table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
+    m_table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Fixed);
+    m_table->setColumnWidth(5, kAnchoGeneros + 28);
     m_table->horizontalHeader()->setSectionResizeMode(6, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(7, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(8, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(9, QHeaderView::ResizeToContents);
     m_table->verticalHeader()->setVisible(false);
+    m_table->verticalHeader()->setDefaultSectionSize(52);   // cabe la fila de géneros con su barra
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     layout->addWidget(m_table);
@@ -91,7 +97,10 @@ void BodegaInventarioView::cargarInventario() {
             m_table->setItem(i, 2, new QTableWidgetItem(ex.titulo));
             m_table->setItem(i, 3, new QTableWidgetItem(ex.tipo_producto));
             m_table->setItem(i, 4, new QTableWidgetItem(ex.autor_o_editorial.isEmpty() ? "-" : ex.autor_o_editorial));
-            m_table->setItem(i, 5, new QTableWidgetItem(ex.generos.isEmpty() ? "General" : ex.generos));
+            // Géneros en una fila con scroll horizontal: con muchos no se corta ninguno.
+            QStringList generos = ex.generos.split(',', Qt::SkipEmptyParts);
+            if (generos.isEmpty()) generos << "General";
+            Ui::cellWidget(m_table, i, 5, Ui::chipsConScroll(generos, "neutral", kAnchoGeneros));
 
             auto *itemBodega = new QTableWidgetItem(QString::number(ex.stock_bodega));
             itemBodega->setForeground(QColor(Theme::Role2));

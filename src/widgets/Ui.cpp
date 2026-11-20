@@ -1,3 +1,4 @@
+#include "Limites.h"
 #include "Ui.h"
 #include "Theme.h"
 #include <QAction>
@@ -5,9 +6,12 @@
 #include <QLocale>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QScrollArea>
 #include <QStyle>
 #include <QVBoxLayout>
 #include <QRegularExpressionValidator>
+#include <QSignalBlocker>
+#include <QTextCursor>
 
 namespace Ui {
 
@@ -145,6 +149,7 @@ void decorateDate(QDateEdit *d) {
 QLineEdit *searchBox(const QString &placeholder, QWidget *parent) {
     auto *e = new QLineEdit(parent);
     e->setPlaceholderText(placeholder);
+    e->setMaxLength(Limites::kBusqueda);   // mismo tope que la API (limites.rs)
     e->addAction(QIcon(":/icons/search.svg"), QLineEdit::LeadingPosition);
     e->setClearButtonEnabled(true);
     return e;
@@ -155,12 +160,30 @@ void eanInput(QLineEdit *e) {
     e->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,13}"), e));
 }
 
+void busquedaProducto(QLineEdit *e) {
+    // Solo dígitos: EAN (máx. 13). Si empieza con 977/978/979 no admite letras.
+    // Con letras: título, autor o SKU de hasta kBusquedaProducto.
+    static const QRegularExpression rx(
+        QString("^(?:[0-9]{0,%1}|(?!97[789])(?=.*[^0-9]).{0,%2})$")
+            .arg(Limites::kEan).arg(Limites::kBusquedaProducto));
+    e->setValidator(new QRegularExpressionValidator(rx, e));
+    auto ajustar = [e](const QString &t) {
+        static const QRegularExpression soloDigitos("^[0-9]+$");
+        const int max = soloDigitos.match(t).hasMatch() ? Limites::kEan : Limites::kBusquedaProducto;
+        if (e->maxLength() != max) e->setMaxLength(max);
+    };
+    QObject::connect(e, &QLineEdit::textChanged, e, ajustar);
+    e->setMaxLength(Limites::kBusquedaProducto);
+    ajustar(e->text());
+}
+
 QLabel *contadorCaracteres(QLineEdit *edit, int max, QWidget *parent) {
     edit->setMaxLength(max);
     auto *lbl = new QLabel(parent);
     lbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     lbl->setAccessibleName("Caracteres usados");
-    auto actualizar = [lbl, max](const QString &t) {
+    auto actualizar = [edit, lbl](const QString &t) {
+        const int max = edit->maxLength();
         const int n = static_cast<int>(t.size());
         const QString color = n >= max ? Theme::Error : (n * 10 >= max * 9 ? Theme::Warning : Theme::TextMuted);
         lbl->setText(QString("%1/%2").arg(n).arg(max));
@@ -171,6 +194,47 @@ QLabel *contadorCaracteres(QLineEdit *edit, int max, QWidget *parent) {
     actualizar(edit->text());
     return lbl;
 }
+
+QLabel *contadorCaracteres(QPlainTextEdit *edit, int max, QWidget *parent) {
+    auto *lbl = new QLabel(parent);
+    lbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    lbl->setAccessibleName("Caracteres usados");
+    auto actualizar = [edit, lbl, max]() {
+        QString t = edit->toPlainText();
+        if (t.size() > max) {
+            // Recorta lo que sobra y deja el cursor al final.
+            QSignalBlocker b(edit);
+            t.truncate(max);
+            edit->setPlainText(t);
+            edit->moveCursor(QTextCursor::End);
+        }
+        const int n = static_cast<int>(t.size());
+        const QString color = n >= max ? Theme::Error : (n * 10 >= max * 9 ? Theme::Warning : Theme::TextMuted);
+        lbl->setText(QString("%1/%2").arg(n).arg(max));
+        lbl->setStyleSheet(QString("font-size: 12px; color: %1;%2").arg(color, n >= max ? " font-weight: 700;" : ""));
+        lbl->setToolTip(n >= max ? QString("Llegaste al máximo de %1 caracteres").arg(max) : QString());
+    };
+    QObject::connect(edit, &QPlainTextEdit::textChanged, lbl, actualizar);
+    actualizar();
+    return lbl;
+}
+
+namespace {
+template <typename Edit>
+QWidget *conLimiteImpl(Edit *edit, int max, QWidget *parent) {
+    auto *box = new QWidget(parent);
+    auto *v = new QVBoxLayout(box);
+    v->setContentsMargins(0, 0, 0, 0);
+    v->setSpacing(4);
+    edit->setParent(box);
+    v->addWidget(edit);
+    v->addWidget(contadorCaracteres(edit, max, box));
+    return box;
+}
+} // namespace
+
+QWidget *conLimite(QLineEdit *edit, int max, QWidget *parent) { return conLimiteImpl(edit, max, parent); }
+QWidget *conLimite(QPlainTextEdit *edit, int max, QWidget *parent) { return conLimiteImpl(edit, max, parent); }
 
 QFrame *stepper(QSpinBox *spin, QWidget *parent) {
     auto *f = new QFrame(parent);
@@ -300,6 +364,33 @@ void cellWidget(QTableWidget *t, int row, int col, QWidget *w) {
     cellWidgets(t, row, col, {w});
 }
 
+QWidget *chipsConScroll(const QStringList &textos, const char *kind, int ancho, QWidget *parent) {
+    auto *fila = new QWidget();
+    fila->setObjectName("ChipsFila");
+    fila->setAttribute(Qt::WA_TranslucentBackground);
+    auto *hl = new QHBoxLayout(fila);
+    hl->setContentsMargins(0, 0, 0, 0);
+    hl->setSpacing(6);
+    for (const QString &t : textos) hl->addWidget(chip(t.trimmed(), kind, fila));
+    hl->addStretch();
+
+    auto *area = new QScrollArea(parent);
+    area->setObjectName("ChipsScroll");
+    area->setWidget(fila);
+    area->setWidgetResizable(true);
+    area->setFrameShape(QFrame::NoFrame);
+    area->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    area->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    area->setFixedWidth(ancho);
+    // Alto del chip + la barra delgada, para que la barra no tape los chips.
+    area->setFixedHeight(fila->sizeHint().height() + 12);
+    area->setStyleSheet("QScrollArea#ChipsScroll, QWidget#ChipsFila { background: transparent; }"
+                        " QScrollArea#ChipsScroll QScrollBar:horizontal { height: 6px; margin: 0; }");
+    area->setToolTip(textos.join(", "));
+    area->setAccessibleName("Géneros: " + textos.join(", "));
+    return area;
+}
+
 FormDialog::FormDialog(const QString &title, const QString &okText, QWidget *parent, int width)
     : QDialog(parent)
 {
@@ -341,6 +432,29 @@ FormDialog::FormDialog(const QString &title, const QString &okText, QWidget *par
     fl->addWidget(cancel);
     fl->addWidget(m_ok);
     outer->addWidget(foot);
+}
+
+bool pedirTexto(QWidget *parent, const QString &titulo, const QString &etiqueta,
+                const QString &placeholder, int max, bool obligatoria, QString &out) {
+    FormDialog dlg(titulo, "Aceptar", parent, 520);
+    auto *txt = new QPlainTextEdit(&dlg);
+    txt->setPlaceholderText(placeholder);
+    txt->setFixedHeight(110);
+    txt->setTabChangesFocus(true);
+    txt->setAccessibleName(etiqueta);
+    dlg.addField(etiqueta, conLimite(txt, max, &dlg), 0);
+    QObject::connect(dlg.okButton(), &QPushButton::clicked, &dlg, [&dlg, txt, obligatoria]() {
+        if (obligatoria && txt->toPlainText().trimmed().isEmpty()) {
+            txt->setFocus();
+            txt->setStyleSheet(QString("border: 1px solid %1;").arg(Theme::Error));
+            return;
+        }
+        dlg.accept();
+    });
+    txt->setFocus();
+    if (dlg.exec() != QDialog::Accepted) return false;
+    out = txt->toPlainText().trimmed();
+    return true;
 }
 
 void FormDialog::addField(const QString &labelText, QWidget *input, int row, int col, int colSpan) {

@@ -38,6 +38,18 @@ VendedorInventarioView::VendedorInventarioView(QWidget *parent)
     auto *pl = new QVBoxLayout(m_panelConteo);
     pl->setContentsMargins(0, 0, 0, 0);
     pl->setSpacing(18);
+    // Una sola vista con scroll y anclas: escanear, lo que va a devolución y
+    // el conteo. El pie con "Cerrar conteo" queda fijo abajo.
+    m_scrollConteo = new SeccionesScroll(m_panelConteo);
+    pl->addWidget(m_scrollConteo, 1);
+    auto seccion = [this](const QString &titulo) {
+        auto *lay = new QVBoxLayout(m_scrollConteo->agregarSeccion(titulo));
+        lay->setContentsMargins(0, 0, 0, 0);
+        return lay;
+    };
+    auto *laEscanear = seccion("Escanear");
+    auto *laDevolucion = seccion("Para devolución");
+    auto *laConteo = seccion("Conteo");
 
     auto *scanCard = Ui::card(m_panelConteo);
     auto *sl = new QVBoxLayout(scanCard);
@@ -47,7 +59,7 @@ VendedorInventarioView::VendedorInventarioView(QWidget *parent)
     m_txtEan->setPlaceholderText("Escanea el código de barras o escribe el título (cada uno suma 1)");
     m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
     sl->addWidget(Ui::field("EAN-13 o título", m_txtEan, scanCard));
-    pl->addWidget(scanCard);
+    laEscanear->addWidget(scanCard);
 
     // Para devolución: contador general arriba y, por título, cuántas piezas hay
     // que regresar y cuántas de piso ya se encontraron (cada escaneo cuenta una).
@@ -81,11 +93,11 @@ VendedorInventarioView::VendedorInventarioView(QWidget *parent)
     m_tablaDev->setMinimumHeight(200);   // caben 3 títulos sin scroll interno
     m_tablaDev->setMaximumHeight(240);
     dl->addWidget(m_tablaDev);
-    pl->addWidget(devCard);
+    laDevolucion->addWidget(devCard);
 
     m_tabla = Ui::table({"EAN", "Título", "Contadas", "Devolución", ""}, 1, m_panelConteo, 52);
-    m_tabla->setMinimumHeight(280);   // dentro del scroll ya no se estira sola
-    pl->addWidget(m_tabla);
+    m_tabla->setMinimumHeight(320);   // dentro del scroll ya no se estira sola
+    laConteo->addWidget(m_tabla);
 
     auto *foot = Ui::card(m_panelConteo);
     auto *fl = new QHBoxLayout(foot);
@@ -98,13 +110,7 @@ VendedorInventarioView::VendedorInventarioView(QWidget *parent)
     m_btnCerrar->setStyleSheet("QPushButton { padding: 14px 26px; }");
     fl->addWidget(m_btnCerrar);
     pl->addWidget(foot);
-    // Con el apartado de devolución ya no cabe todo: el panel se desplaza.
-    m_scrollConteo = new QScrollArea(this);
-    m_scrollConteo->setWidgetResizable(true);
-    m_scrollConteo->setFrameShape(QFrame::NoFrame);
-    m_scrollConteo->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_scrollConteo->setWidget(m_panelConteo);
-    layout->addWidget(m_scrollConteo, 1);
+    layout->addWidget(m_panelConteo, 1);
 
     connect(m_btnIniciar, &QPushButton::clicked, this, [this]() {
         m_btnIniciar->setEnabled(false);

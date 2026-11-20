@@ -1,4 +1,5 @@
 #include "JefeMueblesView.h"
+#include "Limites.h"
 #include "Ui.h"
 #include "Theme.h"
 #include "ApiClient.h"
@@ -110,15 +111,14 @@ void JefeMueblesView::abrirFormulario(const MuebleDto *m) {
     lblPrefijo->setToolTip("Lo pone el área: P- para Piso de Venta, B- para Bodega");
     auto *txtCodigo = new QLineEdit(numero, codigoBox);
     txtCodigo->setPlaceholderText("Ej. 011");
-    txtCodigo->setMaxLength(8);   // + el prefijo = 10 (tamaño de la columna)
-    txtCodigo->setValidator(new QRegularExpressionValidator(QRegularExpression("[0-9]{0,8}"), txtCodigo));
+    txtCodigo->setValidator(new QRegularExpressionValidator(QRegularExpression(QString("[0-9]{0,%1}").arg(Limites::kMuebleCodigo - 2)), txtCodigo));
     txtCodigo->setInputMethodHints(Qt::ImhDigitsOnly);
-    cl->addWidget(lblPrefijo);
-    cl->addWidget(txtCodigo, 1);
+    cl->addWidget(lblPrefijo, 0, Qt::AlignTop);
+    // Solo el número: el prefijo "P-"/"B-" completa el tamaño de la columna.
+    cl->addWidget(Ui::conLimite(txtCodigo, Limites::kMuebleCodigo - 2, codigoBox), 1);
 
     auto *txtNombre = new QLineEdit(edit ? m->nombre : QString(), &dlg);
     txtNombre->setPlaceholderText("Ej: Mueble 11 Autoayuda");
-    txtNombre->setMaxLength(50);
 
     auto *comboArea = new QComboBox(&dlg);
     comboArea->addItem("Piso de Venta", 1);
@@ -151,15 +151,15 @@ void JefeMueblesView::abrirFormulario(const MuebleDto *m) {
     spnCap->setValue(edit && m->capacidad_maxima > 0 ? m->capacidad_maxima : 50);
 
     auto *txtDesc = new QPlainTextEdit(edit ? m->descripcion : QString(), &dlg);
-    txtDesc->setPlaceholderText("Ej. Junto al pasillo central frente al área de cajas (máx. 200 caracteres)...");
+    txtDesc->setPlaceholderText("Ej. Junto al pasillo central frente al área de cajas...");
     txtDesc->setFixedHeight(80);
 
     dlg.addField("Código de mueble", codigoBox, 0, 0);
-    dlg.addField("Nombre de mueble", txtNombre, 0, 1);
+    dlg.addField("Nombre de mueble", Ui::conLimite(txtNombre, Limites::kMuebleNombre, &dlg), 0, 1);
     dlg.addField("Área", comboArea, 1, 0);
     dlg.addField("Género asignado", comboGenero, 1, 1);
     dlg.addField(tieneStock ? QString("Capacidad Máxima (mín. %1)").arg(minCap) : "Capacidad Máxima", spnCap, 2, 0, 2);
-    dlg.addField("Descripción o Referencia de Ubicación", txtDesc, 3, 0, 2);
+    dlg.addField("Descripción o Referencia de Ubicación", Ui::conLimite(txtDesc, Limites::kDescripcion, &dlg), 3, 0, 2);
 
     QPointer<QDialog> guard(&dlg);
     QPointer<JefeMueblesView> self(this);

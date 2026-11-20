@@ -9,6 +9,7 @@
 #include <QSpinBox>
 #include <QTableWidget>
 #include <QWidget>
+#include "SeccionesScroll.h"
 #include "Documentos.h"
 #include "Models.h"
 
@@ -46,10 +47,15 @@ private:
     QLabel *m_lblPendientes;
 
     QFrame *m_detalle;
+    // Una sola vista con scroll: la lista arriba y el detalle abajo (anclas fijas).
+    SeccionesScroll *m_secciones = nullptr;
+    QLabel *m_lblSinDetalle = nullptr;   // aviso mientras no hay un registro abierto
+    void mostrarDetalle(bool visible);
     QLabel *m_lblDetalleTitulo;
     QLabel *m_lblDetalleSub;
     QTableWidget *m_tabla;
     QLineEdit *m_txtObs;
+    QWidget *m_boxObs = nullptr;   // campo + contador
     QLabel *m_lblResumen;
     QPushButton *m_btnCerrar;
     QPushButton *m_btnImprimir;

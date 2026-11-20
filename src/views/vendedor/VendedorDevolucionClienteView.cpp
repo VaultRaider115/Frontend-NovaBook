@@ -4,6 +4,7 @@
 #include "ProductoBuscador.h"
 #include "Theme.h"
 #include "Toast.h"
+#include "SeccionesScroll.h"
 #include "Ui.h"
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -22,6 +23,18 @@ VendedorDevolucionClienteView::VendedorDevolucionClienteView(QWidget *parent)
                      "Hasta 15 días con ticket. Sin defecto regresa a piso; "
                      "con defecto queda apartado y no se vende.",
                      this));
+
+  // Una sola vista con scroll: el ticket y, debajo, lo que elige el cliente
+  // (reembolso o cambio). El resumen con "Registrar" queda fijo abajo.
+  auto *secciones = new SeccionesScroll(this);
+  layout->addWidget(secciones, 1);
+  auto *secTicket = secciones->agregarSeccion("Ticket del cliente");
+  auto *ticketLay = new QVBoxLayout(secTicket);
+  ticketLay->setContentsMargins(0, 0, 0, 0);
+  ticketLay->setSpacing(18);
+  auto *secResolucion = secciones->agregarSeccion("Reembolso o cambio");
+  auto *resLay = new QVBoxLayout(secResolucion);
+  resLay->setContentsMargins(0, 0, 0, 0);
 
   // --- Ticket -------------------------------------------------------------
   auto *ticketCard = Ui::card(this);
@@ -46,12 +59,13 @@ VendedorDevolucionClienteView::VendedorDevolucionClienteView(QWidget *parent)
   m_lblTicket->setObjectName("Muted");
   m_lblTicket->setWordWrap(true);
   tl->addWidget(m_lblTicket);
-  layout->addWidget(ticketCard);
+  ticketLay->addWidget(ticketCard);
 
   m_tablaTicket = Ui::table({"EAN", "Título", "Vendidos", "Ya devueltos",
                              "Precio pagado", "A devolver", "Con defecto"},
                             1, this, 56);
-  layout->addWidget(m_tablaTicket, 1);
+  m_tablaTicket->setMinimumHeight(260);
+  ticketLay->addWidget(m_tablaTicket, 1);
 
   // --- Resolución y cambio ---------------------------------------------------
   auto *resCard = Ui::card(this);
@@ -95,7 +109,7 @@ VendedorDevolucionClienteView::VendedorDevolucionClienteView(QWidget *parent)
   m_tablaCambio =
       Ui::table({"EAN", "Producto nuevo", "Cantidad", "Precio", "Subtotal", ""},
                 1, m_panelCambio, 48);
-  m_tablaCambio->setMinimumHeight(130);
+  m_tablaCambio->setMinimumHeight(200);
   cl->addWidget(m_tablaCambio);
   auto *payRow = new QHBoxLayout();
   payRow->setSpacing(8);
@@ -119,7 +133,7 @@ VendedorDevolucionClienteView::VendedorDevolucionClienteView(QWidget *parent)
   payRow->addStretch();
   cl->addLayout(payRow);
   rl->addWidget(m_panelCambio);
-  layout->addWidget(resCard);
+  resLay->addWidget(resCard);
 
   // --- Resumen ------------------------------------------------------------
   auto *foot = Ui::card(this);
