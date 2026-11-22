@@ -139,6 +139,9 @@ public:
     void consultarMovimientoDiario(const QString &fecha, ApiCallback cb);
     void consultarBitacora(const QString &desde, const QString &hasta, const QString &categoria, int page, int perPage, ApiCallback cb);
     void aprobarDevolucion(qint64 idDevolucion, bool aprobar, const QString &notas, ApiCallback cb);
+    // Hito 2: tickets de venta (fechas YYYY-MM-DD; q = ticket, cliente o vendedor) y su detalle.
+    void listarTicketsJefe(const QString &desde, const QString &hasta, const QString &q, ApiCallback cb);
+    void consultarTicketJefe(qint64 idVenta, ApiCallback cb);
 
 signals:
     // Se emite una sola vez cuando el servidor rechaza (401) el token vigente.

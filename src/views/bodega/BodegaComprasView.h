@@ -19,7 +19,8 @@ struct CompraCartItem {
     int cantidad = 0;      // piezas que dice la factura
     int recibidas = 0;     // piezas que llegaron (si son menos, se abre una incidencia)
     double costo_unitario = 0.0;
-    double subtotal = 0.0;
+    double subtotal = 0.0;      // recibidas × costo (lo que registra la API)
+    double precio_venta = 0.0;  // productos.precio: el costo no puede pasarlo (hito 2)
 };
 
 class BodegaComprasView : public QWidget {
@@ -35,6 +36,7 @@ private slots:
     void onEanChanged(const QString &text);
     void onAgregarArticulo();
     void onQuitarFila(int row);
+    void onModificarFila(int row);   // hito 2: corregir facturadas, llegaron y costo
     void onRegistrarCompra();
     void limpiarCarrito();
 
@@ -47,7 +49,9 @@ private:
     // puesto y, al guardarlo, lo añade a la compra con lo capturado.
     void abrirAltaNuevo();
     void agregarAlCarrito(qint64 ean, const QString &tipo, const QString &titulo,
-                          int cant, int recibidas, double costo);
+                          int cant, int recibidas, double costo, double precioVenta);
+    // Mensaje si el costo pasa del precio de venta (vacío si está bien).
+    static QString errorCostoContraPrecio(const QString &titulo, double costo, double precioVenta);
 
     QComboBox *m_comboProveedor;
     QLineEdit *m_txtEan;
