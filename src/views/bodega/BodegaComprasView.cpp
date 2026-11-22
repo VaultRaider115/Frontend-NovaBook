@@ -9,6 +9,7 @@
 #include "Limites.h"
 #include "Ui.h"
 #include <QDialog>
+#include <QDoubleSpinBox>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -454,19 +455,39 @@ void BodegaComprasView::onAgregarArticulo() {
                            Toast::Error, 6000);
           return;
         }
-        agregarAlCarrito(ean, tipo, titulo, cant, recibidas, costo);
+        // Hito 2: no se vende más barato de lo que se compra.
+        const double precioVenta = prod.value("precio").toDouble();
+        const QString error = errorCostoContraPrecio(titulo, costo, precioVenta);
+        if (!error.isEmpty()) {
+          Toast::showToast(this, error, Toast::Error, 6000);
+          m_spnCosto->setFocus();
+          m_spnCosto->selectAll();
+          return;
+        }
+        agregarAlCarrito(ean, tipo, titulo, cant, recibidas, costo, precioVenta);
       });
 }
 
+QString BodegaComprasView::errorCostoContraPrecio(const QString &titulo, double costo,
+                                                  double precioVenta) {
+  // Igual que la API: costo = precio sí se permite (medio centavo de tolerancia).
+  if (precioVenta <= 0.0 || costo - precioVenta <= 0.005)
+    return {};
+  return QString("El costo de \"%1\" (%2) es mayor que su precio de venta (%3): "
+                 "se vendería con pérdida")
+      .arg(titulo, Ui::money(costo), Ui::money(precioVenta));
+}
+
 void BodegaComprasView::agregarAlCarrito(qint64 ean, const QString &tipo, const QString &titulo,
-                                         int cant, int recibidas, double costo) {
+                                         int cant, int recibidas, double costo, double precioVenta) {
   bool found = false;
   for (auto &item : m_items) {
     if (item.ean == ean) {
       item.cantidad += cant;
       item.recibidas += recibidas;
       item.costo_unitario = costo;
-      item.subtotal = item.cantidad * item.costo_unitario;
+      item.precio_venta = precioVenta;
+      item.subtotal = item.recibidas * item.costo_unitario;
       found = true;
       break;
     }
@@ -479,7 +500,8 @@ void BodegaComprasView::agregarAlCarrito(qint64 ean, const QString &tipo, const 
     ci.cantidad = cant;
     ci.recibidas = recibidas;
     ci.costo_unitario = costo;
-    ci.subtotal = cant * costo;
+    ci.precio_venta = precioVenta;
+    ci.subtotal = recibidas * costo;
     m_items.append(ci);
   }
 
@@ -510,22 +532,93 @@ void BodegaComprasView::abrirAltaNuevo() {
   alta->prepararAlta(eanStr, idProveedor);
 
   bool registrado = false;
-  QString titulo, tipo;
+  QString titulo;
   connect(alta, &BodegaRegistroView::productoRegistrado, &dlg,
-          [&](qint64, const QString &t, const QString &tp) {
+          [&](qint64, const QString &t, const QString &) {
             registrado = true;
             titulo = t;
-            tipo = tp;
             dlg.accept();
           });
   dlg.exec();
   if (!registrado) return;
 
-  // Entra a la compra con la cantidad y el costo que ya se habían capturado.
-  const int cant = m_spnCantidad->value();
-  agregarAlCarrito(eanStr.toLongLong(), tipo, titulo, cant, qMin(m_spnRecibidas->value(), cant),
-                   m_spnCosto->value());
-  Toast::showToast(this, QString("\"%1\" se dio de alta y se añadió a la compra").arg(titulo), Toast::Success);
+  // Entra a la compra con la cantidad y el costo que ya se habían capturado,
+  // por el mismo camino que "Añadir" (ya está en el catálogo y así se valida
+  // el costo contra el precio de venta que se acaba de capturar).
+  Toast::showToast(this, QString("\"%1\" se dio de alta").arg(titulo), Toast::Success);
+  m_txtEan->setText(eanStr);
+  onAgregarArticulo();
+}
+
+void BodegaComprasView::onModificarFila(int row) {
+  if (row < 0 || row >= m_items.size()) return;
+  const CompraCartItem actual = m_items.at(row);
+
+  Ui::FormDialog dlg("Modificar partida", "Guardar cambios", this, 620);
+
+  auto *titulo = new QLabel(
+      QString("<b>%1</b><br><span style=\"color:%2;\">EAN %3%4</span>")
+          .arg(actual.nombre.toHtmlEscaped(), Theme::TextMuted)
+          .arg(actual.ean)
+          .arg(actual.precio_venta > 0.0
+                   ? " · precio de venta " + Ui::money(actual.precio_venta)
+                   : QString()),
+      &dlg);
+  titulo->setTextFormat(Qt::RichText);
+  titulo->setWordWrap(true);
+
+  auto *spnFact = new Ui::SpinSinCero(&dlg);
+  spnFact->setRange(1, 9999);
+  spnFact->setValue(actual.cantidad);
+  spnFact->setAccessibleName("Piezas facturadas");
+
+  auto *spnLleg = new QSpinBox(&dlg);
+  spnLleg->setRange(0, actual.cantidad);
+  spnLleg->setValue(actual.recibidas);
+  spnLleg->setAccessibleName("Piezas que llegaron");
+  spnLleg->setToolTip("Si son menos que las facturadas se abre una incidencia");
+  // Igual que en la captura: "Llegaron" sigue a "Facturadas" si iban iguales.
+  connect(spnFact, QOverload<int>::of(&QSpinBox::valueChanged), &dlg, [spnLleg](int fac) {
+    const bool seguia = spnLleg->value() == spnLleg->maximum();
+    spnLleg->setMaximum(fac);
+    if (seguia) spnLleg->setValue(fac);
+  });
+
+  auto *spnCosto = new QDoubleSpinBox(&dlg);
+  spnCosto->setRange(0.0, Limites::kMontoMax);
+  spnCosto->setPrefix("$ ");
+  spnCosto->setValue(actual.costo_unitario);
+  spnCosto->setAccessibleName("Costo unitario");
+
+  dlg.addField("Partida", titulo, 0, 0, 3);
+  dlg.addField("Facturadas", Ui::stepper(spnFact, &dlg), 1, 0);
+  dlg.addField("Llegaron", Ui::stepper(spnLleg, &dlg), 1, 1);
+  dlg.addField("Costo unitario", spnCosto, 1, 2);
+
+  connect(dlg.okButton(), &QPushButton::clicked, &dlg, [&]() {
+    if (spnCosto->value() <= 0.0) {
+      Toast::showToast(&dlg, "El costo unitario debe ser mayor a $0", Toast::Warning);
+      spnCosto->setFocus();
+      return;
+    }
+    const QString error = errorCostoContraPrecio(actual.nombre, spnCosto->value(), actual.precio_venta);
+    if (!error.isEmpty()) {
+      Toast::showToast(&dlg, error, Toast::Error, 6000);
+      spnCosto->setFocus();
+      spnCosto->selectAll();
+      return;
+    }
+    dlg.accept();
+  });
+  if (dlg.exec() != QDialog::Accepted) return;
+
+  CompraCartItem &it = m_items[row];
+  it.cantidad = spnFact->value();
+  it.recibidas = qMin(spnLleg->value(), it.cantidad);
+  it.costo_unitario = spnCosto->value();
+  it.subtotal = it.recibidas * it.costo_unitario;
+  recalcularTotales();
+  Toast::showToast(this, QString("Partida \"%1\" actualizada").arg(it.nombre), Toast::Success);
 }
 
 void BodegaComprasView::onQuitarFila(int row) {
@@ -546,13 +639,18 @@ void BodegaComprasView::recalcularTotales() {
   m_tableCart->setRowCount(m_items.size());
 
   int totalPiezas = 0, totalRecibidas = 0;
-  double totalDinero = 0.0;
+  double totalDinero = 0.0, totalFacturado = 0.0;
 
   for (int i = 0; i < m_items.size(); ++i) {
-    const auto &item = m_items.at(i);
+    auto &item = m_items[i];
+    // Igual que la API: se registra (y se paga) lo que llegó; lo que falta va
+    // a la incidencia y se suma a la compra cuando llega.
+    item.subtotal = item.recibidas * item.costo_unitario;
+    const double facturado = item.cantidad * item.costo_unitario;
     totalPiezas += item.cantidad;
     totalRecibidas += item.recibidas;
     totalDinero += item.subtotal;
+    totalFacturado += facturado;
 
     Ui::cellText(m_tableCart, i, 0, QString::number(item.ean), true);
     Ui::cellWidget(m_tableCart, i, 1, Ui::tipoChip(item.tipo));
@@ -567,12 +665,19 @@ void BodegaComprasView::recalcularTotales() {
       Ui::cellText(m_tableCart, i, 3, QString::number(item.cantidad));
     Ui::cellText(m_tableCart, i, 4, Ui::money(item.costo_unitario), false,
                  false, Theme::TextMuted);
-    Ui::cellText(m_tableCart, i, 5, Ui::money(item.subtotal), false, true);
+    auto *celdaSub = Ui::cellText(m_tableCart, i, 5, Ui::money(item.subtotal), false, true);
+    if (item.recibidas < item.cantidad)
+      celdaSub->setToolTip(QString("Lo que llegó (%1 pza). Facturado: %2")
+                               .arg(item.recibidas)
+                               .arg(Ui::money(facturado)));
 
+    auto *btnEditar = Ui::iconButton("edit", "Modificar partida");
+    connect(btnEditar, &QPushButton::clicked, this,
+            [this, i]() { onModificarFila(i); });
     auto *btnQuitar = Ui::iconButton("trash", "Quitar partida");
     connect(btnQuitar, &QPushButton::clicked, this,
             [this, i]() { onQuitarFila(i); });
-    Ui::cellWidget(m_tableCart, i, 6, btnQuitar);
+    Ui::cellWidgets(m_tableCart, i, 6, {btnEditar, btnQuitar});
   }
 
   m_lblTotalArticulos->setText(
@@ -585,7 +690,11 @@ void BodegaComprasView::recalcularTotales() {
                 .arg(totalPiezas - totalRecibidas)
           : QString("Piezas Totales: %1").arg(totalPiezas));
   m_lblTotalPagar->setText(
-      QString("Total Factura: %1").arg(Ui::money(totalDinero)));
+      totalRecibidas < totalPiezas
+          ? QString("Total a registrar: %1 <span style=\"color:%2; font-size: "
+                    "13px; font-weight: 400;\">(factura %3)</span>")
+                .arg(Ui::money(totalDinero), Theme::TextMuted, Ui::money(totalFacturado))
+          : QString("Total Factura: %1").arg(Ui::money(totalDinero)));
 }
 
 void BodegaComprasView::onRegistrarCompra() {

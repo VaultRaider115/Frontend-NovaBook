@@ -39,6 +39,7 @@ set(SOURCES
     src/views/MainWindow.cpp
     src/views/jefe/JefeDashboardView.cpp
     src/views/jefe/JefeBitacoraView.cpp
+    src/views/jefe/JefeVentasView.cpp
     src/views/jefe/JefeDevolucionesView.cpp
     src/views/jefe/JefeUsuariosView.cpp
     src/views/jefe/JefeGenerosView.cpp
@@ -83,6 +84,7 @@ set(HEADERS
     src/views/MainWindow.h
     src/views/jefe/JefeDashboardView.h
     src/views/jefe/JefeBitacoraView.h
+    src/views/jefe/JefeVentasView.h
     src/views/jefe/JefeDevolucionesView.h
     src/views/jefe/JefeUsuariosView.h
     src/views/jefe/JefeGenerosView.h

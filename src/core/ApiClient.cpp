@@ -631,6 +631,18 @@ void ApiClient::consultarBitacora(const QString &desde, const QString &hasta, co
     sendRequest("GET", "/api/jefe/bitacora", query, QByteArray(), cb);
 }
 
+void ApiClient::listarTicketsJefe(const QString &desde, const QString &hasta, const QString &q, ApiCallback cb) {
+    QUrlQuery query;
+    query.addQueryItem("desde", desde);
+    query.addQueryItem("hasta", hasta);
+    if (!q.trimmed().isEmpty()) query.addQueryItem("q", q.trimmed());
+    sendRequest("GET", "/api/jefe/ventas", query, QByteArray(), cb);
+}
+
+void ApiClient::consultarTicketJefe(qint64 idVenta, ApiCallback cb) {
+    sendRequest("GET", QString("/api/jefe/tickets/%1").arg(idVenta), QUrlQuery(), QByteArray(), cb);
+}
+
 void ApiClient::aprobarDevolucion(qint64 idDevolucion, bool aprobar, const QString &notas, ApiCallback cb) {
     QJsonObject req;
     req["aprobar"] = aprobar;

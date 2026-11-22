@@ -31,7 +31,7 @@ RequisicionView::RequisicionView(const QString &eyebrow, const QString &title, c
     m_txtEan->addAction(QIcon(":/icons/scan-gold.svg"), QLineEdit::LeadingPosition);
     row->addWidget(Ui::field("EAN-13 o título", m_txtEan, addCard), 1);
 
-    m_spnCantidad = new QSpinBox(addCard);
+    m_spnCantidad = new Ui::SpinSinCero(addCard);   // hito 2: no deja teclear 0
     m_spnCantidad->setRange(1, 9999);
     row->addWidget(Ui::field("Cantidad", Ui::stepper(m_spnCantidad, addCard), addCard));
 
@@ -159,7 +159,7 @@ void RequisicionView::render() {
         Ui::cellText(m_table, i, 2, p.nombre);
         {
             // La cantidad se ajusta en la lista, sin pasar de lo que hay en el origen.
-            auto *cantidad = new QSpinBox(m_table);
+            auto *cantidad = new Ui::SpinSinCero(m_table);
             cantidad->setRange(1, qMax(1, p.disponible));
             cantidad->setFixedWidth(96);   // igual que en Recepción de Salida
             cantidad->setToolTip(QString("Máximo %1 (hay %1 en %2)").arg(p.disponible).arg(m_salida ? "bodega" : "piso de venta"));

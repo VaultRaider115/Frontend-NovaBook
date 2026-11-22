@@ -83,6 +83,21 @@ QWidget *chipsConScroll(const QStringList &textos, const char *kind, int ancho, 
 // Ensancha la columna si un widget de celda no cabe (ResizeToContents lo ignora).
 void fitColumn(QTableWidget *t, int col, QWidget *content);
 
+// Cantidad de piezas que no acepta 0 (hito 2): QSpinBox con mínimo 1 todavía
+// deja teclear "0" mientras se edita; este rechaza la tecla. Si se borra todo,
+// al salir del campo regresa al valor anterior.
+class SpinSinCero : public QSpinBox {
+public:
+  using QSpinBox::QSpinBox;
+
+protected:
+  QValidator::State validate(QString &input, int &pos) const override {
+    if (input.trimmed().startsWith(QLatin1Char('0')))
+      return QValidator::Invalid;
+    return QSpinBox::validate(input, pos);
+  }
+};
+
 // Diálogo de formulario (tarjeta con encabezado, cuerpo en rejilla y pie
 // Cancelar / Aceptar).
 class FormDialog : public QDialog {

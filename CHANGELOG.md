@@ -8,6 +8,23 @@ Rama `integracion-validaciones`: pantallas iguales a los diseños de
 `docs/disenos/` y conectadas a la API del esquema unificado.
 
 ### Added
+- Cambios del hito 2 (21-nov, rama `hito2-cambios`):
+  - **Compras a Proveedor**: al añadir, el costo unitario no puede pasar
+    del precio de venta del producto (aviso con ambos importes); el alta
+    hecha desde Compras entra por el mismo camino y también se valida.
+  - **Modificar partida** (lápiz junto al bote, antes de registrar):
+    cambia facturadas, llegaron y costo sin quitar y volver a añadir; aplica
+    la misma validación del precio.
+  - **Requisición Bodega → Piso (y Piso → Bodega)**: las cantidades no
+    dejan teclear 0 (`Ui::SpinSinCero`); al borrar todo regresa al valor
+    anterior.
+  - **Subtotal de la compra = lo que llegó** (como la API): antes la tabla
+    multiplicaba por las facturadas (3 de 5 a $130 mostraba $650 y se
+    registraban $390). Si faltan piezas, el total dice "Total a registrar"
+    con la factura completa entre paréntesis.
+  - **Tickets de Venta** (Jefe, nueva opción del menú): lista por rango de
+    fechas y búsqueda por ticket, cliente o vendedor, con total del rango;
+    el ojo o doble clic abre el ticket con lo vendido y lo ya devuelto.
 - Revisión del 19-nov (3a):
   - **Historial de Movimientos sin páginas**: la tabla se recorre con scroll
     y, al llegar al final, pide al servidor los siguientes 50 eventos

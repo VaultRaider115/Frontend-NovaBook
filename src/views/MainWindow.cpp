@@ -12,6 +12,7 @@
 // Jefe Views
 #include "JefeDashboardView.h"
 #include "JefeBitacoraView.h"
+#include "JefeVentasView.h"
 #include "JefeDevolucionesView.h"
 #include "JefeUsuariosView.h"
 #include "JefeGenerosView.h"
@@ -181,6 +182,7 @@ void MainWindow::buildRoleViews() {
         // RF21: Gestionar Muebles y Estantería
         auto *dash     = new JefeDashboardView(m_stack);
         auto *bitacora = new JefeBitacoraView(m_stack);
+        auto *ventas   = new JefeVentasView(m_stack);   // hito 2: tickets de venta
         auto *devs     = new JefeDevolucionesView(/*puedeAprobar=*/true, m_stack);
         auto *usuarios = new JefeUsuariosView(m_stack);
         auto *autores  = new BodegaAutoresView("Jefatura · Gestión de autores", m_stack);
@@ -192,6 +194,7 @@ void MainWindow::buildRoleViews() {
 
         addPage("Panel Principal",            dash,     [dash]()     { dash->refreshData(); });
         addPage("Historial de Movimientos",   bitacora, [bitacora]() { bitacora->cargarMovimientos(); });
+        addPage("Tickets de Venta",           ventas,   [ventas]()   { ventas->cargar(); });
         addPage("Aprobación de Devoluciones", devs,     [devs]()     { devs->cargarDevoluciones(); });
         addPage("Gestión de Usuarios",        usuarios, [usuarios]() { usuarios->cargarUsuarios(); });
         addPage("Catálogo de Autores",        autores,  [autores]()  { autores->cargarAutores(); });
